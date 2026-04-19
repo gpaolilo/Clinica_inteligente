@@ -50,16 +50,36 @@ export default function ActiveSession() {
     setProcessingState('UPLOADING')
 
     try {
-      const filename = `${session.user.id}/${id}_${Date.now()}.webm`
-      // Simulando Upload seguro sob regra RLS da Storage
+      // O path de upload original real seria:
+      // const filename = `${session.user.id}/${id}_${Date.now()}.webm`
       // await supabase.storage.from('clinical_audios').upload(filename, audioBlob)
       
       setProcessingState('AI_PROCESSING')
 
-      // Dispara a Edge Function passando o path do Bucket
-      await supabase.functions.invoke('process-audio', {
-        body: { path: filename, sessionId: id, psychologistId: session.user.id }
-      })
+      // --------------------------------------------------------------------------
+      // POC: SIMULANDO EDGE FUNCTION NO FRONTEND PARA EVITAR DEPLOY DE MICROSERVIÇO Deno
+      // --------------------------------------------------------------------------
+      await new Promise(resolve => setTimeout(resolve, 3500)) // Delay do Whisper/GPT-4
+
+      const fakeAiEvolutionText = `Evolução Clínica (Gerada via IA - Molde Psicanalítico):
+
+Relatório da Sessão:
+O paciente trouxe questões latentes envolvendo o ambiente de trabalho, relatando intenso desgaste e sentimento de perseguição atrelado à figura paterna.
+Pode-se notar choro contido. Sem indicações de risco severo atual.
+
+Conduta: Manutenção do setting analítico semanal e orientação focada em defesas narcísicas.`
+
+      const { error } = await supabase.from('clinical_notes').insert([{
+        session_id: id,
+        psychologist_id: session.user.id,
+        template_type: 'PSICANALISE',
+        ai_evolution: fakeAiEvolutionText,
+        status: 'AWAITING_REVIEW'
+      }])
+
+      if (error) throw error
+      // O Supabase Realtime (WebSocket) irá detectar isso no useEffect acima 
+      // e transmutar o state para "DONE" exibindo a edição do texto!
 
     } catch (e: any) {
       alert("Erro ao processar: " + e.message)

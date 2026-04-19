@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import PackageModal from '../components/finance/PackageModal'
 
 export default function Finance() {
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const fetchInvoices = async () => {
     setLoading(true)
@@ -41,7 +43,7 @@ export default function Finance() {
           <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Painel Financeiro</h2>
           <p className="text-slate-500 mt-1 text-sm">Controle sua receita, inadimplências e gere links PIX para pacientes.</p>
         </div>
-        <button className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors">
+        <button onClick={() => setIsModalOpen(true)} className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors">
           Vender Pacote de Sessões
         </button>
       </div>
@@ -108,6 +110,16 @@ export default function Finance() {
           </table>
         )}
       </div>
+
+      {isModalOpen && (
+        <PackageModal 
+          onClose={() => setIsModalOpen(false)} 
+          onSaved={() => {
+            setIsModalOpen(false)
+            fetchInvoices()
+          }} 
+        />
+      )}
     </div>
   )
 }

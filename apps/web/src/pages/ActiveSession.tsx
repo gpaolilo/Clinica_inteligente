@@ -65,11 +65,11 @@ export default function ActiveSession() {
       
       setProcessingState('AI_PROCESSING')
 
-      const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY
+      const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY
       const ASSEMBLY_KEY = import.meta.env.VITE_ASSEMBLYAI_API_KEY
 
-      if (!OPENAI_KEY || !ASSEMBLY_KEY) {
-        alert("Variáveis faltando nas configs! Certifique-se de configurar VITE_OPENAI_API_KEY e VITE_ASSEMBLYAI_API_KEY no .env.")
+      if (!GROQ_KEY || !ASSEMBLY_KEY) {
+        alert("Variáveis faltando nas configs! Certifique-se de configurar VITE_GROQ_API_KEY e VITE_ASSEMBLYAI_API_KEY no .env.")
         setProcessingState('IDLE')
         return;
       }
@@ -93,7 +93,7 @@ export default function ActiveSession() {
         body: JSON.stringify({ 
           audio_url: upload_url, 
           language_code: 'pt',
-          speech_model: 'universal-2'
+          speech_models: ['universal-2']
         })
       })
       if (!transcriptReq.ok) throw new Error("AssemblyAI falhou ao iniciar transcrição: " + await transcriptReq.text())
@@ -114,12 +114,12 @@ export default function ActiveSession() {
         }
       }
 
-      // 4. Estruturar o Prontuário usando a OpenAI Chat Completions (GPT-4o) como formatador clínico
-      const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      // 4. Estruturar o Prontuário usando a Groq API (LLaMA) como formatador clínico 100% Free
+      const gptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'llama-3.3-70b-versatile',
           temperature: 0.7,
           messages: [
             { 
@@ -131,7 +131,7 @@ export default function ActiveSession() {
         })
       })
 
-      if (!gptRes.ok) throw new Error("GPT falhou: " + await gptRes.text())
+      if (!gptRes.ok) throw new Error("A Inteligência de Texto falhou: " + await gptRes.text())
       
       const gptData = await gptRes.json()
       const aiEvolutionText = gptData.choices[0].message.content

@@ -8,41 +8,52 @@ export default function DashboardLayout() {
   if (!session) return <Navigate to="/login" replace />
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-800">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        <div className="p-6 border-b border-slate-100">
-          <h1 className="text-xl font-bold text-primary-600 tracking-tight">Clinica.ia</h1>
+    <div className="flex h-screen bg-background text-dark font-sans selection:bg-neon selection:text-dark">
+      {/* Sidebar Remodelada */}
+      <aside className="w-68 bg-white border-r border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all">
+        <div className="px-4 mb-10 flex items-center">
+          <div className="w-8 h-8 rounded-lg bg-neon mr-3 shadow-sm flex items-center justify-center border border-lime-300">
+             <svg className="w-5 h-5 text-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          </div>
+          <h1 className="text-2xl font-bold text-dark tracking-tight">Clinica.ia</h1>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          <Link to="/dashboard" className="flex items-center px-4 py-3 text-sm font-medium rounded-lg bg-primary-50 text-primary-700">
+
+        <nav className="flex-1 space-y-2">
+          {/* Active Link Model */}
+          <Link to="/dashboard" className="flex items-center px-4 py-3.5 text-sm font-bold rounded-full bg-neon text-dark shadow-sm hover:scale-[1.02] transform transition-all duration-200">
             Painel Central
           </Link>
-          <Link to="/dashboard/patients" className="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+          
+          <Link to="/dashboard/patients" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
             Meus Pacientes
           </Link>
-          <Link to="/dashboard/agenda" className="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+          <Link to="/dashboard/agenda" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
             Agenda Semanal
           </Link>
-          <Link to="/dashboard/finance" className="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+          <Link to="/dashboard/finance" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
             Módulo Financeiro
           </Link>
-          <Link to="/dashboard/settings" className="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+          <div className="pt-6 pb-2">
+             <span className="px-4 text-xs font-bold text-slate-300 tracking-wider uppercase">Preferências</span>
+          </div>
+          <Link to="/dashboard/settings" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
             Configurações
           </Link>
         </nav>
-        <div className="p-4 border-t border-slate-100">
+
+        <div className="mt-auto px-2">
           <button 
             onClick={signOut}
-            className="w-full text-left px-4 py-2 text-sm text-rose-600 font-medium hover:bg-rose-50 rounded-lg transition-colors"
+            className="w-full flex items-center px-4 py-3 text-sm font-semibold rounded-full text-rose-500 hover:bg-rose-50 transition-colors"
           >
-            Sair da conta
+            <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            Encerrar Sessão
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto no-scrollbar relative bg-background">
         <Outlet />
       </main>
     </div>

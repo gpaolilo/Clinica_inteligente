@@ -46,22 +46,22 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+      <div className="bg-surface rounded-[32px] w-full max-w-2xl shadow-2xl overflow-hidden transform transition-all flex flex-col max-h-[90vh] border border-slate-100">
         
         {/* Header com Abas */}
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <div className="flex items-center space-x-4">
-            <h3 className="text-lg font-bold text-slate-800">{patient ? 'Perfil do Paciente' : 'Cadastrar Paciente'}</h3>
+        <div className="px-8 py-5 flex justify-between items-center bg-white border-b border-slate-100">
+          <div className="flex items-center space-x-6">
+            <h3 className="text-2xl font-bold text-dark tracking-tight">{patient ? 'Perfil do Paciente' : 'Novo Paciente'}</h3>
             {patient && (
-               <div className="flex p-0.5 bg-slate-200/60 rounded-lg">
-                 <button onClick={() => setActiveTab('DATA')} className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${activeTab === 'DATA' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Cadastro</button>
-                 <button onClick={() => setActiveTab('NOTES')} className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${activeTab === 'NOTES' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Visualizar Prontuários</button>
+               <div className="flex p-1 bg-background rounded-full border border-slate-100">
+                 <button onClick={() => setActiveTab('DATA')} className={`px-4 py-2 text-sm font-bold rounded-full transition-colors ${activeTab === 'DATA' ? 'bg-neon text-dark shadow-sm' : 'text-slate-500 hover:text-dark'}`}>Cadastro</button>
+                 <button onClick={() => setActiveTab('NOTES')} className={`px-4 py-2 text-sm font-bold rounded-full transition-colors ${activeTab === 'NOTES' ? 'bg-neon text-dark shadow-sm' : 'text-slate-500 hover:text-dark'}`}>Prontuários</button>
                </div>
             )}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          <button onClick={onClose} className="text-slate-400 hover:text-dark transition-colors bg-slate-50 hover:bg-slate-100 p-2 rounded-full">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
 
@@ -121,14 +121,15 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                 </div>
               )}
             </div>
-          )}
         </div>
 
         {/* Footer Fixado */}
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-white">
-          <button type="button" onClick={onClose} className="px-5 py-2 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors">Fechar</button>
+        <div className="px-8 py-5 border-t border-slate-100 flex justify-end space-x-3 bg-white">
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-slate-600 font-bold rounded-full hover:bg-slate-50 transition-colors">Cancelar</button>
           {activeTab === 'DATA' && (
-            <button type="submit" form="patient-form" className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg shadow-sm transition-colors">Salvar Alterações</button>
+            <button type="submit" form="patient-form" className="px-8 py-2.5 bg-dark hover:bg-black text-neon font-bold rounded-full shadow-md transition-all flex items-center transform hover:-translate-y-0.5">
+               Salvar Ficha
+            </button>
           )}
         </div>
       </div>

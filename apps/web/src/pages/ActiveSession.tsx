@@ -8,7 +8,7 @@ export default function ActiveSession() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { session } = useAuthStore()
-  const { isRecording, duration, audioBlob, startRecording, stopRecording, reset } = useAudioRecorder()
+  const { isRecording, duration, audioBlob, startRecording, stopRecording } = useAudioRecorder()
   
   const [sessionData, setSessionData] = useState<any>(null)
   const [processingState, setProcessingState] = useState<'IDLE' | 'UPLOADING' | 'AI_PROCESSING' | 'DONE'>('IDLE')

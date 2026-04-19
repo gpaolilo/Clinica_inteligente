@@ -1,8 +1,6 @@
 import { useAuthStore } from '../stores/authStore'
 
 export default function Settings() {
-  const { user } = useAuthStore()
-
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">

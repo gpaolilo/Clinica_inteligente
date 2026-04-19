@@ -24,11 +24,20 @@ export default function ActiveSession() {
 
   // Busca dados da sessão no load
   useEffect(() => {
-    const fetchSession = async () => {
-      const { data } = await supabase.from('sessions').select('*, patient:patients(name)').eq('id', id).single()
-      if (data) setSessionData(data)
+    const fetchSessionAndNote = async () => {
+      if (!id) return;
+      // Busca a sessão base
+      const { data: sessData } = await supabase.from('sessions').select('*, patient:patients(name)').eq('id', id).single()
+      if (sessData) setSessionData(sessData)
+
+      // Verifica se o prontuário já foi gerado anteriormente
+      const { data: noteData } = await supabase.from('clinical_notes').select('ai_evolution').eq('session_id', id).maybeSingle()
+      if (noteData) {
+         setClinicalNote(noteData.ai_evolution)
+         setProcessingState('DONE')
+      }
     }
-    fetchSession()
+    fetchSessionAndNote()
   }, [id])
 
   // Escutar eventos Supabase Realtime para captar quando a IA terminou
@@ -69,13 +78,13 @@ Pode-se notar choro contido. Sem indicações de risco severo atual.
 
 Conduta: Manutenção do setting analítico semanal e orientação focada em defesas narcísicas.`
 
-      const { error } = await supabase.from('clinical_notes').insert([{
+      const { error } = await supabase.from('clinical_notes').upsert({
         session_id: id,
         psychologist_id: session.user.id,
         template_type: 'PSICANALISE',
         ai_evolution: fakeAiEvolutionText,
         status: 'AWAITING_REVIEW'
-      }])
+      }, { onConflict: 'session_id' })
 
       if (error) throw error
       // O Supabase Realtime (WebSocket) irá detectar isso no useEffect acima 

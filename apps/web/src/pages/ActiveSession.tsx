@@ -65,24 +65,59 @@ export default function ActiveSession() {
       
       setProcessingState('AI_PROCESSING')
 
-      // --------------------------------------------------------------------------
-      // POC: SIMULANDO EDGE FUNCTION NO FRONTEND PARA EVITAR DEPLOY DE MICROSERVIÇO Deno
-      // --------------------------------------------------------------------------
-      await new Promise(resolve => setTimeout(resolve, 3500)) // Delay do Whisper/GPT-4
+      const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY
 
-      const fakeAiEvolutionText = `Evolução Clínica (Gerada via IA - Molde Psicanalítico):
+      if (!OPENAI_KEY || OPENAI_KEY === '' || OPENAI_KEY.startsWith('sk-') === false) {
+        alert("Para usar a IA Real, vá no arquivo apps/web/.env, crie a variável VITE_OPENAI_API_KEY=sk-... e coloque sua chave!")
+        // Reverte o estado pra não travar
+        setProcessingState('IDLE')
+        return;
+      }
 
-Relatório da Sessão:
-O paciente trouxe questões latentes envolvendo o ambiente de trabalho, relatando intenso desgaste e sentimento de perseguição atrelado à figura paterna.
-Pode-se notar choro contido. Sem indicações de risco severo atual.
+      // 1. Transcrever usando OpenAI Whisper
+      setProcessingState('UPLOADING')
+      const formData = new FormData()
+      formData.append('file', audioBlob, 'audio.webm')
+      formData.append('model', 'whisper-1')
+      formData.append('language', 'pt')
 
-Conduta: Manutenção do setting analítico semanal e orientação focada em defesas narcísicas.`
+      const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
+        body: formData
+      })
+
+      if (!whisperRes.ok) throw new Error("Whisper falhou: " + await whisperRes.text())
+      const { text: transcricaoBruta } = await whisperRes.json()
+
+      // 2. Estruturar usando OpenAI Chat Completions (GPT)
+      setProcessingState('AI_PROCESSING')
+      const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          temperature: 0.7,
+          messages: [
+            { 
+               role: 'system', 
+               content: 'Você é um arquiteto clínico. Receberá uma transcrição (bruta/verbal) de uma sessão psicológica. Sua missão: expurgar nomes próprios completos (Substituir por PII Mascarado), resumir as emoções cruciais e montar a entrega rigorosamente sob este molde de texto: \nEvolução Clínica (Modelo Psicanalítico)\n\nRelatório da Sessão:\n[Seu resumo]\n\nConduta Analítica:\n[Sua recomendação e encaminhamento clínico]'
+            },
+            { role: 'user', content: transcricaoBruta }
+          ]
+        })
+      })
+
+      if (!gptRes.ok) throw new Error("GPT falhou: " + await gptRes.text())
+      
+      const gptData = await gptRes.json()
+      const aiEvolutionText = gptData.choices[0].message.content
 
       const { error } = await supabase.from('clinical_notes').upsert({
         session_id: id,
         psychologist_id: session.user.id,
         template_type: 'PSICANALISE',
-        ai_evolution: fakeAiEvolutionText,
+        ai_evolution: aiEvolutionText,
         status: 'AWAITING_REVIEW'
       }, { onConflict: 'session_id' })
 

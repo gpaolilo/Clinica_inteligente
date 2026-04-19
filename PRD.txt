@@ -1,0 +1,191 @@
+# ROLE
+Você é um arquiteto de software sênior + engenheiro fullstack experiente em SaaS, aplicações com IA e sistemas escaláveis.
+
+Seu objetivo é analisar este PRD e desenvolver uma aplicação completa de forma estruturada e incremental.
+
+IMPORTANTE:
+- NÃO gere tudo de uma vez
+- Sempre valide antes de avançar
+- Se houver ambiguidades, pergunte
+- Não invente requisitos
+
+---
+
+# CONTEXTO
+Estamos desenvolvendo uma aplicação SaaS para psicólogos inspirada na plataforma Sintropia.
+
+A aplicação deve centralizar:
+- gestão de pacientes
+- prontuários com IA
+- agenda
+- financeiro
+- comunicação com pacientes
+
+Objetivo principal:
+Reduzir tarefas administrativas e automatizar o fluxo de trabalho clínico.
+
+---
+
+# USUÁRIOS
+- Psicólogos autônomos
+- Clínicas pequenas/médias
+
+---
+
+# PROBLEMAS A RESOLVER
+- Tempo alto gasto com prontuários
+- Falta de organização de pacientes
+- Alto índice de faltas
+- Falta de controle financeiro
+- Ferramentas desconectadas
+
+---
+
+# FUNCIONALIDADES PRINCIPAIS
+
+## 1. Gestão de Pacientes
+- Cadastro completo
+- Histórico de sessões
+- Upload de documentos
+- Linha do tempo
+
+## 2. Prontuário com IA
+- Gravação de áudio da sessão
+- Transcrição automática
+- Geração de resumo com IA
+- Geração de evolução clínica
+- Edição manual obrigatória
+
+## 3. Agenda
+- Visualização diária/semanal/mensal
+- Agendamento de sessões
+- Bloqueio de horários
+- Integração com Google Calendar
+
+## 4. Lembretes
+- Envio automático via WhatsApp
+- Confirmação de presença
+- Lembrete de pagamento
+
+## 5. Financeiro
+- Controle de sessões pagas
+- Gestão de pacotes
+- Relatórios financeiros
+- Integração com agenda
+- Envio de cobranças automaticas via WhatsApp
+
+## 6. Monitoramento do Paciente
+- Registro de atividades
+- Engajamento entre sessões
+
+## 7. Assistente IA
+- Sugestões clínicas (opcional)
+- Geração de relatórios
+- Insights sobre pacientes
+
+---
+
+# REGRAS DE NEGÓCIO
+
+- Dados são sensíveis (LGPD obrigatório)
+- Prontuários devem ser editáveis
+- Nenhuma informação pode ser perdida
+- Backup automático obrigatório
+- Logs de acesso obrigatórios
+- IA não pode substituir validação humana
+
+---
+
+# REQUISITOS NÃO FUNCIONAIS
+
+- Segurança:
+  - Criptografia em trânsito e em repouso
+- Performance:
+  - Respostas rápidas (< 500ms API)
+- Escalabilidade:
+  - Arquitetura preparada para SaaS multi-tenant
+- Disponibilidade:
+  - Sistema resiliente a falhas
+
+---
+
+# STACK SUGERIDA (PODE AJUSTAR)
+
+Frontend:
+- React (Vite)
+- Tailwind
+
+Backend:
+- Node.js (NestJS)
+
+Banco:
+- PostgreSQL
+- Redis
+
+IA:
+- Transcrição: Whisper ou similar
+- LLM: OpenAI ou equivalente
+
+Integrações:
+- Google Calendar API
+- WhatsApp API (Twilio/Meta)
+- Pagamentos (Stripe/Mercado Pago)
+
+---
+
+# ESTRUTURA DE MÓDULOS
+
+- Auth
+- Pacientes
+- Sessões
+- Prontuário IA
+- Agenda
+- Financeiro
+- Notificações
+- Integrações
+- Analytics
+
+---
+
+# SAÍDA ESPERADA (OBRIGATÓRIO)
+
+Siga exatamente estas etapas:
+
+## ETAPA 1
+Analise o PRD e:
+- Liste dúvidas
+- Identifique melhorias
+- Aponte riscos
+
+## ETAPA 2
+Defina:
+- Arquitetura do sistema
+- Estrutura de pastas
+- Modelos de dados
+
+## ETAPA 3
+Crie:
+- Backlog completo (tarefas técnicas)
+
+## ETAPA 4
+Implemente:
+- Uma funcionalidade por vez
+- Código limpo, pronto para produção
+
+---
+
+# RESTRIÇÕES
+
+- Não gerar código antes da ETAPA 1
+- Não assumir funcionalidades não descritas
+- Não simplificar segurança
+- Não ignorar escalabilidade
+
+---
+
+# ESTILO DE RESPOSTA
+
+- Estruturado
+- Técnico
+- Direto
+- Sem explicações desnecessárias

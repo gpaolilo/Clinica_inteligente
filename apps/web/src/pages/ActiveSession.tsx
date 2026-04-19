@@ -66,32 +66,51 @@ export default function ActiveSession() {
       setProcessingState('AI_PROCESSING')
 
       const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY
+      const ASSEMBLY_KEY = import.meta.env.VITE_ASSEMBLYAI_API_KEY
 
-      if (!OPENAI_KEY || OPENAI_KEY === '' || OPENAI_KEY.startsWith('sk-') === false) {
-        alert("Para usar a IA Real, vá no arquivo apps/web/.env, crie a variável VITE_OPENAI_API_KEY=sk-... e coloque sua chave!")
-        // Reverte o estado pra não travar
+      if (!OPENAI_KEY || !ASSEMBLY_KEY) {
+        alert("Variáveis faltando nas configs! Certifique-se de configurar VITE_OPENAI_API_KEY e VITE_ASSEMBLYAI_API_KEY no .env.")
         setProcessingState('IDLE')
         return;
       }
 
-      // 1. Transcrever usando OpenAI Whisper
+      // 1. Upload do Áudio para AssemblyAI
       setProcessingState('UPLOADING')
-      const formData = new FormData()
-      formData.append('file', audioBlob, 'audio.webm')
-      formData.append('model', 'whisper-1')
-      formData.append('language', 'pt')
-
-      const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      const assemHeaders = { 'Authorization': ASSEMBLY_KEY }
+      const uploadRes = await fetch('https://api.assemblyai.com/v2/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
-        body: formData
+        headers: assemHeaders,
+        body: audioBlob
       })
+      if (!uploadRes.ok) throw new Error("AssemblyAI Upload falhou: " + await uploadRes.text())
+      const { upload_url } = await uploadRes.json()
 
-      if (!whisperRes.ok) throw new Error("Whisper falhou: " + await whisperRes.text())
-      const { text: transcricaoBruta } = await whisperRes.json()
-
-      // 2. Estruturar usando OpenAI Chat Completions (GPT)
+      // 2. Iniciar Transcrição AssemblyAI
       setProcessingState('AI_PROCESSING')
+      const transcriptReq = await fetch('https://api.assemblyai.com/v2/transcript', {
+        method: 'POST',
+        headers: { ...assemHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_url: upload_url, language_code: 'pt' })
+      })
+      if (!transcriptReq.ok) throw new Error("AssemblyAI falhou ao iniciar transcrição.")
+      const { id: transcriptId } = await transcriptReq.json()
+
+      // 3. Polling iterativo (Aguardar a transcrição da AssemblyAI finalizar)
+      let transcricaoBruta = ""
+      while (true) {
+        await new Promise(r => setTimeout(r, 2000)) // Aguarda 2 segundos entre verificações
+        const pollRes = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, { headers: assemHeaders })
+        const pollData = await pollRes.json()
+        
+        if (pollData.status === 'completed') {
+          transcricaoBruta = pollData.text
+          break
+        } else if (pollData.status === 'error') {
+          throw new Error("Erro da AssemblyAI na decodificação do áudio.")
+        }
+      }
+
+      // 4. Estruturar o Prontuário usando a OpenAI Chat Completions (GPT-4o) como formatador clínico
       const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },

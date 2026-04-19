@@ -121,6 +121,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                 </div>
               )}
             </div>
+          )}
         </div>
 
         {/* Footer Fixado */}

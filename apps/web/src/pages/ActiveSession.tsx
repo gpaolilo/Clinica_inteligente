@@ -90,9 +90,13 @@ export default function ActiveSession() {
       const transcriptReq = await fetch('https://api.assemblyai.com/v2/transcript', {
         method: 'POST',
         headers: { ...assemHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio_url: upload_url, language_code: 'pt' })
+        body: JSON.stringify({ 
+          audio_url: upload_url, 
+          language_code: 'pt',
+          speech_model: 'universal-2'
+        })
       })
-      if (!transcriptReq.ok) throw new Error("AssemblyAI falhou ao iniciar transcrição.")
+      if (!transcriptReq.ok) throw new Error("AssemblyAI falhou ao iniciar transcrição: " + await transcriptReq.text())
       const { id: transcriptId } = await transcriptReq.json()
 
       // 3. Polling iterativo (Aguardar a transcrição da AssemblyAI finalizar)

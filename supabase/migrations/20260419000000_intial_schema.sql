@@ -65,3 +65,17 @@ create table public.clinical_notes (
 
 alter table public.clinical_notes enable row level security;
 create policy "Psychologist gerencia apenas seus prontuários" on public.clinical_notes for all using (auth.uid() = psychologist_id);
+
+-- 5. Trigger para criar o tenant (Psychologist) automaticamente após Signup
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.psychologists (id, full_name, email)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', 'Sem Nome'), new.email);
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();

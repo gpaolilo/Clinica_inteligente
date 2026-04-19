@@ -145,8 +145,10 @@ export default function ActiveSession() {
       }, { onConflict: 'session_id' })
 
       if (error) throw error
-      // O Supabase Realtime (WebSocket) irá detectar isso no useEffect acima 
-      // e transmutar o state para "DONE" exibindo a edição do texto!
+      
+      // Atualiza a tela localmente na mesma hora, ignorando o delay do WebSocket!
+      setClinicalNote(aiEvolutionText)
+      setProcessingState('DONE')
 
     } catch (e: any) {
       alert("Erro ao processar: " + e.message)

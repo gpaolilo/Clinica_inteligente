@@ -22,11 +22,9 @@ export function useAudioRecorder() {
       
       activeStreams.current = []
       
-      // 1. Capta o áudio do Microfone do Usuário (Professor)
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      activeStreams.current.push(micStream)
-      
-      // 2. Tenta captar o áudio do Sistema/Guia (Aluno no Meet)
+      // 1. Tenta captar o áudio do Sistema/Guia (Aluno no Meet) PRIMEIRO, pois 
+      //    no MacOS o getDisplayMedia expira a flag de 'user gesture' em milissegundos se executarmos 
+      //    qualquer operação assíncrona antes dele.
       let displayStream: MediaStream | null = null
       try {
          displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
@@ -34,6 +32,10 @@ export function useAudioRecorder() {
       } catch (e) {
          console.warn("Captura de tela cancelada ou falhou. O sistema gravará apenas o microfone.")
       }
+
+      // 2. Capta o áudio do Microfone do Usuário (Professor) em seguida
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      activeStreams.current.push(micStream)
 
       // 3. Verifica se o usuário de fato compartilhou o Áudio na Guia
       const hasSystemAudio = displayStream && displayStream.getAudioTracks().length > 0;

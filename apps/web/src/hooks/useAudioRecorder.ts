@@ -9,15 +9,54 @@ export function useAudioRecorder() {
   const mediaRecorder = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
   const timerInterval = useRef<any>(null)
+  
+  // Guardamos as streams para encerrar depois
+  const activeStreams = useRef<MediaStream[]>([])
+  const audioContext = useRef<AudioContext | null>(null)
 
   const startRecording = async () => {
     try {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl)
       }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
-      mediaRecorder.current = new MediaRecorder(stream)
+      activeStreams.current = []
+      
+      // 1. Capta o áudio do Microfone do Usuário (Professor)
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      activeStreams.current.push(micStream)
+      
+      // 2. Tenta captar o áudio do Sistema/Guia (Aluno no Meet)
+      let displayStream: MediaStream | null = null
+      try {
+         displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
+         activeStreams.current.push(displayStream)
+      } catch (e) {
+         console.warn("Captura de tela cancelada ou falhou. O sistema gravará apenas o microfone.")
+      }
+
+      // 3. Verifica se o usuário de fato compartilhou o Áudio na Guia
+      const hasSystemAudio = displayStream && displayStream.getAudioTracks().length > 0;
+
+      let finalStream = micStream;
+
+      if (hasSystemAudio) {
+         // Cria o pipeline de WebAudio para mesclar microfone e guia
+         audioContext.current = new AudioContext()
+         const dest = audioContext.current.createMediaStreamDestination()
+         
+         const micSource = audioContext.current.createMediaStreamSource(micStream)
+         micSource.connect(dest)
+         
+         const sysAudioTrack = displayStream!.getAudioTracks()[0]
+         const sysAudioStream = new MediaStream([sysAudioTrack])
+         const sysSource = audioContext.current.createMediaStreamSource(sysAudioStream)
+         sysSource.connect(dest)
+         
+         finalStream = dest.stream
+      }
+
+      mediaRecorder.current = new MediaRecorder(finalStream)
       mediaRecorder.current.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.current.push(e.data)
       }
@@ -27,7 +66,13 @@ export function useAudioRecorder() {
         setAudioBlob(blb)
         setAudioUrl(URL.createObjectURL(blb))
         
-        stream.getTracks().forEach(track => track.stop())
+        // Finaliza explicitamente todas as tracks envolvidas
+        activeStreams.current.forEach(stream => {
+           stream.getTracks().forEach(track => track.stop())
+        })
+        if (audioContext.current) {
+           audioContext.current.close()
+        }
         clearInterval(timerInterval.current)
       }
       
@@ -37,9 +82,9 @@ export function useAudioRecorder() {
       
       setDuration(0)
       timerInterval.current = setInterval(() => setDuration(d => d + 1), 1000)
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      alert("Acesso ao microfone foi negado pelo navegador.")
+      alert("Falha ao iniciar gravação. " + err.message)
     }
   }
 

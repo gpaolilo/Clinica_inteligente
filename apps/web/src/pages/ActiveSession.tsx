@@ -99,7 +99,8 @@ export default function ActiveSession() {
         body: JSON.stringify({ 
           audio_url: upload_url, 
           language_code: sessionData.patient.client_type === 'ALUNO' ? 'en' : 'pt',
-          speech_models: ['universal-2']
+          speech_models: ['universal-2'],
+          speaker_labels: true
         })
       })
       if (!transcriptReq.ok) throw new Error("Transcrevendo áudio falhou.")
@@ -113,7 +114,11 @@ export default function ActiveSession() {
         const pollData = await pollRes.json()
         
         if (pollData.status === 'completed') {
-          transcricaoBruta = pollData.text
+          if (pollData.utterances && pollData.utterances.length > 0) {
+            transcricaoBruta = pollData.utterances.map((u:any) => `Speaker ${u.speaker}: ${u.text}`).join('\n')
+          } else {
+            transcricaoBruta = pollData.text
+          }
           break
         } else if (pollData.status === 'error') {
           throw new Error("Erro na transcrição.")
@@ -130,13 +135,18 @@ Analyze the transcript and return ONLY valid JSON.
 Student level: ${studentLvl}
 Student goal: ${studentGl}
 
+CRITICAL RULES:
+The transcript has Multiple Speakers (Speaker A, Speaker B, etc).
+1. Deduce who is the Student and who is the Teacher based on context.
+2. You MUST ONLY evaluate, score, and find weaknesses for the STUDENT's speech. Ignore the teacher's mistakes.
+
 Tasks:
 1. Summarize lesson
-2. Detect grammar mistakes
-3. Suggest vocabulary improvements
-4. Score fluency (0-100)
-5. Score confidence (0-100)
-6. Identify weaknesses
+2. Detect grammar mistakes (for Student only)
+3. Suggest vocabulary improvements (for Student only)
+4. Score fluency (0-100) (for Student only)
+5. Score confidence (0-100) (for Student only)
+6. Identify weaknesses (for Student only)
 7. Recommend topics
 8. Suggest next actions
 

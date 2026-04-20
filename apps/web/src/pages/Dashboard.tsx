@@ -57,22 +57,65 @@ export default function Dashboard() {
     loadBasicStats()
   }, [session])
 
-  // 2. Carrega as KPIs financeiras detalhadas utilizando a nova API Vercel Serverless
+  // 2. Carrega as KPIs financeiras detalhadas
   useEffect(() => {
     async function loadFinKpis() {
       try {
-        const res = await fetch('/api/dashboard/kpis')
-        const data = await res.json()
-        if (res.ok) {
+        let apiSuccess = false
+        try {
+          const res = await fetch('/api/dashboard/kpis')
+          const isJson = res.headers.get('content-type')?.includes('application/json')
+          if (res.ok && isJson) {
+            const data = await res.json()
+            setKpis({
+              expected_revenue: data.expected_revenue || 0,
+              last_month_revenue: data.last_month_revenue || 0,
+              average_revenue: data.average_revenue || 0,
+              potential_revenue: data.potential_revenue || 0
+            })
+            apiSuccess = true
+          }
+        } catch (e) {
+          console.warn('Vercel API falhou. Tentando fallback local...')
+        }
+
+        if (!apiSuccess) {
+          // Fallback manual local
+          const now = new Date()
+          const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+          const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+          const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+          const lastMonthEnd = currentMonthStart
+
+          const { data: currSessions } = await supabase.from('sessions')
+            .select('price, status')
+            .gte('scheduled_date', currentMonthStart)
+            .lt('scheduled_date', nextMonthStart)
+            .in('status', ['SCHEDULED', 'COMPLETED'])
+          let expectedRevenue = 0
+          currSessions?.forEach(s => { expectedRevenue += (s.price || 0) })
+
+          const { data: lastSessions } = await supabase.from('sessions')
+            .select('price')
+            .gte('scheduled_date', lastMonthStart)
+            .lt('scheduled_date', lastMonthEnd)
+            .eq('status', 'COMPLETED')
+          let lastMonthRevenue = 0
+          lastSessions?.forEach(s => { lastMonthRevenue += (s.price || 0) })
+
+          const averageRevenue = currSessions?.length ? (expectedRevenue / currSessions.length) : 150
+          const potentialRevenue = 8 * 20 * averageRevenue - expectedRevenue
+
           setKpis({
-            expected_revenue: data.expected_revenue || 0,
-            last_month_revenue: data.last_month_revenue || 0,
-            average_revenue: data.average_revenue || 0,
-            potential_revenue: data.potential_revenue || 0
+            expected_revenue: expectedRevenue,
+            last_month_revenue: lastMonthRevenue,
+            average_revenue: averageRevenue,
+            potential_revenue: potentialRevenue > 0 ? potentialRevenue : 0
           })
         }
+
       } catch (err) {
-        console.error("Erro ao puxar APIs", err)
+        console.error("Erro geral KPIs", err)
       } finally {
         setLoadingKpis(false)
       }

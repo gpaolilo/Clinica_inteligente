@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
 
 interface Session {
   session_id: string
@@ -30,16 +31,56 @@ export default function WeeklyCalendar() {
       const day = String(date.getDate()).padStart(2, '0')
 
       // Na Vercel, /api/dashboard/calendar vai bater na Serverless Function
-      const res = await fetch(`/api/dashboard/calendar?week=${year}-${month}-${day}`)
-      const data = await res.json()
-      
-      if (res.ok) {
-        setSessions(data.sessions || [])
-      } else {
-        console.error("API falhou:", data.error)
+      let apiSuccess = false
+      try {
+        const res = await fetch(`/api/dashboard/calendar?week=${year}-${month}-${day}`)
+        
+        // Verifica content-type para ter certeza de que não é o HTML do Vite fallback
+        const isJson = res.headers.get('content-type')?.includes('application/json')
+        if (res.ok && isJson) {
+          const data = await res.json()
+          setSessions(data.sessions || [])
+          apiSuccess = true
+        }
+      } catch (err) {
+        console.warn('Vercel API route not available or failed. Falling back to direct Supabase query.')
       }
+
+      if (!apiSuccess) {
+        // FALLBACK LOCAL: Buscar as sessões em join explícito direto pelo front-end para ambiente local (Vite)
+        const startDate = new Date(`${year}-${month}-${day}T00:00:00Z`)
+        const endDate = new Date(startDate)
+        endDate.setDate(endDate.getDate() + 7)
+
+        const { data: dbSessions, error } = await supabase
+          .from('sessions')
+          .select(`
+            id, 
+            scheduled_date, 
+            status, 
+            price, 
+            patient:patients (id, name)
+          `)
+          .gte('scheduled_date', startDate.toISOString())
+          .lt('scheduled_date', endDate.toISOString())
+
+        if (error) throw error
+
+        const fallbackSessions = dbSessions?.map((s: any) => ({
+          session_id: s.id,
+          student_name: Array.isArray(s.patient) ? s.patient[0]?.name : s.patient?.name || 'Sem nome',
+          start_time: s.scheduled_date,
+          // Assumimos 1 hora de duração p/ exibir no bloco
+          end_time: new Date(new Date(s.scheduled_date).getTime() + 60 * 60000).toISOString(),
+          price: s.price,
+          status: s.status,
+        })) || []
+
+        setSessions(fallbackSessions)
+      }
+
     } catch (e) {
-      console.error(e)
+      console.error('Error fetching week:', e)
     } finally {
       setLoading(false)
     }

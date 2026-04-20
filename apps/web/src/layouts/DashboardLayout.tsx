@@ -25,7 +25,7 @@ export default function DashboardLayout() {
           </Link>
           
           <Link to="/dashboard/patients" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
-            Meus Pacientes
+            Meus Clientes
           </Link>
           <Link to="/dashboard/agenda" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
             Agenda Semanal

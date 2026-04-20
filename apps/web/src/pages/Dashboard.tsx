@@ -62,7 +62,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-surface p-8 rounded-[32px] shadow-sm border border-slate-100 flex flex-col justify-between">
-          <div className="text-slate-500 text-sm font-bold tracking-wide uppercase mb-3">Pacientes Ativos</div>
+          <div className="text-slate-500 text-sm font-bold tracking-wide uppercase mb-3">Clientes Ativos</div>
           <div className="text-5xl font-black text-dark mb-4">{loading ? '-' : stats.activePatients}</div>
           <div className="text-xs font-bold text-dark mt-auto bg-neon inline-block px-3 py-1.5 rounded-full self-start">Na sua base</div>
         </div>
@@ -101,8 +101,8 @@ export default function Dashboard() {
         </h3>
         <p className="text-slate-500 mb-8 max-w-md mx-auto font-medium leading-relaxed">
           {stats.sessionsToday === 0 
-           ? "Não há consultas alocadas para esta data. Que tal cadastrar um novo paciente ou revisar as configurações da clínica?" 
-           : "Vá para a sua aba de Agenda Semanal para iniciar a transcrição de IA e automatizar a evolução dos pacientes de hoje."}
+           ? "Não há consultas alocadas para esta data. Que tal cadastrar um novo cliente ou revisar as configurações da clínica?" 
+           : "Vá para a sua aba de Agenda Semanal para iniciar a transcrição de IA e automatizar a evolução dos atendimentos de hoje."}
         </p>
         <button onClick={() => navigate('/dashboard/agenda')} className="bg-dark hover:bg-black text-neon px-8 py-3.5 rounded-full font-bold transition-all shadow-md flex items-center transform hover:-translate-y-0.5">
           <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>

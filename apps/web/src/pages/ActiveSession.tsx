@@ -14,6 +14,7 @@ export default function ActiveSession() {
   const [processingState, setProcessingState] = useState<'IDLE' | 'UPLOADING' | 'AI_PROCESSING' | 'DONE'>('IDLE')
   const [clinicalNote, setClinicalNote] = useState<string>("")
   const [isSigned, setIsSigned] = useState(false)
+  const [aiReportReady, setAiReportReady] = useState(false)
 
   // Formatador de tempo (00:00)
   const formatTime = (sec: number) => {
@@ -27,14 +28,23 @@ export default function ActiveSession() {
     const fetchSessionAndNote = async () => {
       if (!id) return;
       // Busca a sessão base
-      const { data: sessData } = await supabase.from('sessions').select('*, patient:patients(name)').eq('id', id).single()
+      const { data: sessData } = await supabase.from('sessions').select('*, patient:patients(id, name, client_type, student_level, student_goal)').eq('id', id).single()
       if (sessData) setSessionData(sessData)
 
-      // Verifica se o prontuário já foi gerado anteriormente
-      const { data: noteData } = await supabase.from('clinical_notes').select('ai_evolution').eq('session_id', id).maybeSingle()
-      if (noteData) {
-         setClinicalNote(noteData.ai_evolution)
-         setProcessingState('DONE')
+      if (sessData?.patient?.client_type === 'ALUNO') {
+        const { data: insightData } = await supabase.from('student_insights').select('summary').eq('session_id', id).maybeSingle()
+        if (insightData) {
+           setClinicalNote("Relatório de Insights e Exercícios já foram extraídos pelas IAs.")
+           setAiReportReady(true)
+           setProcessingState('DONE')
+        }
+      } else {
+        // Verifica se o prontuário já foi gerado anteriormente
+        const { data: noteData } = await supabase.from('clinical_notes').select('ai_evolution').eq('session_id', id).maybeSingle()
+        if (noteData) {
+           setClinicalNote(noteData.ai_evolution)
+           setProcessingState('DONE')
+        }
       }
     }
     fetchSessionAndNote()
@@ -42,7 +52,7 @@ export default function ActiveSession() {
 
   // Escutar eventos Supabase Realtime para captar quando a IA terminou
   useEffect(() => {
-    if (!id || processingState !== 'AI_PROCESSING') return;
+    if (!id || processingState !== 'AI_PROCESSING' || sessionData?.patient?.client_type === 'ALUNO') return;
 
     const channel = supabase.channel(`note_${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clinical_notes', filter: `session_id=eq.${id}` }, (payload) => {
@@ -52,17 +62,13 @@ export default function ActiveSession() {
       .subscribe()
       
     return () => { supabase.removeChannel(channel) }
-  }, [id, processingState])
+  }, [id, processingState, sessionData])
 
   const handleProcessAudio = async () => {
-    if (!audioBlob || !session || !id) return
+    if (!audioBlob || !session || !id || !sessionData) return
     setProcessingState('UPLOADING')
 
     try {
-      // O path de upload original real seria:
-      // const filename = `${session.user.id}/${id}_${Date.now()}.webm`
-      // await supabase.storage.from('clinical_audios').upload(filename, audioBlob)
-      
       setProcessingState('AI_PROCESSING')
 
       const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY
@@ -82,7 +88,7 @@ export default function ActiveSession() {
         headers: assemHeaders,
         body: audioBlob
       })
-      if (!uploadRes.ok) throw new Error("AssemblyAI Upload falhou: " + await uploadRes.text())
+      if (!uploadRes.ok) throw new Error("AssemblyAI Upload falhou.")
       const { upload_url } = await uploadRes.json()
 
       // 2. Iniciar Transcrição AssemblyAI
@@ -92,17 +98,17 @@ export default function ActiveSession() {
         headers: { ...assemHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           audio_url: upload_url, 
-          language_code: 'pt',
+          language_code: sessionData.patient.client_type === 'ALUNO' ? 'en' : 'pt',
           speech_models: ['universal-2']
         })
       })
-      if (!transcriptReq.ok) throw new Error("AssemblyAI falhou ao iniciar transcrição: " + await transcriptReq.text())
+      if (!transcriptReq.ok) throw new Error("Transcrevendo áudio falhou.")
       const { id: transcriptId } = await transcriptReq.json()
 
-      // 3. Polling iterativo (Aguardar a transcrição da AssemblyAI finalizar)
+      // 3. Polling
       let transcricaoBruta = ""
       while (true) {
-        await new Promise(r => setTimeout(r, 2000)) // Aguarda 2 segundos entre verificações
+        await new Promise(r => setTimeout(r, 2000))
         const pollRes = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, { headers: assemHeaders })
         const pollData = await pollRes.json()
         
@@ -110,44 +116,158 @@ export default function ActiveSession() {
           transcricaoBruta = pollData.text
           break
         } else if (pollData.status === 'error') {
-          throw new Error("Erro da AssemblyAI na decodificação do áudio.")
+          throw new Error("Erro na transcrição.")
         }
       }
 
-      // 4. Estruturar o Prontuário usando a Groq API (LLaMA) como formatador clínico 100% Free
-      const gptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.7,
-          messages: [
-            { 
-               role: 'system', 
-               content: 'Você é um arquiteto clínico. Receberá uma transcrição (bruta/verbal) de uma sessão psicológica. Sua missão: expurgar nomes próprios completos (Substituir por PII Mascarado), resumir as emoções cruciais e montar a entrega rigorosamente sob este molde de texto: \nEvolução Clínica (Modelo Psicanalítico)\n\nTemas Tratados:\n[Bullet points com os principais assuntos abordados na consulta]\n\nRelatório da Sessão:\n[Seu resumo detalhado da dinâmica abordada]\n\nConduta Analítica:\n[Sua recomendação e diretrizes para a próxima sessão]'
-            },
-            { role: 'user', content: transcricaoBruta }
-          ]
+      if (sessionData.patient.client_type === 'ALUNO') {
+        const studentLvl = sessionData.patient.student_level || 'Unknown'
+        const studentGl = sessionData.patient.student_goal || 'Unknown'
+
+        // Chamada 1: Insights (JSON)
+        const sysPrompt1 = `You are an English learning analysis engine.
+Analyze the transcript and return ONLY valid JSON.
+Student level: ${studentLvl}
+Student goal: ${studentGl}
+
+Tasks:
+1. Summarize lesson
+2. Detect grammar mistakes
+3. Suggest vocabulary improvements
+4. Score fluency (0-100)
+5. Score confidence (0-100)
+6. Identify weaknesses
+7. Recommend topics
+8. Suggest next actions
+
+Return JSON:
+{
+  "summary": "",
+  "grammar_errors": [{ "sentence": "", "correction": "", "explanation": "" }],
+  "vocabulary_suggestions": [],
+  "fluency_score": 0,
+  "confidence_score": 0,
+  "main_weaknesses": [],
+  "recommended_topics": [],
+  "next_actions": []
+}`
+
+        const insightsRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.1,
+            response_format: { type: 'json_object' },
+            messages: [
+              { role: 'system', content: sysPrompt1 },
+              { role: 'user', content: transcricaoBruta }
+            ]
+          })
         })
-      })
+        const insightsData = await insightsRes.json()
+        const insightsJson = JSON.parse(insightsData.choices[0].message.content)
 
-      if (!gptRes.ok) throw new Error("A Inteligência de Texto falhou: " + await gptRes.text())
-      
-      const gptData = await gptRes.json()
-      const aiEvolutionText = gptData.choices[0].message.content
+        // Salvar Insights no DB
+        await supabase.from('student_insights').insert([{
+           session_id: id,
+           psychologist_id: session.user.id,
+           patient_id: sessionData.patient.id,
+           summary: insightsJson.summary,
+           fluency_score: insightsJson.fluency_score,
+           confidence_score: insightsJson.confidence_score,
+           grammar_errors: insightsJson.grammar_errors,
+           vocabulary_suggestions: insightsJson.vocabulary_suggestions,
+           main_weaknesses: insightsJson.main_weaknesses,
+           recommended_topics: insightsJson.recommended_topics,
+           next_actions: insightsJson.next_actions
+        }])
 
-      const { error } = await supabase.from('clinical_notes').upsert({
-        session_id: id,
-        psychologist_id: session.user.id,
-        template_type: 'PSICANALISE',
-        ai_evolution: aiEvolutionText,
-        status: 'AWAITING_REVIEW'
-      }, { onConflict: 'session_id' })
+        // Chamada 2: Exercícios (JSON)
+        const sysPrompt2 = `You are an English teacher.
+Generate personalized exercises.
+Student level: ${studentLvl}
 
-      if (error) throw error
-      
-      // Atualiza a tela localmente na mesma hora, ignorando o delay do WebSocket!
-      setClinicalNote(aiEvolutionText)
+Weaknesses to focus on:
+${JSON.stringify(insightsJson.main_weaknesses)}
+
+Rules:
+- Include grammar, vocabulary, speaking
+- Provide answers and explanations
+- Keep exercises concise
+
+Return JSON:
+{
+  "exercises": [
+    {
+      "type": "grammar",
+      "question": "",
+      "answer": "",
+      "explanation": ""
+    }
+  ]
+}`
+        const exercisesRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.6,
+            response_format: { type: 'json_object' },
+            messages: [
+              { role: 'system', content: sysPrompt2 }
+            ]
+          })
+        })
+        const exercisesData = await exercisesRes.json()
+        const exercisesJson = JSON.parse(exercisesData.choices[0].message.content)
+
+        // Salvar Exercícios no DB
+        await supabase.from('student_exercises').insert([{
+           session_id: id,
+           psychologist_id: session.user.id,
+           patient_id: sessionData.patient.id,
+           exercises: exercisesJson.exercises
+        }])
+        
+        setClinicalNote(`✅ Análise via Groq (LLaMA 3) concluída.\n\nInsights Gerados com Sucesso!\nFluência: ${insightsJson.fluency_score}/100\nResumo: ${insightsJson.summary}\n\nExercícios gerados: ${exercisesJson.exercises.length} atividades baseadas nas fraquezas em aula.\n\nVocê já pode encerrar a sessão.`)
+        setAiReportReady(true)
+
+      } else {
+        // Fluxo de PACIENTES (Mantém o Original Psicanalítico)
+        const gptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.7,
+            messages: [
+              { 
+                 role: 'system', 
+                 content: 'Você é um arquiteto clínico. Receberá uma transcrição (bruta/verbal) de uma sessão psicológica. Sua missão: expurgar nomes próprios completos (Substituir por PII Mascarado), resumir as emoções cruciais e montar a entrega rigorosamente sob este molde de texto: \nEvolução Clínica (Modelo Psicanalítico)\n\nTemas Tratados:\n[Bullet points com os principais assuntos abordados na consulta]\n\nRelatório da Sessão:\n[Seu resumo detalhado da dinâmica abordada]\n\nConduta Analítica:\n[Sua recomendação e diretrizes para a próxima sessão]'
+              },
+              { role: 'user', content: transcricaoBruta }
+            ]
+          })
+        })
+
+        if (!gptRes.ok) throw new Error("A Inteligência falhou.")
+        
+        const gptData = await gptRes.json()
+        const aiEvolutionText = gptData.choices[0].message.content
+
+        const { error } = await supabase.from('clinical_notes').upsert({
+          session_id: id,
+          psychologist_id: session.user.id,
+          template_type: 'PSICANALISE',
+          ai_evolution: aiEvolutionText,
+          status: 'AWAITING_REVIEW'
+        }, { onConflict: 'session_id' })
+
+        if (error) throw error
+        setClinicalNote(aiEvolutionText)
+      }
+
       setProcessingState('DONE')
 
     } catch (e: any) {
@@ -156,31 +276,37 @@ export default function ActiveSession() {
     }
   }
 
-  const signNote = async () => {
-    // Registra carimbo juridico e atualiza
-    await supabase.from('clinical_notes').update({ 
-      final_note: clinicalNote, 
-      is_signed: true, 
-      signed_at: new Date().toISOString(),
-      status: 'SIGNED'
-    }).eq('session_id', id)
+  const completeSession = async () => {
+    if (sessionData?.patient?.client_type === 'PACIENTE') {
+      await supabase.from('clinical_notes').update({ 
+        final_note: clinicalNote, 
+        is_signed: true, 
+        signed_at: new Date().toISOString(),
+        status: 'SIGNED'
+      }).eq('session_id', id)
+      alert("Prontuário salvo e assinado digitalmente com sucesso!")
+    } else {
+      alert("Sessão finalizada! Os relatórios do Aluno estarão na aba do Cliente.")
+    }
 
     await supabase.from('sessions').update({ status: 'COMPLETED' }).eq('id', id)
     setIsSigned(true)
-    alert("Prontuário salvo e assinado digitalmente com sucesso!")
     navigate('/dashboard/agenda')
   }
 
-  if (!sessionData) return <div className="p-8 text-center text-slate-500">Localizando informações da consulta...</div>
+  if (!sessionData) return <div className="p-8 text-center text-slate-500">Localizando informações...</div>
 
-  const patientName = Array.isArray(sessionData.patient) ? sessionData.patient[0]?.name : sessionData.patient?.name
+  const isAluno = sessionData?.patient?.client_type === 'ALUNO'
+  const clientName = Array.isArray(sessionData.patient) ? sessionData.patient[0]?.name : sessionData.patient?.name
 
   return (
     <div className="p-8 max-w-6xl mx-auto h-full flex flex-col">
       <div className="mb-6 flex justify-between items-end">
         <div>
-          <h2 className="text-xs font-bold text-dark tracking-wider uppercase mb-1 px-2 py-0.5 bg-neon inline-block rounded">Sessão em Andamento</h2>
-          <h1 className="text-3xl font-extrabold text-dark tracking-tight">{patientName}</h1>
+          <h2 className={`text-xs font-bold tracking-wider uppercase mb-1 px-2 py-0.5 inline-block rounded ${isAluno ? 'bg-blue-100 text-blue-700' : 'bg-neon text-dark'}`}>
+             Sessão em Andamento ({isAluno ? 'Aluno' : 'Paciente'})
+          </h2>
+          <h1 className="text-3xl font-extrabold text-dark tracking-tight">{clientName}</h1>
         </div>
         <div className="text-right">
           <p className="text-sm font-medium text-slate-500">Horário Agendado</p>
@@ -225,7 +351,7 @@ export default function ActiveSession() {
                       Pausar Gravação
                     </button>
                   ) : (
-                    <button onClick={startRecording} className="w-full py-3 bg-neon text-dark font-bold hover:bg-[#c4f83b] rounded-full transition-all shadow-sm">
+                    <button onClick={startRecording} className={`w-full py-3 text-dark font-bold rounded-full transition-all shadow-sm ${isAluno ? 'bg-blue-300 hover:bg-blue-400' : 'bg-neon hover:bg-[#c4f83b]'}`}>
                       {audioBlob ? 'Regravar Áudio' : 'Iniciar Sessão'}
                     </button>
                   )}
@@ -233,7 +359,7 @@ export default function ActiveSession() {
                   {audioBlob && !isRecording && (
                     <button onClick={handleProcessAudio} className="w-full py-3 bg-dark hover:bg-black text-white font-bold rounded-full transition-all shadow-md mt-4 flex items-center justify-center">
                       <svg className="w-5 h-5 mr-2 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                      Gerar Evolução (IA)
+                      {isAluno ? 'Gerar Insights (Engine)' : 'Gerar Evolução (IA)'}
                     </button>
                   )}
                 </div>
@@ -242,11 +368,11 @@ export default function ActiveSession() {
           )}
         </div>
 
-        {/* Painel Direito - Prontuário */}
+        {/* Painel Direito - Tela de Edição/Informações */}
         <div className="lg:col-span-2 bg-surface rounded-[24px] border border-slate-100 shadow-sm flex flex-col h-full overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
-            <h3 className="font-bold text-dark text-lg">Editor do Prontuário</h3>
-            <span className="text-xs font-bold text-slate-500 bg-background px-3 py-1.5 rounded-full">Algoritmo: LLaMA 3</span>
+            <h3 className="font-bold text-dark text-lg">{isAluno ? "Relatório Final (Geração Estática)" : "Editor do Prontuário"}</h3>
+            <span className="text-xs font-bold text-slate-500 bg-background px-3 py-1.5 rounded-full">LLaMA 3 (Groq API)</span>
           </div>
           
           <div className="flex-1 p-6 relative bg-background">
@@ -256,26 +382,48 @@ export default function ActiveSession() {
                    <p className="text-dark font-bold text-lg">Acelerando sua rotina em minutos...</p>
                 </div>
              )}
-            <textarea 
-               value={clinicalNote}
-               onChange={e => setClinicalNote(e.target.value)}
-               placeholder={processingState === 'IDLE' ? 'Aguardando transcrição e inteligência artificial...' : ''}
-               className="w-full h-full p-6 bg-white border border-slate-200 rounded-2xl outline-none resize-none text-slate-700 leading-relaxed font-sans shadow-sm focus:ring-2 focus:ring-neon"
-            />
+             
+             {isAluno ? (
+               <textarea 
+                 value={clinicalNote}
+                 readOnly
+                 placeholder={processingState === 'IDLE' ? 'Aguardando transcrição em EN-US e Learning Insights Engine...' : ''}
+                 className="w-full h-full p-6 bg-slate-50 border border-slate-200 rounded-2xl outline-none resize-none text-slate-700 leading-relaxed font-sans shadow-sm"
+               />
+             ) : (
+               <textarea 
+                  value={clinicalNote}
+                  onChange={e => setClinicalNote(e.target.value)}
+                  placeholder={processingState === 'IDLE' ? 'Aguardando transcrição e inteligência artificial...' : ''}
+                  className="w-full h-full p-6 bg-white border border-slate-200 rounded-2xl outline-none resize-none text-slate-700 leading-relaxed font-sans shadow-sm focus:ring-2 focus:ring-neon"
+               />
+             )}
           </div>
           
           <div className="p-5 border-t border-slate-100 flex justify-end space-x-3 bg-white">
-             <button disabled={!clinicalNote} className="px-6 py-2.5 font-bold text-slate-600 hover:bg-background rounded-full transition-colors disabled:opacity-50">
-               Salvar Rascunho
-             </button>
-             <button 
-               onClick={signNote}
-               disabled={!clinicalNote || processingState !== 'DONE' || isSigned}
-               className="px-6 py-2.5 bg-dark disabled:opacity-50 hover:bg-black text-neon font-extrabold rounded-full shadow-md transition-all flex items-center"
-             >
-               <svg className="w-5 h-5 mr-2 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-               Assinar Prontuário
-             </button>
+             {isAluno ? (
+               <button 
+                 onClick={completeSession}
+                 disabled={!aiReportReady || isSigned}
+                 className="px-6 py-2.5 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white font-extrabold rounded-full shadow-md transition-all flex items-center"
+               >
+                 Avançar e Concluir Aula
+               </button>
+             ) : (
+               <>
+                 <button disabled={!clinicalNote} className="px-6 py-2.5 font-bold text-slate-600 hover:bg-background rounded-full transition-colors disabled:opacity-50">
+                   Salvar Rascunho
+                 </button>
+                 <button 
+                   onClick={completeSession}
+                   disabled={!clinicalNote || processingState !== 'DONE' || isSigned}
+                   className="px-6 py-2.5 bg-dark disabled:opacity-50 hover:bg-black text-neon font-extrabold rounded-full shadow-md transition-all flex items-center"
+                 >
+                   <svg className="w-5 h-5 mr-2 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                   Assinar Prontuário
+                 </button>
+               </>
+             )}
           </div>
         </div>
 

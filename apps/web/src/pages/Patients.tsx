@@ -10,6 +10,7 @@ interface Patient {
   phone: string
   status: string
   lgpd_consent: boolean
+  client_type: 'PACIENTE' | 'ALUNO'
 }
 
 export default function Patients() {
@@ -47,8 +48,8 @@ export default function Patients() {
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Meus Pacientes</h2>
-          <p className="text-slate-500 mt-1 text-sm">Gerencie a listagem e o termo de consentimento dos seus pacientes.</p>
+          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Meus Clientes</h2>
+          <p className="text-slate-500 mt-1 text-sm">Gerencie a listagem e o termo de consentimento dos seus pacientes e alunos.</p>
         </div>
         <button 
           onClick={() => openModal()}
@@ -57,7 +58,7 @@ export default function Patients() {
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
           </svg>
-          Novo Paciente
+          Novo Cliente
         </button>
       </div>
 
@@ -87,7 +88,16 @@ export default function Patients() {
               <tbody className="divide-y divide-slate-100">
                 {patients.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-slate-800">{p.name}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-slate-800">{p.name}</div>
+                      <div className="mt-1">
+                        {p.client_type === 'ALUNO' ? (
+                          <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-700">Aluno</span>
+                        ) : (
+                          <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Paciente</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-slate-500">
                       <div className="flex items-center">
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>

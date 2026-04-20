@@ -37,6 +37,7 @@ export default function Dashboard() {
         .select('*', { count: 'exact', head: true })
         .gte('scheduled_date', today.toISOString())
         .lt('scheduled_date', tomorrow.toISOString())
+        .eq('status', 'SCHEDULED')
 
       const { count: pCount } = await supabase.from('patients')
          .select('*', { count: 'exact', head: true })

@@ -15,7 +15,7 @@ export default async function handler(req: any, res: any) {
     // 1. Buscar sessões no período (já marcadas)
     const { data: sessions, error } = await supabaseAdmin
       .from('sessions')
-      .select('scheduled_date, duration, status')
+      .select('scheduled_date, status')
       .gte('scheduled_date', startDate)
       .lt('scheduled_date', endDate)
       .neq('status', 'CANCELLED')
@@ -47,7 +47,7 @@ export default async function handler(req: any, res: any) {
         // Verificar colapso com sessões existentes
         const isOccupied = sessions?.some((s: any) => {
           const sStart = new Date(s.scheduled_date)
-          const sDur = s.duration || 60
+          const sDur = 60
           const sEnd = new Date(sStart.getTime() + sDur * 60000)
           
           // Lógica de overlap

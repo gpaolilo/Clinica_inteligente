@@ -23,7 +23,6 @@ export default async function handler(req: any, res: any) {
         scheduled_date, 
         status, 
         price, 
-        duration,
         patient:patients (id, name)
       `)
       .gte('scheduled_date', startDate.toISOString())
@@ -37,8 +36,8 @@ export default async function handler(req: any, res: any) {
       session_id: s.id,
       student_name: Array.isArray(s.patient) ? s.patient[0]?.name : s.patient?.name || 'Sem nome',
       start_time: s.scheduled_date,
-      // Se não houver end_time/duration salvo, assumimos 1 hora de duração p/ exibir no bloco
-      end_time: new Date(new Date(s.scheduled_date).getTime() + (s.duration || 60) * 60000).toISOString(),
+      // Assumimos 1 hora de duração p/ exibir no bloco
+      end_time: new Date(new Date(s.scheduled_date).getTime() + 60 * 60000).toISOString(),
       price: s.price,
       status: s.status,
     })) || []

@@ -13,6 +13,19 @@ export default async function handler(req: any, res: any) {
     const assemblyAiKey = process.env.VITE_ASSEMBLYAI_API_KEY || process.env.ASSEMBLYAI_API_KEY
     if (!assemblyAiKey) throw new Error('AssemblyAI API Key is missing')
 
+    const supabaseAuth = createAuthClient(req)
+
+    // Check if transcript already exists for this session
+    const { data: existingTranscript } = await supabaseAuth
+      .from('session_transcripts')
+      .select('transcript')
+      .eq('session_id', sessionId)
+      .single()
+
+    if (existingTranscript) {
+      return res.status(200).json({ success: true, transcript: existingTranscript.transcript })
+    }
+
     // 1. Submit audio to AssemblyAI
     const submitRes = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
@@ -58,7 +71,6 @@ export default async function handler(req: any, res: any) {
       formattedTranscript = transcriptData.utterances.map((u: any) => `Speaker ${u.speaker}: ${u.text}`).join('\n')
     }
 
-    const supabaseAuth = createAuthClient(req)
     const { error: dbError } = await supabaseAuth.from('session_transcripts').insert([{
       session_id: sessionId,
       psychologist_id: psychologistId,

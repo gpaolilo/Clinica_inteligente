@@ -65,31 +65,43 @@ export default function DashboardLayout() {
       </header>
 
       <div className="flex flex-1 overflow-hidden p-4 sm:p-6 gap-6">
-        {/* Floating Sidebar */}
-        <aside className="w-68 bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all overflow-y-auto no-scrollbar">
-
-        <nav className="flex-1 space-y-2">
-          {/* Active Link Model */}
-          <Link to="/dashboard" className="flex items-center px-4 py-3.5 text-sm font-bold rounded-full bg-neon text-dark shadow-sm hover:scale-[1.02] transform transition-all duration-200">
-            Painel Central
-          </Link>
+        {/* Left Sidebars Container */}
+        <div className="flex flex-col gap-6 w-68 h-full shrink-0">
           
-          <Link to="/dashboard/patients" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
-            Meus Clientes
-          </Link>
-          <Link to="/dashboard/agenda" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
-            Agenda Semanal
-          </Link>
-          <Link to="/dashboard/finance" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
-            Módulo Financeiro
-          </Link>
-        </nav>
+          {/* Main Navigation Sidebar */}
+          <aside className="bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all flex-1 overflow-y-auto no-scrollbar">
+            <nav className="flex-1 space-y-2">
+              <Link to="/dashboard" className="flex items-center px-4 py-3.5 text-sm font-bold rounded-full bg-neon text-dark shadow-sm hover:scale-[1.02] transform transition-all duration-200">
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                Dashboard
+              </Link>
+              
+              <Link to="/dashboard/patients" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                Clients
+              </Link>
+              
+              <Link to="/dashboard/agenda" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                Agenda
+              </Link>
+              
+              <Link to="/dashboard/finance" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Finance
+              </Link>
 
-        <div className="mt-auto">
-          {/* Quick Actions */}
-          <div className="mb-6 px-4">
-            <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">Ações Rápidas</h3>
-            <div className="space-y-2">
+              <Link to="/dashboard" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                Reminders
+              </Link>
+            </nav>
+          </aside>
+
+          {/* Quick Actions Sidebar */}
+          <aside className="bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all shrink-0">
+            <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4 px-2">Ações Rápidas</h3>
+            <div className="space-y-3">
               <Link to="/dashboard/patients" className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-all shadow-sm">
                 + Novo Cliente
               </Link>
@@ -97,9 +109,8 @@ export default function DashboardLayout() {
                 + Nova Sessão
               </Link>
             </div>
-          </div>
+          </aside>
         </div>
-      </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto no-scrollbar relative rounded-3xl">

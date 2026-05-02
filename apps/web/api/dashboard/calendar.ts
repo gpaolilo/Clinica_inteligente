@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../_lib/supabase.js'
+import { createAuthClient } from '../_lib/supabase.js'
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -15,8 +15,10 @@ export default async function handler(req: any, res: any) {
     const endDate = new Date(startDate)
     endDate.setDate(endDate.getDate() + 7)
 
+    const supabaseAuth = createAuthClient(req)
+
     // Buscando as sessões em join explícito com o paciente
-    const { data: sessions, error } = await supabaseAdmin
+    const { data: sessions, error } = await supabaseAuth
       .from('sessions')
       .select(`
         id, 

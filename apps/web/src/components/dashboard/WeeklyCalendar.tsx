@@ -35,7 +35,14 @@ export default function WeeklyCalendar() {
       // Na Vercel, /api/dashboard/calendar vai bater na Serverless Function
       let apiSuccess = false
       try {
-        const res = await fetch(`/api/dashboard/calendar?week=${year}-${month}-${day}`)
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+
+        const res = await fetch(`/api/dashboard/calendar?week=${year}-${month}-${day}`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        })
         
         // Verifica content-type para ter certeza de que não é o HTML do Vite fallback
         const isJson = res.headers.get('content-type')?.includes('application/json')

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import WeeklyCalendar from '../components/dashboard/WeeklyCalendar'
 
 export default function Dashboard() {
-  const { user, session } = useAuthStore()
+  const { session } = useAuthStore()
   const navigate = useNavigate()
   
   const [basicStats, setBasicStats] = useState({ 
@@ -125,16 +125,9 @@ export default function Dashboard() {
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto">
-      <header className="mb-10">
-        <h2 className="text-4xl font-extrabold text-dark tracking-tight">
-          Overview, Dr(a). {user?.user_metadata?.full_name?.split(' ')[0] || 'Psicólogo(a)'}
-        </h2>
-        <p className="text-slate-500 mt-2 font-medium">Seu painel de controle operacional e financeiro.</p>
-      </header>
-
-      {/* Row 1 - Operational (3 Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
+      {/* Dashboard KPI Cards */}
+      <div className="flex flex-wrap gap-4 mb-8">
+        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mr-4 text-blue-500 shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
           </div>
@@ -144,7 +137,7 @@ export default function Dashboard() {
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
+        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
           <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mr-4 text-emerald-500 shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
           </div>
@@ -156,7 +149,7 @@ export default function Dashboard() {
         
         <div 
           onClick={() => navigate('/dashboard/finance')}
-          className="bg-white p-4 rounded-xl shadow-sm border border-rose-100 flex items-center cursor-pointer hover:shadow-md hover:border-rose-200 transition-all"
+          className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-rose-100 flex items-center cursor-pointer hover:shadow-md hover:border-rose-200 transition-all"
         >
           <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center mr-4 text-rose-500 shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -166,12 +159,8 @@ export default function Dashboard() {
             <div className="text-2xl font-bold text-slate-800">{loadingStats ? '-' : basicStats.pendingPayments}</div>
           </div>
         </div>
-      </div>
 
-      {/* Row 2 - Financial KPIs (4 Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
+        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
           <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mr-4 text-indigo-500 shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           </div>
@@ -181,7 +170,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
+        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
           <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mr-4 text-slate-500 shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
           </div>
@@ -191,7 +180,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
+        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
           <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center mr-4 text-amber-500 shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
           </div>
@@ -201,7 +190,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
+        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
           <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center mr-4 text-purple-500 shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           </div>

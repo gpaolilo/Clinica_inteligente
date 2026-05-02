@@ -1,10 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { supabaseAdmin } from '../_lib/supabase'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI learning analyst.
 Analyze the following lesson transcript and extract structured learning events. 
@@ -33,23 +27,18 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
 }
 `
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    const { sessionId, psychologistId, patientId } = await req.json()
+    const { sessionId, psychologistId, patientId } = req.body
 
     if (!sessionId || !psychologistId || !patientId) {
       throw new Error('Missing required parameters')
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
     // 1. Fetch transcript
-    const { data: transcriptData, error: transcriptError } = await supabase
+    const { data: transcriptData, error: transcriptError } = await supabaseAdmin
       .from('session_transcripts')
       .select('transcript')
       .eq('session_id', sessionId)
@@ -57,7 +46,7 @@ serve(async (req) => {
 
     if (transcriptError || !transcriptData) throw new Error('Transcript not found')
 
-    const groqKey = Deno.env.get('GROQ_API_KEY')
+    const groqKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY
     if (!groqKey) throw new Error('GROQ API Key is missing')
 
     // 2. Call GROQ API
@@ -73,7 +62,7 @@ serve(async (req) => {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: transcriptData.transcript }
         ],
-        temperature: 0.1, // Low temperature for consistent JSON
+        temperature: 0.1, 
         response_format: { type: 'json_object' }
       })
     })
@@ -163,30 +152,28 @@ serve(async (req) => {
 
     // 4. Save events
     if (eventsToInsert.length > 0) {
-      const { error: eventsError } = await supabase.from('learning_events').insert(eventsToInsert)
+      const { error: eventsError } = await supabaseAdmin.from('learning_events').insert(eventsToInsert)
       if (eventsError) throw new Error(`Database Error saving events: ${eventsError.message}`)
     }
 
     // 5. Update student profile
-    const { data: profile } = await supabase.from('student_profiles').select('*').eq('student_id', patientId).single()
+    const { data: profile } = await supabaseAdmin.from('student_profiles').select('*').eq('student_id', patientId).single()
     
-    // Simplistic profile update for now
     const strengths = profile ? profile.strengths : []
     const weaknesses = profile ? profile.weaknesses : []
     const patterns = profile ? profile.learning_patterns : []
 
-    // Add new weaknesses and patterns
     const newWeaknesses = [...new Set([...weaknesses, ...(analysis.grammar_errors || []).map((g: any) => g.explanation)])]
     const newPatterns = [...new Set([...patterns, ...(analysis.learning_patterns || []).map((p: any) => p.pattern)])]
 
     if (profile) {
-      await supabase.from('student_profiles').update({
+      await supabaseAdmin.from('student_profiles').update({
         weaknesses: newWeaknesses,
         learning_patterns: newPatterns,
         last_updated: new Date()
       }).eq('student_id', patientId)
     } else {
-      await supabase.from('student_profiles').insert([{
+      await supabaseAdmin.from('student_profiles').insert([{
         student_id: patientId,
         psychologist_id: psychologistId,
         weaknesses: newWeaknesses,
@@ -194,11 +181,9 @@ serve(async (req) => {
       }])
     }
 
-    return new Response(JSON.stringify({ success: true, events_count: eventsToInsert.length, fluency: analysis.fluency }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    res.status(200).json({ success: true, events_count: eventsToInsert.length, fluency: analysis.fluency })
 
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: corsHeaders })
+    res.status(400).json({ error: err.message })
   }
-})
+}

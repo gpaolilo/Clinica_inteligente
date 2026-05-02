@@ -1,27 +1,16 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
+import { supabaseAdmin } from '../_lib/supabase'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    const { audioUrl, sessionId, psychologistId, patientId } = await req.json()
+    const { audioUrl, sessionId, psychologistId, patientId } = req.body
 
     if (!audioUrl || !sessionId || !psychologistId || !patientId) {
       throw new Error('Missing required parameters')
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    const assemblyAiKey = Deno.env.get('ASSEMBLYAI_API_KEY')
+    const assemblyAiKey = process.env.VITE_ASSEMBLYAI_API_KEY || process.env.ASSEMBLYAI_API_KEY
     if (!assemblyAiKey) throw new Error('AssemblyAI API Key is missing')
 
     // 1. Submit audio to AssemblyAI
@@ -59,7 +48,7 @@ serve(async (req) => {
       end: w.end
     }))
 
-    const { error: dbError } = await supabase.from('session_transcripts').insert([{
+    const { error: dbError } = await supabaseAdmin.from('session_transcripts').insert([{
       session_id: sessionId,
       psychologist_id: psychologistId,
       patient_id: patientId,
@@ -69,11 +58,9 @@ serve(async (req) => {
 
     if (dbError) throw new Error(`Database Error: ${dbError.message}`)
 
-    return new Response(JSON.stringify({ success: true, transcript: transcriptData.text }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    res.status(200).json({ success: true, transcript: transcriptData.text })
 
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: corsHeaders })
+    res.status(400).json({ error: err.message })
   }
-})
+}

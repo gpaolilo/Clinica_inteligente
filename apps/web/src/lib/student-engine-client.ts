@@ -1,35 +1,33 @@
-import { supabase } from './supabase'
+const fetchApi = async (endpoint: string, body: any) => {
+  const url = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/student-engine/${endpoint}` : `/api/student-engine/${endpoint}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || `HTTP Error ${res.status}`)
+  }
+  
+  return res.json()
+}
 
 export const StudentEngine = {
   transcribe: async (audioUrl: string, sessionId: string, patientId: string, psychologistId: string) => {
-    const { data, error } = await supabase.functions.invoke('student-engine-transcribe', {
-      body: { audioUrl, sessionId, patientId, psychologistId }
-    })
-    if (error) throw error
-    return data
+    return await fetchApi('transcribe', { audioUrl, sessionId, patientId, psychologistId })
   },
 
   analyze: async (sessionId: string, patientId: string, psychologistId: string) => {
-    const { data, error } = await supabase.functions.invoke('student-engine-analyze', {
-      body: { sessionId, patientId, psychologistId }
-    })
-    if (error) throw error
-    return data
+    return await fetchApi('analyze', { sessionId, patientId, psychologistId })
   },
 
   generateHomework: async (sessionId: string, patientId: string, psychologistId: string) => {
-    const { data, error } = await supabase.functions.invoke('student-engine-generate-homework', {
-      body: { sessionId, patientId, psychologistId }
-    })
-    if (error) throw error
-    return data
+    return await fetchApi('generate-homework', { sessionId, patientId, psychologistId })
   },
 
   getProfile: async (patientId: string) => {
-    const { data, error } = await supabase.functions.invoke('student-engine-profile', {
-      body: { patientId }
-    })
-    if (error) throw error
-    return data
+    return await fetchApi('profile', { patientId })
   }
 }

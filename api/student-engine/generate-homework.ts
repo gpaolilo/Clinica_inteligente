@@ -1,10 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { supabaseAdmin } from '../_lib/supabase'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI homework generator.
 Based on the student's recent learning events (errors, gaps) and their overall profile, generate a personalized homework plan.
@@ -26,23 +20,18 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
 }
 `
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    const { sessionId, psychologistId, patientId } = await req.json()
+    const { sessionId, psychologistId, patientId } = req.body
 
     if (!sessionId || !psychologistId || !patientId) {
       throw new Error('Missing required parameters')
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
     // 1. Fetch learning events for this session
-    const { data: events, error: eventsError } = await supabase
+    const { data: events, error: eventsError } = await supabaseAdmin
       .from('learning_events')
       .select('*')
       .eq('session_id', sessionId)
@@ -51,13 +40,13 @@ serve(async (req) => {
     if (eventsError) throw new Error('Error fetching events')
 
     // 2. Fetch student profile
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('student_profiles')
       .select('*')
       .eq('student_id', patientId)
       .single()
 
-    const groqKey = Deno.env.get('GROQ_API_KEY')
+    const groqKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY
     if (!groqKey) throw new Error('GROQ API Key is missing')
 
     // 3. Construct prompt data
@@ -65,7 +54,7 @@ serve(async (req) => {
       student_level: profile?.level || 'Beginner',
       strengths: profile?.strengths || [],
       weaknesses: profile?.weaknesses || [],
-      recent_events: events?.map(e => ({
+      recent_events: events?.map((e: any) => ({
         id: e.id,
         type: e.event_type,
         severity: e.severity,
@@ -97,7 +86,7 @@ serve(async (req) => {
     const generatedPlan = JSON.parse(groqData.choices[0].message.content)
 
     // 5. Save to database
-    const { data: insertedPlan, error: insertError } = await supabase
+    const { data: insertedPlan, error: insertError } = await supabaseAdmin
       .from('homework_plans')
       .insert([{
         session_id: sessionId,
@@ -111,11 +100,9 @@ serve(async (req) => {
 
     if (insertError) throw new Error(`Database Error: ${insertError.message}`)
 
-    return new Response(JSON.stringify({ success: true, plan: insertedPlan }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    res.status(200).json({ success: true, plan: insertedPlan })
 
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: corsHeaders })
+    res.status(400).json({ error: err.message })
   }
-})
+}

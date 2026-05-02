@@ -103,7 +103,7 @@ export default function WeeklyCalendar() {
   }
 
   const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-  const hours = Array.from({ length: 24 }, (_, i) => i)
+  const hours = Array.from({ length: 18 }, (_, i) => i + 6) // 6 to 23
 
   return (
     <div className="bg-surface rounded-[32px] shadow-sm border border-slate-100 p-8 flex flex-col mt-8">
@@ -173,12 +173,12 @@ export default function WeeklyCalendar() {
                   </div>
 
                   {/* Day Body */}
-                  <div className="relative h-[1536px]"> {/* 24h * 64px = 1536 */}
+                  <div className="relative h-[1152px]"> {/* 18h * 64px = 1152 */}
                     {daySessions.map(s => {
                       const startTime = new Date(s.start_time)
                       const endTime = new Date(s.end_time)
                       
-                      const startMinutes = startTime.getHours() * 60 + startTime.getMinutes()
+                      const startMinutes = (startTime.getHours() - 6) * 60 + startTime.getMinutes() // Adjust relative to 6am
                       const durationMins = (endTime.getTime() - startTime.getTime()) / 60000
                       
                       const top = (startMinutes / 60) * 64 // 64px is height of 1 hour (h-16)
@@ -195,13 +195,16 @@ export default function WeeklyCalendar() {
                           className={`absolute w-full px-1 py-1 group overflow-hidden`}
                           style={{ top: `${top}px`, height: `${height}px` }}
                         >
-                          <div className={`w-full h-full p-2 border-l-4 rounded-md shadow-sm transition-all hover:shadow-md cursor-pointer ${bgTheme} overflow-hidden text-xs`}>
+                          <a 
+                            href={`/dashboard/session/${s.session_id}`}
+                            className={`block w-full h-full p-2 border-l-4 rounded-md shadow-sm transition-all hover:shadow-md cursor-pointer ${bgTheme} overflow-hidden text-xs no-underline hover:brightness-95`}
+                          >
                              <div className="font-bold truncate">{s.student_name}</div>
                              <div className="opacity-80 flex justify-between mt-1">
                                <span>R$ {s.price?.toFixed(2) || '0.00'}</span>
                                <span className="uppercase font-semibold text-[9px]">{s.status === 'SCHEDULED' ? 'AGEN' : s.status}</span>
                              </div>
-                          </div>
+                          </a>
                         </div>
                       )
                     })}

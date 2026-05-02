@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
 interface Session {
@@ -11,6 +12,7 @@ interface Session {
 }
 
 export default function WeeklyCalendar() {
+  const navigate = useNavigate()
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getStartOfWeek(new Date()))
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(false)
@@ -195,8 +197,8 @@ export default function WeeklyCalendar() {
                           className={`absolute w-full px-1 py-1 group overflow-hidden`}
                           style={{ top: `${top}px`, height: `${height}px` }}
                         >
-                          <a 
-                            href={`/dashboard/session/${s.session_id}`}
+                          <div 
+                            onClick={() => navigate(`/dashboard/session/${s.session_id}`)}
                             className={`block w-full h-full p-2 border-l-4 rounded-md shadow-sm transition-all hover:shadow-md cursor-pointer ${bgTheme} overflow-hidden text-xs no-underline hover:brightness-95`}
                           >
                              <div className="font-bold truncate">{s.student_name}</div>
@@ -204,7 +206,7 @@ export default function WeeklyCalendar() {
                                <span>R$ {s.price?.toFixed(2) || '0.00'}</span>
                                <span className="uppercase font-semibold text-[9px]">{s.status === 'SCHEDULED' ? 'AGEN' : s.status}</span>
                              </div>
-                          </a>
+                          </div>
                         </div>
                       )
                     })}

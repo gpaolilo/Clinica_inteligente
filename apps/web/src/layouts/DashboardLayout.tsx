@@ -8,9 +8,9 @@ export default function DashboardLayout() {
   if (!session) return <Navigate to="/login" replace />
 
   return (
-    <div className="flex h-screen bg-background text-dark font-sans selection:bg-neon selection:text-dark">
-      {/* Sidebar Remodelada */}
-      <aside className="w-68 bg-white border-r border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all">
+    <div className="flex h-screen bg-slate-50 text-dark font-sans selection:bg-neon selection:text-dark p-4 sm:p-6 gap-6">
+      {/* Floating Sidebar */}
+      <aside className="w-68 bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all overflow-y-auto no-scrollbar">
         <div className="px-4 mb-10 flex items-center">
           <div className="w-8 h-8 rounded-lg bg-neon mr-3 shadow-sm flex items-center justify-center border border-lime-300">
              <svg className="w-5 h-5 text-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -68,7 +68,7 @@ export default function DashboardLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto no-scrollbar relative bg-background">
+      <main className="flex-1 overflow-y-auto no-scrollbar relative rounded-3xl">
         <Outlet />
       </main>
     </div>

@@ -159,7 +159,6 @@ export default async function handler(req: any, res: any) {
     // 5. Update student profile
     const { data: profile } = await supabaseAdmin.from('student_profiles').select('*').eq('student_id', patientId).single()
     
-    const strengths = profile ? profile.strengths : []
     const weaknesses = profile ? profile.weaknesses : []
     const patterns = profile ? profile.learning_patterns : []
 

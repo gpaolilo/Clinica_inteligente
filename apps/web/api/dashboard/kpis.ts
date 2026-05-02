@@ -45,21 +45,18 @@ export default async function handler(req: any, res: any) {
 
     // 3. Average Revenue per Session
     // Calcula com base em todas as completadas da vida ou do mês
-    const { aggregate } = await supabaseAdmin
+    const allCompletedResponse = await supabaseAdmin
       .from('sessions')
       .select('price, status')
       .eq('status', 'COMPLETED')
-      // Note: Ideal limit here or aggregation function sum/count instead of returning all rows
-      .limit(1000)
-
-    const allCompletedResponse = aggregate || await supabaseAdmin.from('sessions').select('price').eq('status', 'COMPLETED').limit(500)
+      .limit(500)
     
     let averageRevenue = 0
     let totalPrices = 0
     let totalCount = allCompletedResponse.data?.length || 0
 
     if (totalCount > 0) {
-      allCompletedResponse.data?.forEach(s => totalPrices += (s.price || 0))
+      allCompletedResponse.data?.forEach((s: any) => totalPrices += (s.price || 0))
       averageRevenue = totalPrices / totalCount
     } else {
       averageRevenue = expectedRevenue / (currentMonthSessions?.length || 1) // Fallback estimation
@@ -67,7 +64,6 @@ export default async function handler(req: any, res: any) {
 
     // 4. Potential Revenue 
     // Pegar config do usuário (se existir) senão usar defaults: 8h-18h seg a sex
-    let potentialHours = 0;
     
     // Simplificando o availability: pegar resto dos dias letivos do mês, multiplicar por (por exemplo) 6 slots por dia, deduzir marcados
     const today = new Date()

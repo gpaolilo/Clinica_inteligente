@@ -28,6 +28,10 @@ export default async function handler(req: any, res: any) {
     if (profileError && profileError.code !== 'PGRST116') {
       throw new Error(`Profile fetch error: ${profileError.message}`)
     }
+    
+    if (eventsError) {
+      console.error('Events fetch error:', eventsError.message)
+    }
 
     res.status(200).json({ 
       success: true, 

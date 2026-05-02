@@ -80,7 +80,7 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
                 )}>
                   {ex.type}
                 </span>
-                <h4 className="font-bold text-gray-900">Exercício de Fixação</h4>
+                <h4 className="font-bold text-gray-900">{ex.title || 'Exercício de Fixação'}</h4>
               </div>
               <button className="text-gray-300 hover:text-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Edit3 className="w-4 h-4" />

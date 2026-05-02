@@ -10,9 +10,9 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
     {
       "type": "vocabulary" | "grammar" | "speaking" | "repetition" | "reflection",
       "title": "string",
-      "instruction": "string",
-      "example": "string",
-      "expected_output": "string",
+      "question": "string",
+      "answer": "string",
+      "explanation": "string",
       "difficulty": "easy" | "medium" | "hard",
       "source_event_ids": ["string"]
     }

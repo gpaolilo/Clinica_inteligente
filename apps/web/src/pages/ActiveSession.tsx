@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
 import { useAuthStore } from '../stores/authStore'
-
+import { StudentEngine } from '../lib/student-engine-client'
+import { StudentInsightsDashboard } from '../components/student/StudentInsightsDashboard'
+import { HomeworkManager } from '../components/student/HomeworkManager'
 export default function ActiveSession() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -126,122 +128,26 @@ export default function ActiveSession() {
       }
 
       if (sessionData.patient.client_type === 'ALUNO') {
-        const studentLvl = sessionData.patient.student_level || 'Unknown'
-        const studentGl = sessionData.patient.student_goal || 'Unknown'
-
-        // Chamada 1: Insights (JSON)
-        const sysPrompt1 = `You are an English learning analysis engine.
-Analyze the transcript and return ONLY valid JSON.
-Student level: ${studentLvl}
-Student goal: ${studentGl}
-
-CRITICAL RULES:
-The transcript has Multiple Speakers (Speaker A, Speaker B, etc).
-1. Deduce who is the Student and who is the Teacher based on context.
-2. You MUST ONLY evaluate, score, and find weaknesses for the STUDENT's speech. Ignore the teacher's mistakes.
-
-Tasks:
-1. Summarize lesson
-2. Detect grammar mistakes (for Student only)
-3. Suggest vocabulary improvements (for Student only)
-4. Score fluency (0-100) (for Student only)
-5. Score confidence (0-100) (for Student only)
-6. Identify weaknesses (for Student only)
-7. Recommend topics
-8. Suggest next actions
-
-Return JSON:
-{
-  "summary": "",
-  "grammar_errors": [{ "sentence": "", "correction": "", "explanation": "" }],
-  "vocabulary_suggestions": [],
-  "fluency_score": 0,
-  "confidence_score": 0,
-  "main_weaknesses": [],
-  "recommended_topics": [],
-  "next_actions": []
-}`
-
-        const insightsRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        setProcessingState('UPLOADING')
+        const assemHeaders = { 'Authorization': ASSEMBLY_KEY }
+        const uploadRes = await fetch('https://api.assemblyai.com/v2/upload', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.1,
-            response_format: { type: 'json_object' },
-            messages: [
-              { role: 'system', content: sysPrompt1 },
-              { role: 'user', content: transcricaoBruta }
-            ]
-          })
+          headers: assemHeaders,
+          body: audioBlob
         })
-        const insightsData = await insightsRes.json()
-        const insightsJson = JSON.parse(insightsData.choices[0].message.content)
+        if (!uploadRes.ok) throw new Error("AssemblyAI Upload falhou.")
+        const { upload_url } = await uploadRes.json()
 
-        // Salvar Insights no DB
-        await supabase.from('student_insights').insert([{
-           session_id: id,
-           psychologist_id: session.user.id,
-           patient_id: sessionData.patient.id,
-           summary: insightsJson.summary,
-           fluency_score: insightsJson.fluency_score,
-           confidence_score: insightsJson.confidence_score,
-           grammar_errors: insightsJson.grammar_errors,
-           vocabulary_suggestions: insightsJson.vocabulary_suggestions,
-           main_weaknesses: insightsJson.main_weaknesses,
-           recommended_topics: insightsJson.recommended_topics,
-           next_actions: insightsJson.next_actions
-        }])
-
-        // Chamada 2: Exercícios (JSON)
-        const sysPrompt2 = `You are an English teacher.
-Generate personalized exercises.
-Student level: ${studentLvl}
-
-Weaknesses to focus on:
-${JSON.stringify(insightsJson.main_weaknesses)}
-
-Rules:
-- Include grammar, vocabulary, speaking
-- Provide answers and explanations
-- Keep exercises concise
-
-Return JSON:
-{
-  "exercises": [
-    {
-      "type": "grammar",
-      "question": "",
-      "answer": "",
-      "explanation": ""
-    }
-  ]
-}`
-        const exercisesRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.6,
-            response_format: { type: 'json_object' },
-            messages: [
-              { role: 'system', content: sysPrompt2 }
-            ]
-          })
-        })
-        const exercisesData = await exercisesRes.json()
-        const exercisesJson = JSON.parse(exercisesData.choices[0].message.content)
-
-        // Salvar Exercícios no DB
-        await supabase.from('student_exercises').insert([{
-           session_id: id,
-           psychologist_id: session.user.id,
-           patient_id: sessionData.patient.id,
-           exercises: exercisesJson.exercises
-        }])
+        setProcessingState('AI_PROCESSING')
         
-        setClinicalNote(`✅ Análise via Groq (LLaMA 3) concluída.\n\nInsights Gerados com Sucesso!\nFluência: ${insightsJson.fluency_score}/100\nResumo: ${insightsJson.summary}\n\nExercícios gerados: ${exercisesJson.exercises.length} atividades baseadas nas fraquezas em aula.\n\nVocê já pode encerrar a sessão.`)
+        // 1. Transcribe via Edge Function
+        await StudentEngine.transcribe(upload_url, id, sessionData.patient.id, session.user.id)
+        
+        // 2. Analyze via Edge Function
+        await StudentEngine.analyze(id, sessionData.patient.id, session.user.id)
+
         setAiReportReady(true)
+        setProcessingState('DONE')
 
       } else {
         // Fluxo de PACIENTES (Mantém o Original Psicanalítico)
@@ -385,7 +291,7 @@ Return JSON:
             <span className="text-xs font-bold text-slate-500 bg-background px-3 py-1.5 rounded-full">LLaMA 3 (Groq API)</span>
           </div>
           
-          <div className="flex-1 p-6 relative bg-background">
+          <div className="flex-1 p-6 relative bg-background overflow-y-auto">
              {(processingState === 'UPLOADING' || processingState === 'AI_PROCESSING') && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-md z-10 flex flex-col items-center justify-center">
                    <div className="w-12 h-12 border-4 border-slate-200 border-t-neon rounded-full animate-spin mb-4"></div>
@@ -394,12 +300,16 @@ Return JSON:
              )}
              
              {isAluno ? (
-               <textarea 
-                 value={clinicalNote}
-                 readOnly
-                 placeholder={processingState === 'IDLE' ? 'Aguardando transcrição em EN-US e Learning Insights Engine...' : ''}
-                 className="w-full h-full p-6 bg-slate-50 border border-slate-200 rounded-2xl outline-none resize-none text-slate-700 leading-relaxed font-sans shadow-sm"
-               />
+               processingState === 'DONE' ? (
+                 <div className="space-y-6">
+                   <StudentInsightsDashboard patientId={sessionData.patient.id} />
+                   <HomeworkManager sessionId={id} patientId={sessionData.patient.id} psychologistId={session?.user?.id} />
+                 </div>
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center text-slate-400 font-medium">
+                   Aguardando transcrição e Learning Insights Engine...
+                 </div>
+               )
              ) : (
                <textarea 
                   value={clinicalNote}

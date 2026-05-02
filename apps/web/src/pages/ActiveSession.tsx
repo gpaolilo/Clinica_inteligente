@@ -333,7 +333,7 @@ export default function ActiveSession() {
                processingState === 'DONE' ? (
                  <div className="space-y-6">
                    <StudentInsightsDashboard patientId={sessionData.patient.id} />
-                   <HomeworkManager sessionId={id} patientId={sessionData.patient.id} psychologistId={session?.user?.id} />
+                   <HomeworkManager sessionId={id || ''} patientId={sessionData.patient.id} psychologistId={session?.user?.id || ''} />
                  </div>
                ) : (
                  <div className="w-full h-full flex items-center justify-center text-slate-400 font-medium">

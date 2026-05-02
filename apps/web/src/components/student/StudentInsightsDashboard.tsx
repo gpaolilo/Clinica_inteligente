@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { StudentEngine } from '../../lib/student-engine-client'
 import { Brain, TrendingUp, AlertTriangle, MessageSquare, Target } from 'lucide-react'
-import clsx from 'clsx'
+
 
 export function StudentInsightsDashboard({ patientId }: { patientId: string }) {
   const [loading, setLoading] = useState(true)

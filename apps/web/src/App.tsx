@@ -8,6 +8,7 @@ import Agenda from './pages/Agenda'
 import ActiveSession from './pages/ActiveSession'
 import Settings from './pages/Settings'
 import Finance from './pages/Finance'
+import Profile from './pages/Profile'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="session/:id" element={<ActiveSession />} />
           <Route path="settings" element={<Settings />} />
           <Route path="finance" element={<Finance />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
 
         {/* Redirect Root para Login/Dashboard */}

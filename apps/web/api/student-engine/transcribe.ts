@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../_lib/supabase.js'
+import { createAuthClient } from '../_lib/supabase.js'
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -58,7 +58,8 @@ export default async function handler(req: any, res: any) {
       formattedTranscript = transcriptData.utterances.map((u: any) => `Speaker ${u.speaker}: ${u.text}`).join('\n')
     }
 
-    const { error: dbError } = await supabaseAdmin.from('session_transcripts').insert([{
+    const supabaseAuth = createAuthClient(req)
+    const { error: dbError } = await supabaseAuth.from('session_transcripts').insert([{
       session_id: sessionId,
       psychologist_id: psychologistId,
       patient_id: patientId,

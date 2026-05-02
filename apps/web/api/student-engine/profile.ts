@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../_lib/supabase.js'
+import { createAuthClient } from '../_lib/supabase.js'
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -10,15 +10,16 @@ export default async function handler(req: any, res: any) {
       throw new Error('Missing patientId')
     }
 
+    const supabaseAuth = createAuthClient(req)
     // 1. Fetch profile
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAuth
       .from('student_profiles')
       .select('*')
       .eq('student_id', patientId)
       .single()
 
     // 2. Fetch recent learning events for trends
-    const { data: events, error: eventsError } = await supabaseAdmin
+    const { data: events, error: eventsError } = await supabaseAuth
       .from('learning_events')
       .select('id, event_type, severity, frequency, created_at')
       .eq('patient_id', patientId)

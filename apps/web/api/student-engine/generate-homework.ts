@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../_lib/supabase.js'
+import { createAuthClient } from '../_lib/supabase.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI homework generator.
 Based on the student's recent learning events (errors, gaps) and their overall profile, generate a personalized homework plan.
@@ -30,8 +30,9 @@ export default async function handler(req: any, res: any) {
       throw new Error('Missing required parameters')
     }
 
+    const supabaseAuth = createAuthClient(req)
     // 1. Fetch learning events for this session
-    const { data: events, error: eventsError } = await supabaseAdmin
+    const { data: events, error: eventsError } = await supabaseAuth
       .from('learning_events')
       .select('*')
       .eq('session_id', sessionId)
@@ -40,7 +41,7 @@ export default async function handler(req: any, res: any) {
     if (eventsError) throw new Error('Error fetching events')
 
     // 2. Fetch student profile
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await supabaseAuth
       .from('student_profiles')
       .select('*')
       .eq('student_id', patientId)
@@ -86,7 +87,7 @@ export default async function handler(req: any, res: any) {
     const generatedPlan = JSON.parse(groqData.choices[0].message.content)
 
     // 5. Save to database
-    const { data: insertedPlan, error: insertError } = await supabaseAdmin
+    const { data: insertedPlan, error: insertError } = await supabaseAuth
       .from('homework_plans')
       .insert([{
         session_id: sessionId,

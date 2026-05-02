@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../_lib/supabase.js'
+import { createAuthClient } from '../_lib/supabase.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI learning analyst.
 Analyze the following lesson transcript and extract structured learning events. 
@@ -37,8 +37,9 @@ export default async function handler(req: any, res: any) {
       throw new Error('Missing required parameters')
     }
 
+    const supabaseAuth = createAuthClient(req)
     // 1. Fetch transcript
-    const { data: transcriptData, error: transcriptError } = await supabaseAdmin
+    const { data: transcriptData, error: transcriptError } = await supabaseAuth
       .from('session_transcripts')
       .select('transcript')
       .eq('session_id', sessionId)
@@ -152,12 +153,12 @@ export default async function handler(req: any, res: any) {
 
     // 4. Save events
     if (eventsToInsert.length > 0) {
-      const { error: eventsError } = await supabaseAdmin.from('learning_events').insert(eventsToInsert)
+      const { error: eventsError } = await supabaseAuth.from('learning_events').insert(eventsToInsert)
       if (eventsError) throw new Error(`Database Error saving events: ${eventsError.message}`)
     }
 
     // 5. Update student profile
-    const { data: profile } = await supabaseAdmin.from('student_profiles').select('*').eq('student_id', patientId).single()
+    const { data: profile } = await supabaseAuth.from('student_profiles').select('*').eq('student_id', patientId).single()
     
     const weaknesses = profile ? profile.weaknesses : []
     const patterns = profile ? profile.learning_patterns : []
@@ -166,13 +167,13 @@ export default async function handler(req: any, res: any) {
     const newPatterns = [...new Set([...patterns, ...(analysis.learning_patterns || []).map((p: any) => p.pattern)])]
 
     if (profile) {
-      await supabaseAdmin.from('student_profiles').update({
+      await supabaseAuth.from('student_profiles').update({
         weaknesses: newWeaknesses,
         learning_patterns: newPatterns,
         last_updated: new Date()
       }).eq('student_id', patientId)
     } else {
-      await supabaseAdmin.from('student_profiles').insert([{
+      await supabaseAuth.from('student_profiles').insert([{
         student_id: patientId,
         psychologist_id: psychologistId,
         weaknesses: newWeaknesses,

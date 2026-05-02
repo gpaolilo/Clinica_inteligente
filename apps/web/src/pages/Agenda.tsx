@@ -18,6 +18,9 @@ export default function Agenda() {
   const [sessionsList, setSessionsList] = useState<SessionData[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [historyFilter, setHistoryFilter] = useState<'all' | '7' | '15' | '30' | 'custom'>('all')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
 
   const fetchAgenda = async () => {
     setLoading(true)
@@ -62,7 +65,25 @@ export default function Agenda() {
   }
 
   const upcomingSessions = sessionsList.filter(s => s.status === 'SCHEDULED')
-  const pastSessions = sessionsList.filter(s => s.status !== 'SCHEDULED')
+  
+  const pastSessions = sessionsList.filter(s => {
+    if (s.status === 'SCHEDULED') return false
+    if (historyFilter === 'all') return true
+    
+    const sessionDate = new Date(s.scheduled_date)
+    const now = new Date()
+    
+    if (historyFilter === 'custom') {
+      if (!customStart && !customEnd) return true
+      const sDate = customStart ? new Date(customStart + 'T00:00:00') : new Date(0)
+      const eDate = customEnd ? new Date(customEnd + 'T23:59:59') : new Date(8640000000000000)
+      return sessionDate >= sDate && sessionDate <= eDate
+    }
+    
+    const days = parseInt(historyFilter)
+    const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
+    return sessionDate >= cutoffDate && sessionDate <= now
+  })
 
   const renderSessionList = (list: SessionData[], emptyMessage: string) => {
     if (loading) return <div className="p-8 text-center text-slate-500">Carregando horários...</div>
@@ -164,10 +185,33 @@ export default function Agenda() {
         </div>
 
         <div>
-          <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
-            <svg className="w-6 h-6 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            Histórico de Sessões
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-4 space-y-3 sm:space-y-0">
+            <h3 className="text-xl font-bold text-slate-800 flex items-center">
+              <svg className="w-6 h-6 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Histórico de Sessões
+            </h3>
+            
+            <div className="flex items-center space-x-3">
+              {historyFilter === 'custom' && (
+                <div className="flex items-center space-x-2 mr-2">
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary-500" />
+                  <span className="text-slate-400 text-sm">até</span>
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary-500" />
+                </div>
+              )}
+              <select 
+                value={historyFilter} 
+                onChange={e => setHistoryFilter(e.target.value as any)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:border-primary-500 shadow-sm"
+              >
+                <option value="all">Todo o Histórico</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="15">Últimos 15 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="custom">Período Específico</option>
+              </select>
+            </div>
+          </div>
           <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
             {renderSessionList(pastSessions, "Nenhuma sessão no histórico.")}
           </div>

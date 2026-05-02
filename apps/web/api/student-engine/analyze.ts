@@ -11,6 +11,7 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
   "vocabulary_gaps": [
     { "missing_word": "string", "suggested_word": "string", "context": "string" }
   ],
+  "summary": "string (A 2-3 sentence summary of the student's performance)",
   "fluency": {
     "score": 0.8,
     "hesitation_examples": ["string"]
@@ -150,6 +151,22 @@ export default async function handler(req: any, res: any) {
         })
       }
     }
+
+    // Add Session Metrics
+    eventsToInsert.push({
+      session_id: sessionId,
+      psychologist_id: psychologistId,
+      patient_id: patientId,
+      event_type: 'session_metrics',
+      severity: 'low',
+      frequency: 1,
+      confidence: 1.0,
+      details: { 
+        fluency_score: Math.round((analysis.fluency?.score || 0.8) * 10),
+        confidence_score: Math.round(((analysis.learning_patterns?.[0]?.confidence || 0.8) * 10)),
+        summary: analysis.summary || "Aula focada em conversação e correção de pequenos desvios gramaticais."
+      }
+    })
 
     // 4. Save events
     if (eventsToInsert.length > 0) {

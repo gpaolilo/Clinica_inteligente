@@ -34,15 +34,47 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
              .order('created_at', { ascending: false })
            if (!error) setNotes(data || [])
          } else {
-           // Fetch Insights
-           const { data: iData, error: iErr } = await supabase.from('student_insights')
+           // Fetch Insights by grouping learning_events
+           const { data: eventsData, error: eventsErr } = await supabase.from('learning_events')
              .select('*, sessions!inner(scheduled_date)')
              .eq('patient_id', patient.id)
              .order('created_at', { ascending: false })
-           if (!iErr) setInsights(iData || [])
+             
+           if (!eventsErr && eventsData) {
+             const grouped = eventsData.reduce((acc: any, event: any) => {
+               if (!acc[event.session_id]) {
+                 acc[event.session_id] = {
+                   id: event.session_id,
+                   sessions: event.sessions,
+                   fluency_score: 'BOM',
+                   confidence_score: 'MÉDIO',
+                   summary: 'Análise extraída dos eventos de aprendizado da sessão.',
+                   grammar_errors: [],
+                   vocabulary_suggestions: [],
+                   next_actions: []
+                 }
+               }
+               if (event.event_type === 'session_metrics') {
+                  acc[event.session_id].fluency_score = event.details.fluency_score
+                  acc[event.session_id].confidence_score = event.details.confidence_score
+                  acc[event.session_id].summary = event.details.summary
+               }
+               if (event.event_type === 'grammar_error') {
+                 acc[event.session_id].grammar_errors.push(event.details)
+               }
+               if (event.event_type === 'vocabulary_gap') {
+                 acc[event.session_id].vocabulary_suggestions.push(event.details.suggested_word || event.details.missing_word)
+               }
+               if (event.event_type === 'context_need') {
+                 acc[event.session_id].next_actions.push(`Focar em: ${event.details.scenario}`)
+               }
+               return acc
+             }, {})
+             setInsights(Object.values(grouped))
+           }
            
            // Fetch Exercícios
-           const { data: eData, error: eErr } = await supabase.from('student_exercises')
+           const { data: eData, error: eErr } = await supabase.from('homework_plans')
              .select('*, sessions!inner(scheduled_date)')
              .eq('patient_id', patient.id)
              .order('created_at', { ascending: false })

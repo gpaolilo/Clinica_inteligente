@@ -139,12 +139,19 @@ export default function Agenda() {
                 >
                   Excluir
                 </button>
-                {s.status === 'SCHEDULED' && (
+                {s.status === 'SCHEDULED' ? (
                   <button 
                     onClick={() => navigate(`/dashboard/session/${s.id}`)}
                     className="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
                   >
                     Iniciar Sessão
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => navigate(`/dashboard/session/${s.id}`)}
+                    className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                  >
+                    Ver Sessão
                   </button>
                 )}
               </div>

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../_lib/supabase'
+import { supabaseAdmin } from '../_lib/supabase.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI homework generator.
 Based on the student's recent learning events (errors, gaps) and their overall profile, generate a personalized homework plan.

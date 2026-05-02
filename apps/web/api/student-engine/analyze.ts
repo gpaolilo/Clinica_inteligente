@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../_lib/supabase'
+import { supabaseAdmin } from '../_lib/supabase.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI learning analyst.
 Analyze the following lesson transcript and extract structured learning events. 

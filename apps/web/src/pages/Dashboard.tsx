@@ -133,57 +133,57 @@ export default function Dashboard() {
       </header>
 
       {/* Row 1 - Operational (3 Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-surface p-8 rounded-[32px] shadow-sm border border-slate-100 flex flex-col justify-between">
-          <div className="text-slate-500 text-sm font-bold tracking-wide uppercase mb-3">Clientes Ativos</div>
-          <div className="text-5xl font-black text-dark mb-4">{loadingStats ? '-' : basicStats.activePatients}</div>
-          <div className="text-xs font-bold text-dark mt-auto bg-neon inline-block px-3 py-1.5 rounded-full self-start">Na base</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div className="text-slate-500 text-xs font-bold tracking-wide uppercase mb-2">Clientes Ativos</div>
+          <div className="text-3xl font-black text-dark mb-3">{loadingStats ? '-' : basicStats.activePatients}</div>
+          <div className="text-[10px] font-bold text-dark mt-auto bg-neon/80 inline-block px-2.5 py-1 rounded-full self-start">Na base</div>
         </div>
         
-        <div className="bg-surface p-8 rounded-[32px] shadow-sm border border-slate-100 flex flex-col justify-between">
-          <div className="text-slate-500 text-sm font-bold tracking-wide uppercase mb-3">Sessões Hoje</div>
-          <div className="text-5xl font-black text-dark mb-4">{loadingStats ? '-' : basicStats.sessionsToday}</div>
-          <div className="text-xs font-bold text-dark mt-auto bg-slate-100 inline-block px-3 py-1.5 rounded-full self-start">Consultas marcadas</div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div className="text-slate-500 text-xs font-bold tracking-wide uppercase mb-2">Sessões Hoje</div>
+          <div className="text-3xl font-black text-dark mb-3">{loadingStats ? '-' : basicStats.sessionsToday}</div>
+          <div className="text-[10px] font-bold text-slate-600 mt-auto bg-slate-100 inline-block px-2.5 py-1 rounded-full self-start">Consultas marcadas</div>
         </div>
         
         <div 
           onClick={() => navigate('/dashboard/finance')}
-          className="bg-surface p-8 rounded-[32px] shadow-sm border border-rose-100 flex flex-col justify-between cursor-pointer hover:shadow-md transition-shadow group relative overflow-hidden"
+          className="bg-white p-5 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-between cursor-pointer hover:shadow-md transition-all group relative overflow-hidden"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <svg className="w-24 h-24 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <svg className="w-16 h-16 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
           </div>
-          <div className="text-rose-500 text-sm font-bold tracking-wide uppercase mb-3 z-10">Pagamentos Pendentes</div>
-          <div className="text-5xl font-black text-dark mb-4 z-10">{loadingStats ? '-' : basicStats.pendingPayments}</div>
-          <div className="text-xs text-white font-bold mt-auto bg-rose-500 inline-block px-3 py-1.5 rounded-full self-start z-10 group-hover:bg-rose-600">Ver Faturas Pendentes ➔</div>
+          <div className="text-rose-600 text-xs font-bold tracking-wide uppercase mb-2 z-10">Pagamentos Pendentes</div>
+          <div className="text-3xl font-black text-dark mb-3 z-10">{loadingStats ? '-' : basicStats.pendingPayments}</div>
+          <div className="text-[10px] text-white font-bold mt-auto bg-rose-500 inline-block px-2.5 py-1 rounded-full self-start z-10 group-hover:bg-rose-600">Ver Faturas ➔</div>
         </div>
       </div>
 
-      {/* Row 2 - Financial KPIs (4 Cards) com Design Dark/Neon */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Row 2 - Financial KPIs (4 Cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         
-        <div className="bg-dark p-6 rounded-[32px] shadow-md flex flex-col justify-between relative overflow-hidden">
-          <div className="text-slate-400 text-xs font-bold tracking-wide uppercase mb-2 z-10">Receita Mês Atual</div>
-          <div className="text-3xl font-black text-neon mb-3 z-10">R$ {loadingKpis ? '-' : kpis.expected_revenue.toFixed(2)}</div>
-          <div className="text-[10px] text-dark font-bold mt-auto bg-white/90 inline-block px-2 py-1 rounded-full self-start z-10">Realizada e Agendada</div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between relative overflow-hidden">
+          <div className="text-slate-500 text-xs font-bold tracking-wide uppercase mb-2 z-10">Receita Mês Atual</div>
+          <div className="text-2xl font-black text-emerald-600 mb-3 z-10">R$ {loadingKpis ? '-' : kpis.expected_revenue.toFixed(2)}</div>
+          <div className="text-[10px] text-emerald-700 font-bold mt-auto bg-emerald-50 inline-block px-2.5 py-1 rounded-full self-start z-10">Realizada e Agendada</div>
         </div>
 
-        <div className="bg-dark p-6 rounded-[32px] shadow-md flex flex-col justify-between relative overflow-hidden">
-          <div className="text-slate-400 text-xs font-bold tracking-wide uppercase mb-2 z-10">Receita Mês Passado</div>
-          <div className="text-3xl font-black text-white mb-3 z-10">R$ {loadingKpis ? '-' : kpis.last_month_revenue.toFixed(2)}</div>
-          <div className="text-[10px] text-slate-800 font-bold mt-auto bg-slate-200 inline-block px-2 py-1 rounded-full self-start z-10">Total Completado</div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between relative overflow-hidden">
+          <div className="text-slate-500 text-xs font-bold tracking-wide uppercase mb-2 z-10">Receita Mês Passado</div>
+          <div className="text-2xl font-black text-slate-700 mb-3 z-10">R$ {loadingKpis ? '-' : kpis.last_month_revenue.toFixed(2)}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-auto bg-slate-100 inline-block px-2.5 py-1 rounded-full self-start z-10">Total Completado</div>
         </div>
 
-        <div className="bg-surface p-6 rounded-[32px] shadow-sm border border-slate-100 flex flex-col justify-between relative overflow-hidden">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between relative overflow-hidden">
           <div className="text-slate-500 text-xs font-bold tracking-wide uppercase mb-2">Ticket Médio</div>
-          <div className="text-3xl font-black text-slate-700 mb-3">R$ {loadingKpis ? '-' : kpis.average_revenue.toFixed(2)}</div>
-          <div className="text-[10px] text-slate-500 font-bold mt-auto bg-slate-100 inline-block px-2 py-1 rounded-full self-start">Por Sessão</div>
+          <div className="text-2xl font-black text-slate-700 mb-3">R$ {loadingKpis ? '-' : kpis.average_revenue.toFixed(2)}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-auto bg-slate-100 inline-block px-2.5 py-1 rounded-full self-start">Por Sessão</div>
         </div>
 
-        <div className="bg-gradient-to-br from-primary-50 to-neon p-6 rounded-[32px] shadow-sm border border-neon flex flex-col justify-between relative overflow-hidden">
-          <div className="text-primary-800 text-xs font-bold tracking-wide uppercase mb-2">Potencial de Ociosidade</div>
-          <div className="text-3xl font-black text-dark mb-3">R$ {loadingKpis ? '-' : kpis.potential_revenue.toFixed(2)}</div>
-          <div className="text-[10px] text-white font-bold mt-auto bg-dark inline-block px-2 py-1 rounded-full self-start">Oportunidade p/ Vender</div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between relative overflow-hidden">
+          <div className="text-slate-500 text-xs font-bold tracking-wide uppercase mb-2">Potencial de Ociosidade</div>
+          <div className="text-2xl font-black text-slate-700 mb-3">R$ {loadingKpis ? '-' : kpis.potential_revenue.toFixed(2)}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-auto bg-slate-100 inline-block px-2.5 py-1 rounded-full self-start">Oportunidade p/ Vender</div>
         </div>
       </div>
 

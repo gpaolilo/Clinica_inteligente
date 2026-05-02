@@ -44,6 +44,19 @@ export default function Patients() {
     fetchPatients()
   }
 
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir o cliente ${name}?`)) {
+      setLoading(true)
+      const { error } = await supabase.from('patients').delete().eq('id', id)
+      if (error) {
+        alert('Erro ao excluir cliente. Pode haver dados atrelados a ele. (' + error.message + ')')
+        setLoading(false)
+      } else {
+        fetchPatients()
+      }
+    }
+  }
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -131,8 +144,11 @@ export default function Patients() {
                           Solicitar LGPD
                         </button>
                       )}
-                      <button onClick={() => openModal(p)} className="text-primary-600 hover:text-primary-800 font-medium text-sm transition-colors">
+                      <button onClick={() => openModal(p)} className="mr-4 text-primary-600 hover:text-primary-800 font-medium text-sm transition-colors">
                         Detalhes
+                      </button>
+                      <button onClick={() => handleDelete(p.id, p.name)} className="text-rose-600 hover:text-rose-800 font-medium text-sm transition-colors">
+                        Excluir
                       </button>
                     </td>
                   </tr>

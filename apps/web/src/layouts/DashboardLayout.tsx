@@ -83,12 +83,6 @@ export default function DashboardLayout() {
           <Link to="/dashboard/finance" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
             Módulo Financeiro
           </Link>
-          <div className="pt-6 pb-2">
-             <span className="px-4 text-xs font-bold text-slate-300 tracking-wider uppercase">Preferências</span>
-          </div>
-          <Link to="/dashboard/settings" className="flex items-center px-4 py-3.5 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 hover:text-dark transition-colors">
-            Configurações
-          </Link>
         </nav>
 
         <div className="mt-auto">
@@ -103,16 +97,6 @@ export default function DashboardLayout() {
                 + Nova Sessão
               </Link>
             </div>
-          </div>
-
-          <div className="px-2">
-            <button 
-              onClick={signOut}
-              className="w-full flex items-center px-4 py-3 text-sm font-semibold rounded-full text-rose-500 hover:bg-rose-50 transition-colors"
-            >
-              <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-              Encerrar Sessão
-            </button>
           </div>
         </div>
       </aside>

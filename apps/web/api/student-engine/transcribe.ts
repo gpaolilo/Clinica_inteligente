@@ -20,7 +20,12 @@ export default async function handler(req: any, res: any) {
         'authorization': assemblyAiKey,
         'content-type': 'application/json'
       },
-      body: JSON.stringify({ audio_url: audioUrl })
+      body: JSON.stringify({ 
+        audio_url: audioUrl,
+        language_code: 'en',
+        speech_models: ['universal-2'],
+        speaker_labels: true
+      })
     })
     const submitData = await submitRes.json()
 
@@ -42,23 +47,28 @@ export default async function handler(req: any, res: any) {
     }
 
     // 3. Save to database
-    const words = transcriptData.words.map((w: any) => ({
+    const words = transcriptData.words ? transcriptData.words.map((w: any) => ({
       word: w.text,
       start: w.start,
       end: w.end
-    }))
+    })) : []
+
+    let formattedTranscript = transcriptData.text
+    if (transcriptData.utterances && transcriptData.utterances.length > 0) {
+      formattedTranscript = transcriptData.utterances.map((u: any) => `Speaker ${u.speaker}: ${u.text}`).join('\n')
+    }
 
     const { error: dbError } = await supabaseAdmin.from('session_transcripts').insert([{
       session_id: sessionId,
       psychologist_id: psychologistId,
       patient_id: patientId,
-      transcript: transcriptData.text,
+      transcript: formattedTranscript,
       words: words
     }])
 
     if (dbError) throw new Error(`Database Error: ${dbError.message}`)
 
-    res.status(200).json({ success: true, transcript: transcriptData.text })
+    res.status(200).json({ success: true, transcript: formattedTranscript })
 
   } catch (err: any) {
     res.status(400).json({ error: err.message })

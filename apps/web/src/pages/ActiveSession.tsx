@@ -17,6 +17,7 @@ export default function ActiveSession() {
   const [clinicalNote, setClinicalNote] = useState<string>("")
   const [isSigned, setIsSigned] = useState(false)
   const [aiReportReady, setAiReportReady] = useState(false)
+  const [uploadedAudio, setUploadedAudio] = useState<File | null>(null)
 
   // Formatador de tempo (00:00)
   const formatTime = (sec: number) => {
@@ -67,7 +68,8 @@ export default function ActiveSession() {
   }, [id, processingState, sessionData])
 
   const handleProcessAudio = async () => {
-    if (!audioBlob || !session || !id || !sessionData) return
+    const audioToProcess = audioBlob || uploadedAudio
+    if (!audioToProcess || !session || !id || !sessionData) return
     setProcessingState('UPLOADING')
 
     try {
@@ -88,7 +90,7 @@ export default function ActiveSession() {
       const uploadRes = await fetch('https://api.assemblyai.com/v2/upload', {
         method: 'POST',
         headers: assemHeaders,
-        body: audioBlob
+        body: audioToProcess
       })
       if (!uploadRes.ok) throw new Error("AssemblyAI Upload falhou.")
       const { upload_url } = await uploadRes.json()
@@ -133,7 +135,7 @@ export default function ActiveSession() {
         const uploadRes = await fetch('https://api.assemblyai.com/v2/upload', {
           method: 'POST',
           headers: assemHeaders,
-          body: audioBlob
+          body: audioToProcess
         })
         if (!uploadRes.ok) throw new Error("AssemblyAI Upload falhou.")
         const { upload_url } = await uploadRes.json()
@@ -267,12 +269,40 @@ export default function ActiveSession() {
                       Pausar Gravação
                     </button>
                   ) : (
-                    <button onClick={startRecording} className={`w-full py-3 text-dark font-bold rounded-full transition-all shadow-sm ${isAluno ? 'bg-blue-300 hover:bg-blue-400' : 'bg-neon hover:bg-[#c4f83b]'}`}>
-                      {audioBlob ? 'Regravar Áudio' : 'Iniciar Sessão'}
-                    </button>
+                    <>
+                      <button onClick={startRecording} className={`w-full py-3 text-dark font-bold rounded-full transition-all shadow-sm ${isAluno ? 'bg-blue-300 hover:bg-blue-400' : 'bg-neon hover:bg-[#c4f83b]'}`}>
+                        {audioBlob ? 'Regravar Áudio' : 'Gravar Sessão'}
+                      </button>
+                      
+                      {!audioBlob && (
+                        <label className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-slate-400 text-slate-500 font-bold rounded-full transition-all flex items-center justify-center cursor-pointer">
+                          <input 
+                            type="file" 
+                            accept="audio/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setUploadedAudio(e.target.files[0])
+                              }
+                            }}
+                          />
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                          Upload de Áudio
+                        </label>
+                      )}
+
+                      {uploadedAudio && !audioBlob && (
+                         <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+                           <span className="text-sm text-slate-600 truncate mr-2">{uploadedAudio.name}</span>
+                           <button onClick={() => setUploadedAudio(null)} className="text-red-500 hover:text-red-700">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                           </button>
+                         </div>
+                      )}
+                    </>
                   )}
 
-                  {audioBlob && !isRecording && (
+                  {(audioBlob || uploadedAudio) && !isRecording && (
                     <button onClick={handleProcessAudio} className="w-full py-3 bg-dark hover:bg-black text-white font-bold rounded-full transition-all shadow-md mt-4 flex items-center justify-center">
                       <svg className="w-5 h-5 mr-2 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                       {isAluno ? 'Gerar Insights (Engine)' : 'Gerar Evolução (IA)'}

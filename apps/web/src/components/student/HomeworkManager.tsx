@@ -80,18 +80,20 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
                 )}>
                   {ex.type}
                 </span>
-                <h4 className="font-bold text-gray-900">{ex.title}</h4>
+                <h4 className="font-bold text-gray-900">Exercício de Fixação</h4>
               </div>
               <button className="text-gray-300 hover:text-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Edit3 className="w-4 h-4" />
               </button>
             </div>
             
-            <p className="text-sm text-gray-700 mb-4">{ex.instruction}</p>
+            <p className="text-sm text-gray-700 mb-4">{ex.question}</p>
             
-            <div className="bg-gray-50 rounded-xl p-4 text-sm font-medium text-gray-800 border-l-4 border-lime-400">
-              <span className="text-xs font-bold text-gray-400 block mb-1">Exemplo / Contexto</span>
-              {ex.example}
+            <div className="bg-gray-50 rounded-xl p-4 text-sm font-medium text-gray-800 border-l-4 border-lime-400 mt-4">
+              <span className="text-xs font-bold text-emerald-600 block mb-1">Gabarito:</span>
+              <p className="mb-2">{ex.answer}</p>
+              <span className="text-xs font-bold text-gray-500 block mb-1">Explicação:</span>
+              <p className="text-xs text-gray-600">{ex.explanation}</p>
             </div>
           </div>
         ))}

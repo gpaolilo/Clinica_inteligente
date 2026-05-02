@@ -304,11 +304,19 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                   {exercises.map(exGroup => (
                     <div key={exGroup.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
                       <div className="mb-4 pb-4 border-b border-slate-100 flex justify-between items-center">
-                         <h4 className="text-base font-bold text-slate-800">Prática Pós-Sessão</h4>
-                         <span className="text-xs font-semibold text-slate-500">{new Date(exGroup.sessions.scheduled_date).toLocaleDateString()}</span>
+                         <div>
+                           <h4 className="text-base font-bold text-slate-800">Prática Pós-Sessão</h4>
+                           <span className="text-xs font-semibold text-slate-500">{new Date(exGroup.sessions.scheduled_date).toLocaleDateString()}</span>
+                         </div>
+                         <button 
+                            onClick={() => window.print()}
+                            className="text-xs font-bold bg-dark text-neon hover:bg-black px-4 py-2 rounded-full shadow-sm transition-all"
+                         >
+                            Exportar PDF
+                         </button>
                       </div>
                       
-                      <div className="space-y-6">
+                      <div className="space-y-6 print:space-y-4">
                          {Array.isArray(exGroup.exercises) && exGroup.exercises.map((e:any, idx:number) => (
                            <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                              <div className="flex justify-between items-start mb-2">

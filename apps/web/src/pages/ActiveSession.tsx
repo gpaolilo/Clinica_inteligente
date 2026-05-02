@@ -35,8 +35,8 @@ export default function ActiveSession() {
       if (sessData) setSessionData(sessData)
 
       if (sessData?.patient?.client_type === 'ALUNO') {
-        const { data: insightData } = await supabase.from('student_insights').select('summary').eq('session_id', id).maybeSingle()
-        if (insightData) {
+        const { data: eventsData } = await supabase.from('learning_events').select('id').eq('session_id', id).limit(1)
+        if (eventsData && eventsData.length > 0) {
            setClinicalNote("Relatório de Insights e Exercícios já foram extraídos pelas IAs.")
            setAiReportReady(true)
            setProcessingState('DONE')

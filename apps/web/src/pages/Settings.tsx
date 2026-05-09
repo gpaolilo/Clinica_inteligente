@@ -1,4 +1,20 @@
+import { useGoogleLogin } from '@react-oauth/google'
+import { useGoogleStore } from '../stores/googleStore'
+
 export default function Settings() {
+  const { accessToken, setAccessToken } = useGoogleStore()
+
+  const login = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      setAccessToken(tokenResponse.access_token)
+      alert('Google Calendar conectado com sucesso!')
+    },
+    onError: () => {
+      alert('Falha ao conectar com o Google Calendar')
+    },
+    scope: 'https://www.googleapis.com/auth/calendar.events'
+  })
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
@@ -41,15 +57,30 @@ export default function Settings() {
         {/* Google Calendar */}
         <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between hover:shadow-md transition-shadow">
           <div className="mb-4 sm:mb-0">
-            <h3 className="text-lg font-bold text-slate-800 mb-1">Google Calendar</h3>
+            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center">
+              Google Calendar
+              {accessToken && <span className="ml-3 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">CONECTADO</span>}
+            </h3>
             <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
-              Sincronização bidirecional Webhook. Adicione eventos ou bloqueios visuais na sua conta do Google e nós bloquearemos na Clínica, evitando conflitos duplo-agendamentos.
+              Sincronização com o Google Calendar. Crie e apague eventos da sua agenda diretamente do aplicativo.
             </p>
           </div>
-          <button className="border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center bg-white shadow-sm">
-            <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"/></svg>
-            Conectar Conta Google
-          </button>
+          {accessToken ? (
+            <button 
+              onClick={() => setAccessToken(null)}
+              className="border border-rose-300 hover:bg-rose-50 text-rose-700 font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center bg-white shadow-sm"
+            >
+              Desconectar
+            </button>
+          ) : (
+            <button 
+              onClick={() => login()}
+              className="border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center bg-white shadow-sm"
+            >
+              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"/></svg>
+              Conectar Conta Google
+            </button>
+          )}
         </section>
       </div>
     </div>

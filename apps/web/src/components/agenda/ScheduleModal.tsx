@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { useGoogleStore } from '../../stores/googleStore'
-import { useGoogleLogin } from '@react-oauth/google'
 
 export default function ScheduleModal({ onClose, onSaved }: any) {
   const { session } = useAuthStore()
@@ -24,7 +23,7 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
     fetchSelectablePatients()
   }, [])
 
-  const createEventAndSave = async (token: string) => {
+  const createEventAndSave = async (token: string | null) => {
     try {
       if (!session || !patientId) return;
       const psychologist_id = session.user.id;
@@ -35,32 +34,32 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
       const scheduled_date = startDateTime.toISOString()
       const patient = patients.find(p => p.id === patientId)
       
-      // 1. Criar no Google Calendar
-      const gcalResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          summary: `Sessão com ${patient?.name || 'Paciente'}`,
-          description: 'Sessão agendada via Clinica.ia',
-          start: { dateTime: scheduled_date },
-          end: { dateTime: endDateTime.toISOString() }
-        })
-      })
-      
       let google_event_id = null
       
-      if (gcalResponse.ok) {
-        const event = await gcalResponse.json()
-        google_event_id = event.id
-      } else if (gcalResponse.status === 401 || gcalResponse.status === 403) {
-        // Token expirado ou sem permissão
-        setAccessToken(null)
-        alert('Autorização do Google expirou. Por favor, tente agendar novamente.')
-        setIsSubmitting(false)
-        return
+      // 1. Criar no Google Calendar SE tiver token
+      if (token) {
+        const gcalResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            summary: `Sessão com ${patient?.name || 'Paciente'}`,
+            description: 'Sessão agendada via Clinica.ia',
+            start: { dateTime: scheduled_date },
+            end: { dateTime: endDateTime.toISOString() }
+          })
+        })
+        
+        if (gcalResponse.ok) {
+          const event = await gcalResponse.json()
+          google_event_id = event.id
+        } else if (gcalResponse.status === 401 || gcalResponse.status === 403) {
+          // Token expirado ou sem permissão
+          setAccessToken(null)
+          alert('Aviso: Sua conexão com o Google Calendar expirou. A sessão será agendada apenas no aplicativo. Reconecte nas configurações.')
+        }
       }
       
       // 2. Salvar no Supabase
@@ -82,29 +81,12 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
     }
   }
 
-  const loginAndCreate = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
-      setAccessToken(tokenResponse.access_token)
-      createEventAndSave(tokenResponse.access_token)
-    },
-    onError: () => {
-      alert('Falha ao conectar com o Google Calendar')
-      setIsSubmitting(false)
-    },
-    scope: 'https://www.googleapis.com/auth/calendar.events'
-  })
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     
-    if (accessToken) {
-      // Tentar usar o token existente
-      createEventAndSave(accessToken)
-    } else {
-      // Pedir autorização primeiro
-      loginAndCreate()
-    }
+    // Tenta criar (vai enviar pro Google apenas se tiver token)
+    createEventAndSave(accessToken)
   }
 
   return (

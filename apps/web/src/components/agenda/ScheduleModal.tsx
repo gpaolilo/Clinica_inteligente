@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { useGoogleStore } from '../../stores/googleStore'
+import { useGoogleLogin } from '@react-oauth/google'
 
 export default function ScheduleModal({ onClose, onSaved }: any) {
   const { session } = useAuthStore()
@@ -12,6 +13,7 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
   const [price, setPrice] = useState('150.00')
   const [patients, setPatients] = useState<any[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isTokenExpired, setIsTokenExpired] = useState(false)
 
   useEffect(() => {
     // Carregar a lista de pacientes ativos do profissional
@@ -58,7 +60,9 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
         } else if (gcalResponse.status === 401 || gcalResponse.status === 403) {
           // Token expirado ou sem permissão
           setAccessToken(null)
-          alert('Aviso: Sua conexão com o Google Calendar expirou. A sessão será agendada apenas no aplicativo. Reconecte nas configurações.')
+          setIsTokenExpired(true)
+          setIsSubmitting(false)
+          return // Pausa o fluxo para o usuário escolher o que fazer
         }
       }
       
@@ -80,6 +84,20 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
       setIsSubmitting(false)
     }
   }
+
+  const loginAndRetry = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      setAccessToken(tokenResponse.access_token)
+      setIsTokenExpired(false)
+      setIsSubmitting(true)
+      createEventAndSave(tokenResponse.access_token)
+    },
+    onError: () => {
+      alert('Falha ao reconectar com o Google Calendar')
+      setIsSubmitting(false)
+    },
+    scope: 'https://www.googleapis.com/auth/calendar.events'
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -129,9 +147,34 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
           </div>
           <div className="pt-4 flex justify-end space-x-3">
             <button type="button" onClick={onClose} className="px-5 py-2 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
-            <button type="submit" disabled={!patientId || !date || !time || isSubmitting} className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg shadow-sm disabled:opacity-50 transition-colors">
-              {isSubmitting ? 'Agendando...' : 'Confirmar Agendamento'}
-            </button>
+            
+            {isTokenExpired ? (
+              <>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsTokenExpired(false)
+                    setIsSubmitting(true)
+                    createEventAndSave(null)
+                  }} 
+                  className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg shadow-sm transition-colors"
+                >
+                  Salvar sem Google
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => loginAndRetry()} 
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"/></svg>
+                  Reconectar Google
+                </button>
+              </>
+            ) : (
+              <button type="submit" disabled={!patientId || !date || !time || isSubmitting} className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg shadow-sm disabled:opacity-50 transition-colors">
+                {isSubmitting ? 'Agendando...' : 'Confirmar Agendamento'}
+              </button>
+            )}
           </div>
         </form>
       </div>

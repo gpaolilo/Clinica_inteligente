@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import PatientModal from '../components/patients/PatientModal'
 import { useAuthStore } from '../stores/authStore'
@@ -15,6 +16,7 @@ interface Patient {
 
 export default function Patients() {
   const { session } = useAuthStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -33,6 +35,14 @@ export default function Patients() {
   useEffect(() => {
     if (session) fetchPatients()
   }, [session])
+
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setIsModalOpen(true)
+      searchParams.delete('new')
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const openModal = (patient?: Patient) => {
     setEditingPatient(patient || null)

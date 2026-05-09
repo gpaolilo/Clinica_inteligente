@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import ScheduleModal from '../components/agenda/ScheduleModal'
@@ -15,6 +15,7 @@ interface SessionData {
 export default function Agenda() {
   const { session } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [sessionsList, setSessionsList] = useState<SessionData[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -44,6 +45,14 @@ export default function Agenda() {
   useEffect(() => {
     if (session) fetchAgenda()
   }, [session])
+
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setIsModalOpen(true)
+      searchParams.delete('new')
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const openModal = () => setIsModalOpen(true)
   const handleSaved = () => {

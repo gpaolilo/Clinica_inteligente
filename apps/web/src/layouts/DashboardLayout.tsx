@@ -102,10 +102,10 @@ export default function DashboardLayout() {
           <aside className="bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all shrink-0">
             <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4 px-2">QUICK ACTIONS</h3>
             <div className="space-y-3">
-              <Link to="/dashboard/agenda" className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm">
+              <Link to="/dashboard/agenda?new=true" className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm">
                 + Nova Sessão
               </Link>
-              <Link to="/dashboard/patients" className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all shadow-sm">
+              <Link to="/dashboard/patients?new=true" className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all shadow-sm">
                 + Novo Cliente
               </Link>
             </div>

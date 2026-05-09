@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
+import { useGoogleStore } from '../stores/googleStore'
 import ScheduleModal from '../components/agenda/ScheduleModal'
 
 interface SessionData {
@@ -9,6 +10,7 @@ interface SessionData {
   scheduled_date: string
   status: string
   price: number
+  google_event_id?: string
   patient: { id: string, name: string }
 }
 
@@ -33,6 +35,7 @@ export default function Agenda() {
         scheduled_date, 
         status, 
         price, 
+        google_event_id,
         patient:patients (id, name)
       `)
       .order('scheduled_date', { ascending: true })
@@ -60,9 +63,26 @@ export default function Agenda() {
     fetchAgenda()
   }
 
-  const handleDelete = async (id: string) => {
+  const { accessToken } = useGoogleStore()
+
+  const handleDelete = async (id: string, google_event_id?: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta sessão?')) {
       setLoading(true)
+      
+      // Se houver ID do Google Calendar e o token estiver válido, tenta excluir lá também
+      if (google_event_id && accessToken) {
+        try {
+          await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${google_event_id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          })
+        } catch (err) {
+          console.error('Erro ao excluir no Google Calendar:', err)
+        }
+      }
+
       const { error } = await supabase.from('sessions').delete().eq('id', id)
       if (error) {
         alert('Erro ao excluir sessão. (' + error.message + ')')
@@ -143,7 +163,7 @@ export default function Agenda() {
 
               <div className="flex items-center space-x-4">
                 <button 
-                  onClick={() => handleDelete(s.id)}
+                  onClick={() => handleDelete(s.id, s.google_event_id)}
                   className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors"
                 >
                   Excluir

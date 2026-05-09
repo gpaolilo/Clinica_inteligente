@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
+import { useGoogleStore } from '../../stores/googleStore'
+import { useGoogleLogin } from '@react-oauth/google'
 
 export default function ScheduleModal({ onClose, onSaved }: any) {
   const { session } = useAuthStore()
+  const { accessToken, setAccessToken } = useGoogleStore()
   const [patientId, setPatientId] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [price, setPrice] = useState('150.00')
   const [patients, setPatients] = useState<any[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     // Carregar a lista de pacientes ativos do profissional
@@ -20,23 +24,87 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
     fetchSelectablePatients()
   }, [])
 
+  const createEventAndSave = async (token: string) => {
+    try {
+      if (!session || !patientId) return;
+      const psychologist_id = session.user.id;
+      
+      const startDateTime = new Date(`${date}T${time}`)
+      const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000) // +1 hora
+      
+      const scheduled_date = startDateTime.toISOString()
+      const patient = patients.find(p => p.id === patientId)
+      
+      // 1. Criar no Google Calendar
+      const gcalResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          summary: `Sessão com ${patient?.name || 'Paciente'}`,
+          description: 'Sessão agendada via Clinica.ia',
+          start: { dateTime: scheduled_date },
+          end: { dateTime: endDateTime.toISOString() }
+        })
+      })
+      
+      let google_event_id = null
+      
+      if (gcalResponse.ok) {
+        const event = await gcalResponse.json()
+        google_event_id = event.id
+      } else if (gcalResponse.status === 401 || gcalResponse.status === 403) {
+        // Token expirado ou sem permissão
+        setAccessToken(null)
+        alert('Autorização do Google expirou. Por favor, tente agendar novamente.')
+        setIsSubmitting(false)
+        return
+      }
+      
+      // 2. Salvar no Supabase
+      await supabase.from('sessions').insert([{ 
+        psychologist_id, 
+        patient_id: patientId, 
+        scheduled_date, 
+        price: parseFloat(price),
+        status: 'SCHEDULED',
+        google_event_id
+      }])
+      
+      onSaved()
+    } catch (err) {
+      console.error(err)
+      alert('Erro ao criar sessão')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const loginAndCreate = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      setAccessToken(tokenResponse.access_token)
+      createEventAndSave(tokenResponse.access_token)
+    },
+    onError: () => {
+      alert('Falha ao conectar com o Google Calendar')
+      setIsSubmitting(false)
+    },
+    scope: 'https://www.googleapis.com/auth/calendar.events'
+  })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!session || !patientId) return;
+    setIsSubmitting(true)
     
-    const psychologist_id = session.user.id;
-    // Formatando Data do tipo 'YYYY-MM-DDTHH:MM' 
-    const scheduled_date = new Date(`${date}T${time}`).toISOString()
-    
-    await supabase.from('sessions').insert([{ 
-      psychologist_id, 
-      patient_id: patientId, 
-      scheduled_date, 
-      price: parseFloat(price),
-      status: 'SCHEDULED'
-    }])
-    
-    onSaved()
+    if (accessToken) {
+      // Tentar usar o token existente
+      createEventAndSave(accessToken)
+    } else {
+      // Pedir autorização primeiro
+      loginAndCreate()
+    }
   }
 
   return (
@@ -79,7 +147,9 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
           </div>
           <div className="pt-4 flex justify-end space-x-3">
             <button type="button" onClick={onClose} className="px-5 py-2 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
-            <button type="submit" disabled={!patientId || !date || !time} className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg shadow-sm disabled:opacity-50 transition-colors">Confirmar Agendamento</button>
+            <button type="submit" disabled={!patientId || !date || !time || isSubmitting} className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg shadow-sm disabled:opacity-50 transition-colors">
+              {isSubmitting ? 'Agendando...' : 'Confirmar Agendamento'}
+            </button>
           </div>
         </form>
       </div>

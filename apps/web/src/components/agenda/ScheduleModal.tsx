@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { useGoogleStore } from '../../stores/googleStore'
 import { useGoogleLogin } from '@react-oauth/google'
+import { syncPendingSessions } from '../../lib/googleSync'
 
 export default function ScheduleModal({ onClose, onSaved }: any) {
   const { session } = useAuthStore()
@@ -86,10 +87,17 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
   }
 
   const loginAndRetry = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
+    onSuccess: async (tokenResponse) => {
       setAccessToken(tokenResponse.access_token)
       setIsTokenExpired(false)
       setIsSubmitting(true)
+      
+      // Sincroniza sessões antigas em background
+      if (session?.user?.id) {
+        syncPendingSessions(tokenResponse.access_token, session.user.id)
+      }
+      
+      // Salva a nova sessão e cria no google
       createEventAndSave(tokenResponse.access_token)
     },
     onError: () => {

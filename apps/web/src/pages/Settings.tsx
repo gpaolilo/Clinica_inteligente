@@ -1,13 +1,19 @@
 import { useGoogleLogin } from '@react-oauth/google'
 import { useGoogleStore } from '../stores/googleStore'
+import { useAuthStore } from '../stores/authStore'
+import { syncPendingSessions } from '../lib/googleSync'
 
 export default function Settings() {
   const { accessToken, setAccessToken } = useGoogleStore()
+  const { session } = useAuthStore()
 
   const login = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
+    onSuccess: async (tokenResponse) => {
       setAccessToken(tokenResponse.access_token)
-      alert('Google Calendar conectado com sucesso!')
+      alert('Google Calendar conectado com sucesso! Iniciando sincronização das próximas sessões...')
+      if (session?.user?.id) {
+        await syncPendingSessions(tokenResponse.access_token, session.user.id)
+      }
     },
     onError: () => {
       alert('Falha ao conectar com o Google Calendar')

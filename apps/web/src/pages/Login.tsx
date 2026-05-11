@@ -15,7 +15,7 @@ export default function Login() {
 
   useEffect(() => {
     // Detecta se o usuário clicou em um link de recuperação de senha
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setView('UPDATE_PASSWORD')
         setError(null)

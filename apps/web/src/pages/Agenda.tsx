@@ -15,7 +15,7 @@ interface SessionData {
 }
 
 export default function Agenda() {
-  const { session } = useAuthStore()
+  const { session, role } = useAuthStore()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [sessionsList, setSessionsList] = useState<SessionData[]>([])
@@ -27,7 +27,7 @@ export default function Agenda() {
 
   const fetchAgenda = async () => {
     setLoading(true)
-    // Buscando as sessões em join explícito com o nome do paciente
+    // Buscando as sessões em join explícito com inner para filtrar o tipo de cliente
     const { data } = await supabase
       .from('sessions')
       .select(`
@@ -36,11 +36,11 @@ export default function Agenda() {
         status, 
         price, 
         google_event_id,
-        patient:patients (id, name)
+        patient:patients!inner (id, name, client_type)
       `)
+      .eq('patient.client_type', role === 'TEACHER' ? 'ALUNO' : 'PACIENTE')
       .order('scheduled_date', { ascending: true })
     
-    // Note: Supondo o cast já que o Postgres garante 1:1 nesse request de foreign key
     setSessionsList(data as any || [])
     setLoading(false)
   }
@@ -205,7 +205,7 @@ export default function Agenda() {
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
-          Agendar Consulta
+          {role === 'TEACHER' ? 'Agendar Aula' : 'Agendar Consulta'}
         </button>
       </div>
 
@@ -213,7 +213,7 @@ export default function Agenda() {
         <div>
           <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
             <svg className="w-6 h-6 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            Próximas Sessões
+            Próximas {role === 'TEACHER' ? 'Aulas' : 'Sessões'}
           </h3>
           <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
             {renderSessionList(upcomingSessions, "Nenhuma sessão agendada para os próximos dias.")}

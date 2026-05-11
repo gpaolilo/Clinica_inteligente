@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 
 export default function PatientModal({ patient, onClose, onSaved }: any) {
-  const { session } = useAuthStore()
+  const { session, role } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'DATA' | 'NOTES' | 'INSIGHTS' | 'EXERCISES'>('DATA')
   const [name, setName] = useState(patient?.name || '')
   const [email, setEmail] = useState(patient?.email || '')
@@ -11,7 +11,9 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
   const [status, setStatus] = useState(patient?.status || 'ACTIVE')
   
   // Novos estados do PRD de Alunos
-  const [clientType, setClientType] = useState<'PACIENTE'|'ALUNO'>(patient?.client_type || 'PACIENTE')
+  const [clientType, setClientType] = useState<'PACIENTE'|'ALUNO'>(
+    patient?.client_type || (role === 'TEACHER' ? 'ALUNO' : 'PACIENTE')
+  )
   const [studentLevel, setStudentLevel] = useState(patient?.student_level || '')
   const [studentGoal, setStudentGoal] = useState(patient?.student_goal || '')
 
@@ -105,7 +107,24 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
     if (patient) {
       await supabase.from('patients').update(payload).eq('id', patient.id)
     } else {
-      await supabase.from('patients').insert([{ ...payload, psychologist_id }])
+      const { data, error } = await supabase.from('patients').insert([{ ...payload, psychologist_id }]).select('id').single()
+      
+      // Enviar convite via API se email fornecido
+      if (!error && email && data?.id) {
+        try {
+          await fetch('/api/invite-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              name: name,
+              role: clientType === 'ALUNO' ? 'STUDENT' : 'PATIENT'
+            })
+          })
+        } catch (apiErr) {
+          console.error("Erro ao enviar convite", apiErr)
+        }
+      }
     }
     onSaved()
   }
@@ -117,7 +136,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
         {/* Header com Abas */}
         <div className="px-8 py-5 flex justify-between items-center bg-white border-b border-slate-100">
           <div className="flex items-center space-x-6">
-            <h3 className="text-2xl font-bold text-dark tracking-tight">{patient ? 'Detalhes do Cliente' : 'Novo Cliente'}</h3>
+            <h3 className="text-2xl font-bold text-dark tracking-tight">{patient ? 'Detalhes do Cliente' : (role === 'TEACHER' ? 'Novo Aluno' : 'Novo Paciente')}</h3>
             {patient && (
                <div className="flex p-1 bg-background rounded-full border border-slate-100 overflow-x-auto max-w-[340px] md:max-w-none">
                  <button onClick={() => setActiveTab('DATA')} className={`px-4 py-2 text-sm font-bold rounded-full transition-colors whitespace-nowrap ${activeTab === 'DATA' ? 'bg-neon text-dark shadow-sm' : 'text-slate-500 hover:text-dark'}`}>Cadastro</button>
@@ -143,19 +162,21 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
           {activeTab === 'DATA' && (
             <form id="patient-form" onSubmit={handleSubmit} className="p-6 space-y-5">
               
-              <div className="mb-6">
-                 <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de Cliente</label>
-                 <div className="flex space-x-4">
-                   <label className={`flex-1 flex items-center justify-center cursor-pointer border rounded-xl py-3 text-sm font-bold transition-all ${clientType === 'PACIENTE' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                     <input type="radio" value="PACIENTE" checked={clientType === 'PACIENTE'} onChange={() => setClientType('PACIENTE')} className="sr-only" />
-                     Paciente (Prontuário Clínico)
-                   </label>
-                   <label className={`flex-1 flex items-center justify-center cursor-pointer border rounded-xl py-3 text-sm font-bold transition-all ${clientType === 'ALUNO' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                     <input type="radio" value="ALUNO" checked={clientType === 'ALUNO'} onChange={() => setClientType('ALUNO')} className="sr-only" />
-                     Aluno (Learning Insights)
-                   </label>
-                 </div>
-              </div>
+              {role !== 'TEACHER' && role !== 'PSYCHOLOGIST' && (
+                <div className="mb-6">
+                   <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de Cliente</label>
+                   <div className="flex space-x-4">
+                     <label className={`flex-1 flex items-center justify-center cursor-pointer border rounded-xl py-3 text-sm font-bold transition-all ${clientType === 'PACIENTE' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                       <input type="radio" value="PACIENTE" checked={clientType === 'PACIENTE'} onChange={() => setClientType('PACIENTE')} className="sr-only" />
+                       Paciente (Prontuário Clínico)
+                     </label>
+                     <label className={`flex-1 flex items-center justify-center cursor-pointer border rounded-xl py-3 text-sm font-bold transition-all ${clientType === 'ALUNO' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                       <input type="radio" value="ALUNO" checked={clientType === 'ALUNO'} onChange={() => setClientType('ALUNO')} className="sr-only" />
+                       Aluno (Learning Insights)
+                     </label>
+                   </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>

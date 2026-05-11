@@ -15,7 +15,7 @@ interface Patient {
 }
 
 export default function Patients() {
-  const { session } = useAuthStore()
+  const { session, role } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,6 +27,7 @@ export default function Patients() {
     const { data } = await supabase
       .from('patients')
       .select('*')
+      .eq('client_type', role === 'TEACHER' ? 'ALUNO' : 'PACIENTE')
       .order('name')
     setPatients(data || [])
     setLoading(false)
@@ -71,8 +72,8 @@ export default function Patients() {
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Meus Clientes</h2>
-          <p className="text-slate-500 mt-1 text-sm">Gerencie a listagem e o termo de consentimento dos seus pacientes e alunos.</p>
+          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Meus {role === 'TEACHER' ? 'Alunos' : 'Pacientes'}</h2>
+          <p className="text-slate-500 mt-1 text-sm">Gerencie a listagem e o termo de consentimento dos seus {role === 'TEACHER' ? 'alunos' : 'pacientes'}.</p>
         </div>
         <button 
           onClick={() => openModal()}
@@ -81,7 +82,7 @@ export default function Patients() {
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
           </svg>
-          Novo Cliente
+          Novo {role === 'TEACHER' ? 'Aluno' : 'Paciente'}
         </button>
       </div>
 

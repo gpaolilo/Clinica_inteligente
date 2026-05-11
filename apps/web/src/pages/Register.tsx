@@ -26,7 +26,7 @@ export default function Register() {
       setError(authError.message)
     } else {
       if (data.session) {
-        navigate('/dashboard')
+        navigate('/')
       } else {
         alert("Conta criada! Verifique seu email para confirmar o login.")
         navigate('/login')

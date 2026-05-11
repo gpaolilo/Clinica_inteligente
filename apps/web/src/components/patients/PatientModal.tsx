@@ -109,6 +109,12 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
     } else {
       const { data, error } = await supabase.from('patients').insert([{ ...payload, psychologist_id }]).select('id').single()
       
+      if (error) {
+        console.error('Insert patient error:', error)
+        alert('Erro ao criar paciente no banco de dados: ' + error.message)
+        return
+      }
+
       // Enviar convite via API se email fornecido
       if (!error && email && data?.id) {
         try {

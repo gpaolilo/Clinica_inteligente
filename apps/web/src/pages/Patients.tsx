@@ -58,7 +58,9 @@ export default function Patients() {
   const handleResetPassword = async (email: string | null) => {
     if (!email) return alert('Cliente não possui e-mail cadastrado.')
     setLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`
+    })
     setLoading(false)
     if (error) {
       alert('Erro ao enviar e-mail de reset: ' + error.message)

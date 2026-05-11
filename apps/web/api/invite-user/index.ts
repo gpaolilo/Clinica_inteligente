@@ -12,13 +12,17 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
+    // Define a URL base (produção ou enviada via header)
+    const baseUrl = process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'
+    
     // A função inviteUserByEmail enviará o email configurado nos templates do Supabase
     // O usuário convidado receberá um link mágico para se conectar/criar senha.
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { 
         full_name: name, 
         role: role 
-      }
+      },
+      redirectTo: `${baseUrl}/login`
     })
 
     if (error) {

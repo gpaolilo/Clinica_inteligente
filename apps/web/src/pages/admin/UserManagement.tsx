@@ -9,20 +9,48 @@ interface Profile {
   created_at: string
 }
 
+interface Patient {
+  id: string
+  name: string
+  client_type: string
+  psychologist_id: string
+}
+
 export default function UserManagement() {
+  const [activeTab, setActiveTab] = useState<'ROLES' | 'LINKS'>('ROLES')
   const [users, setUsers] = useState<Profile[]>([])
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [professionals, setProfessionals] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchUsers = async () => {
     setLoading(true)
     const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-    if (data) setUsers(data as Profile[])
+    if (data) {
+      setUsers(data as Profile[])
+      // Filtra apenas professores e psicólogos para a listagem de profissionais
+      setProfessionals(data.filter(u => u.role === 'TEACHER' || u.role === 'PSYCHOLOGIST') as Profile[])
+    }
+    setLoading(false)
+  }
+
+  const fetchPatients = async () => {
+    setLoading(true)
+    // Traz todos os pacientes. Isso só vai funcionar se a migration 20260423000001_admin_rls.sql for rodada.
+    const { data } = await supabase.from('patients').select('id, name, client_type, psychologist_id').order('name')
+    if (data) setPatients(data)
     setLoading(false)
   }
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    if (activeTab === 'ROLES') {
+      fetchUsers()
+    } else {
+      fetchPatients()
+      // Se não tiver os profissionais carregados ainda, carrega-os
+      if (professionals.length === 0) fetchUsers()
+    }
+  }, [activeTab])
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     const { error } = await supabase
@@ -69,70 +97,145 @@ export default function UserManagement() {
     }
   }
 
+  const handlePsychologistChange = async (patientId: string, newPsychologistId: string) => {
+    const { error } = await supabase
+      .from('patients')
+      .update({ psychologist_id: newPsychologistId })
+      .eq('id', patientId)
+
+    if (error) {
+      alert('Erro ao alterar o vínculo: ' + error.message)
+    } else {
+      setPatients(patients.map(p => p.id === patientId ? { ...p, psychologist_id: newPsychologistId } : p))
+      alert('Vínculo alterado com sucesso!')
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Gerenciamento de Usuários</h2>
-        <p className="text-slate-500 mt-1 text-sm">Visualize e edite as permissões de acesso da plataforma.</p>
+        <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Gerenciamento Administrativo</h2>
+        <p className="text-slate-500 mt-1 text-sm">Visualize permissões e vínculos entre pacientes e profissionais.</p>
+      </div>
+
+      <div className="flex space-x-4 mb-6">
+        <button 
+          onClick={() => setActiveTab('ROLES')}
+          className={`px-6 py-2.5 rounded-full font-bold text-sm transition-colors ${activeTab === 'ROLES' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+        >
+          Contas e Papéis
+        </button>
+        <button 
+          onClick={() => setActiveTab('LINKS')}
+          className={`px-6 py-2.5 rounded-full font-bold text-sm transition-colors ${activeTab === 'LINKS' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+        >
+          Vínculos de Pacientes/Alunos
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-sm font-bold text-slate-500 uppercase tracking-wider">
-                <th className="p-4">Nome</th>
-                <th className="p-4">ID do Usuário</th>
-                <th className="p-4">Papel (Role)</th>
-                <th className="p-4">Data de Criação</th>
-                <th className="p-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Carregando usuários...</td></tr>
-              ) : users.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
-              ) : (
-                users.map(user => (
-                  <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-medium text-slate-800">{user.full_name || 'Usuário Sem Nome'}</td>
-                    <td className="p-4 text-xs font-mono text-slate-400">{user.id}</td>
-                    <td className="p-4">
-                      <select 
-                        value={user.role} 
-                        onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
-                        className={`text-sm font-bold rounded-lg px-3 py-1.5 border outline-none cursor-pointer transition-colors ${
-                          user.role === 'ADMIN' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                          user.role === 'TEACHER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                          user.role === 'PSYCHOLOGIST' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          'bg-slate-50 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        <option value="ADMIN">ADMINISTRADOR</option>
-                        <option value="TEACHER">PROFESSOR</option>
-                        <option value="PSYCHOLOGIST">PSICÓLOGO</option>
-                        <option value="STUDENT">ALUNO</option>
-                        <option value="PATIENT">PACIENTE</option>
-                      </select>
-                    </td>
-                    <td className="p-4 text-sm text-slate-500">
-                      {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className="p-4 text-right">
-                      <button 
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="text-rose-600 hover:text-rose-800 font-medium text-sm transition-colors px-3 py-1.5 rounded-lg hover:bg-rose-50"
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        {activeTab === 'ROLES' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-sm font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="p-4">Nome</th>
+                  <th className="p-4">ID do Usuário</th>
+                  <th className="p-4">Papel (Role)</th>
+                  <th className="p-4">Data de Criação</th>
+                  <th className="p-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Carregando usuários...</td></tr>
+                ) : users.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
+                ) : (
+                  users.map(user => (
+                    <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 font-medium text-slate-800">{user.full_name || 'Usuário Sem Nome'}</td>
+                      <td className="p-4 text-xs font-mono text-slate-400">{user.id}</td>
+                      <td className="p-4">
+                        <select 
+                          value={user.role} 
+                          onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
+                          className={`text-sm font-bold rounded-lg px-3 py-1.5 border outline-none cursor-pointer transition-colors ${
+                            user.role === 'ADMIN' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                            user.role === 'TEACHER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            user.role === 'PSYCHOLOGIST' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            'bg-slate-50 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          <option value="ADMIN">ADMINISTRADOR</option>
+                          <option value="TEACHER">PROFESSOR</option>
+                          <option value="PSYCHOLOGIST">PSICÓLOGO</option>
+                          <option value="STUDENT">ALUNO</option>
+                          <option value="PATIENT">PACIENTE</option>
+                        </select>
+                      </td>
+                      <td className="p-4 text-sm text-slate-500">
+                        {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="p-4 text-right">
+                        <button 
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-rose-600 hover:text-rose-800 font-medium text-sm transition-colors px-3 py-1.5 rounded-lg hover:bg-rose-50"
+                        >
+                          Excluir
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-sm font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="p-4">Nome do Paciente/Aluno</th>
+                  <th className="p-4">Tipo</th>
+                  <th className="p-4">Profissional Responsável (Dono)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-slate-500">Carregando pacientes...</td></tr>
+                ) : patients.length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-slate-500">Nenhum paciente encontrado ou a migration RLS não foi executada.</td></tr>
+                ) : (
+                  patients.map(patient => (
+                    <tr key={patient.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 font-medium text-slate-800">{patient.name}</td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded ${patient.client_type === 'ALUNO' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {patient.client_type}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <select 
+                          value={patient.psychologist_id} 
+                          onChange={(e) => handlePsychologistChange(patient.id, e.target.value)}
+                          className="text-sm font-bold rounded-lg px-3 py-1.5 border border-slate-200 bg-white text-slate-700 outline-none cursor-pointer hover:border-slate-300 w-full max-w-xs transition-colors"
+                        >
+                          <option value="" disabled>Selecione o profissional...</option>
+                          {professionals.map(prof => (
+                            <option key={prof.id} value={prof.id}>
+                              {prof.full_name} ({prof.role})
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

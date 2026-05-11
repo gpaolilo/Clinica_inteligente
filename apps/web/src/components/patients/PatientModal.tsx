@@ -135,11 +135,12 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
               await supabase.from('patients').update({ user_id: apiData.user.id }).eq('id', data.id)
             }
           } else {
-            console.error("Erro na API de convite:", await apiRes.text())
+            const errText = await apiRes.text()
+            console.error("Erro na API de convite:", errText)
             if (window.location.hostname === 'localhost') {
-               alert("Aviso: O e-mail de convite pode não ter sido enviado pois a API local requer o Vercel CLI (npx vercel dev). A ficha foi criada com sucesso.")
+               alert(`Aviso: O e-mail não foi enviado (API local requer Vercel CLI). Erro: ${errText}`)
             } else {
-               alert("A ficha foi criada, mas houve um erro ao disparar o e-mail de convite.")
+               alert(`A ficha foi criada, mas houve um erro ao disparar o e-mail de convite: ${errText}`)
             }
           }
         } catch (apiErr) {

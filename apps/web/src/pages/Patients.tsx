@@ -28,7 +28,6 @@ export default function Patients() {
     const { data } = await supabase
       .from('patients')
       .select('*')
-      .eq('client_type', role === 'TEACHER' ? 'ALUNO' : 'PACIENTE')
       .order('name')
     setPatients(data || [])
     setLoading(false)

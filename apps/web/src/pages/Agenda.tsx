@@ -38,7 +38,6 @@ export default function Agenda() {
         google_event_id,
         patient:patients!inner (id, name, client_type)
       `)
-      .eq('patient.client_type', role === 'TEACHER' ? 'ALUNO' : 'PACIENTE')
       .order('scheduled_date', { ascending: true })
     
     setSessionsList(data as any || [])

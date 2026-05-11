@@ -37,6 +37,38 @@ export default function UserManagement() {
     }
   }
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita e pode remover dados associados a ele.')) return
+
+    try {
+      const res = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      })
+
+      if (res.ok) {
+        setUsers(users.filter(u => u.id !== userId))
+        alert('Usuário excluído com sucesso.')
+      } else {
+        const err = await res.json()
+        console.error('Erro na API de deleção:', err)
+        if (window.location.hostname === 'localhost') {
+           alert('Aviso: A deleção falhou. A API local requer o Vercel CLI (npx vercel dev) para funcionar.')
+        } else {
+           alert('Erro ao excluir usuário: ' + (err.error || 'Erro desconhecido'))
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao excluir usuário', error)
+      if (window.location.hostname === 'localhost') {
+         alert('Aviso: A deleção falhou (ambiente local sem Vercel CLI).')
+      } else {
+         alert('Erro ao excluir usuário.')
+      }
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -53,13 +85,14 @@ export default function UserManagement() {
                 <th className="p-4">ID do Usuário</th>
                 <th className="p-4">Papel (Role)</th>
                 <th className="p-4">Data de Criação</th>
+                <th className="p-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={4} className="p-8 text-center text-slate-500">Carregando usuários...</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Carregando usuários...</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={4} className="p-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
               ) : (
                 users.map(user => (
                   <tr key={user.id} className="hover:bg-slate-50 transition-colors">
@@ -85,6 +118,14 @@ export default function UserManagement() {
                     </td>
                     <td className="p-4 text-sm text-slate-500">
                       {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                    </td>
+                    <td className="p-4 text-right">
+                      <button 
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-rose-600 hover:text-rose-800 font-medium text-sm transition-colors px-3 py-1.5 rounded-lg hover:bg-rose-50"
+                      >
+                        Excluir
+                      </button>
                     </td>
                   </tr>
                 ))

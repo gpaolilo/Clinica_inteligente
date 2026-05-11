@@ -112,7 +112,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
       // Enviar convite via API se email fornecido
       if (!error && email && data?.id) {
         try {
-          await fetch('/api/invite-user', {
+          const apiRes = await fetch('/api/invite-user', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -121,8 +121,26 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
               role: clientType === 'ALUNO' ? 'STUDENT' : 'PATIENT'
             })
           })
+          
+          if (apiRes.ok) {
+            const apiData = await apiRes.json()
+            if (apiData.user?.id) {
+              // Atualiza a ficha do paciente com o user_id retornado pelo convite
+              await supabase.from('patients').update({ user_id: apiData.user.id }).eq('id', data.id)
+            }
+          } else {
+            console.error("Erro na API de convite:", await apiRes.text())
+            if (window.location.hostname === 'localhost') {
+               alert("Aviso: O e-mail de convite pode não ter sido enviado pois a API local requer o Vercel CLI (npx vercel dev). A ficha foi criada com sucesso.")
+            } else {
+               alert("A ficha foi criada, mas houve um erro ao disparar o e-mail de convite.")
+            }
+          }
         } catch (apiErr) {
           console.error("Erro ao enviar convite", apiErr)
+          if (window.location.hostname === 'localhost') {
+             alert("Aviso: O e-mail de convite falhou (ambiente local sem Vercel CLI). A ficha foi criada.")
+          }
         }
       }
     }

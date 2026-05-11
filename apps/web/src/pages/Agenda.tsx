@@ -254,7 +254,7 @@ export default function Agenda() {
         </div>
       </div>
 
-      {isModalOpen && <ScheduleModal onClose={() => setIsModalOpen(false)} onSaved={handleSaved} />}
+      {isModalOpen && <ScheduleModal onClose={() => setIsModalOpen(false)} onSaved={handleSaved} initialPatientId={searchParams.get('patient_id') || undefined} />}
     </div>
   )
 }

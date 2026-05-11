@@ -12,6 +12,7 @@ interface Patient {
   status: string
   lgpd_consent: boolean
   client_type: 'PACIENTE' | 'ALUNO'
+  user_id?: string
 }
 
 export default function Patients() {
@@ -53,6 +54,18 @@ export default function Patients() {
   const handleSaved = () => {
     setIsModalOpen(false)
     fetchPatients()
+  }
+
+  const handleResetPassword = async (email: string | null) => {
+    if (!email) return alert('Cliente não possui e-mail cadastrado.')
+    setLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    setLoading(false)
+    if (error) {
+      alert('Erro ao enviar e-mail de reset: ' + error.message)
+    } else {
+      alert('E-mail de redefinição de senha enviado com sucesso para ' + email)
+    }
   }
 
   const handleDelete = async (id: string, name: string) => {
@@ -104,8 +117,8 @@ export default function Patients() {
                 <tr>
                   <th className="px-6 py-4">Nome completo</th>
                   <th className="px-6 py-4">Contato Telefônico</th>
-                  <th className="px-6 py-4">Consentimento LGPD</th>
-                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Ativação da Conta</th>
+                  <th className="px-6 py-4">Status do Acompanhamento</th>
                   <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
               </thead>
@@ -130,13 +143,17 @@ export default function Patients() {
                       <span className="text-xs text-slate-400 ml-6">{p.email || 'Sem e-mail'}</span>
                     </td>
                     <td className="px-6 py-4">
-                      {p.lgpd_consent ? (
-                        <span className="inline-flex items-center text-primary-700 text-xs font-semibold bg-primary-50 px-2.5 py-1 rounded-md border border-primary-100">
-                          <span className="w-2 h-2 rounded-full bg-primary-500 mr-1.5"></span> Aceito
+                      {p.user_id ? (
+                        <span className="inline-flex items-center text-emerald-700 text-xs font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Conta Vinculada
+                        </span>
+                      ) : p.email ? (
+                        <span className="inline-flex items-center text-amber-700 text-xs font-semibold bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span> Aguardando Convite
                         </span>
                       ) : (
-                        <span className="inline-flex items-center text-amber-700 text-xs font-semibold bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100">
-                          <span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span> Pendente
+                        <span className="inline-flex items-center text-slate-500 text-xs font-semibold bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+                          <span className="w-2 h-2 rounded-full bg-slate-400 mr-1.5"></span> Sem E-mail
                         </span>
                       )}
                     </td>
@@ -146,15 +163,19 @@ export default function Patients() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {/* Enviar LGPD via Edge Function mock */}
-                      {!p.lgpd_consent && (
-                        <button 
-                          onClick={() => alert(`Webhook LGPD Disparado p/ ${p.name}! (Simboliza a Edge Function)`)}
-                          className="mr-4 text-amber-600 hover:text-amber-800 font-medium text-sm transition-colors"
-                        >
-                          Solicitar LGPD
-                        </button>
-                      )}
+                      <a 
+                        href={`/dashboard/agenda?new=true&patient_id=${p.id}`}
+                        className="mr-4 text-emerald-600 hover:text-emerald-800 font-medium text-sm transition-colors"
+                      >
+                        Agendar
+                      </a>
+                      <button 
+                        onClick={() => handleResetPassword(p.email)} 
+                        disabled={!p.email}
+                        className="mr-4 text-indigo-600 hover:text-indigo-800 font-medium text-sm transition-colors disabled:opacity-50"
+                      >
+                        Reset Senha
+                      </button>
                       <button onClick={() => openModal(p)} className="mr-4 text-primary-600 hover:text-primary-800 font-medium text-sm transition-colors">
                         Detalhes
                       </button>

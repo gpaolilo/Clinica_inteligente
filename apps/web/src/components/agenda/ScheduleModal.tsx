@@ -5,10 +5,10 @@ import { useGoogleStore } from '../../stores/googleStore'
 import { useGoogleLogin } from '@react-oauth/google'
 import { syncPendingSessions } from '../../lib/googleSync'
 
-export default function ScheduleModal({ onClose, onSaved }: any) {
+export default function ScheduleModal({ onClose, onSaved, initialPatientId }: any) {
   const { session } = useAuthStore()
   const { accessToken, setAccessToken } = useGoogleStore()
-  const [patientId, setPatientId] = useState('')
+  const [patientId, setPatientId] = useState(initialPatientId || '')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [price, setPrice] = useState('150.00')
@@ -21,7 +21,7 @@ export default function ScheduleModal({ onClose, onSaved }: any) {
     const fetchSelectablePatients = async () => {
       const { data } = await supabase.from('patients').select('id, name').eq('status', 'ACTIVE').order('name')
       setPatients(data || [])
-      if (data && data.length > 0) setPatientId(data[0].id)
+      if (data && data.length > 0 && !initialPatientId) setPatientId(data[0].id)
     }
     fetchSelectablePatients()
   }, [])

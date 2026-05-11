@@ -46,6 +46,7 @@ export default function ClientDashboard() {
         .from('homework_plans')
         .select('*, sessions!inner(scheduled_date)')
         .eq('patient_id', patientRecord.id)
+        .eq('status', 'PUBLISHED')
         .order('created_at', { ascending: false })
       setContentList(exercises || [])
     } else {

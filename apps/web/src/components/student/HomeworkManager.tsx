@@ -19,6 +19,27 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
     }
   }
 
+  const handlePublish = async () => {
+    if (!homework?.id) return
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('homework_plans')
+        .update({ status: 'PUBLISHED' })
+        .eq('id', homework.id)
+      
+      if (error) throw error
+      
+      setHomework({ ...homework, status: 'PUBLISHED' })
+      alert('Exercícios publicados com sucesso para o aluno!')
+    } catch (err: any) {
+      console.error("Failed to publish homework", err)
+      alert("Erro ao publicar: " + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!homework && !loading) {
     return (
       <div className="bg-[#effcb1] rounded-3xl p-8 border border-lime-200 shadow-sm flex flex-col items-center justify-center text-center font-urbanist">
@@ -60,8 +81,18 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
            <button onClick={handleGenerate} className="p-2 text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-colors">
               <RefreshCw className="w-5 h-5" />
            </button>
-           <button className="bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-bold flex items-center hover:bg-gray-800 transition-colors">
-              <CheckCircle className="w-4 h-4 mr-2" /> Publicar para Aluno
+           <button 
+             onClick={handlePublish}
+             disabled={homework?.status === 'PUBLISHED'}
+             className={clsx(
+               "px-4 py-2 rounded-full text-sm font-bold flex items-center transition-colors",
+               homework?.status === 'PUBLISHED' 
+                 ? "bg-emerald-100 text-emerald-700 cursor-not-allowed" 
+                 : "bg-gray-900 text-white hover:bg-gray-800"
+             )}
+           >
+              <CheckCircle className="w-4 h-4 mr-2" /> 
+              {homework?.status === 'PUBLISHED' ? 'Publicado' : 'Publicar para Aluno'}
            </button>
         </div>
       </div>

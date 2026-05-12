@@ -22,9 +22,19 @@ export function useAudioRecorder() {
       
       activeStreams.current = []
       
-      // 1. Tenta captar o áudio do Sistema/Guia (Aluno no Meet) PRIMEIRO, pois 
-      //    no MacOS o getDisplayMedia expira a flag de 'user gesture' em milissegundos se executarmos 
-      //    qualquer operação assíncrona antes dele.
+      // 1. Inicia a requisição do Microfone (Professor) em paralelo com a captura de tela.
+      // - Não usamos await aqui, pois no MacOS (Safari) o getDisplayMedia precisa ser 
+      // chamado no mesmo loop do clique do usuário (senão o user gesture expira).
+      // - Iniciamos antes do await getDisplayMedia porque no Chrome, ao compartilhar 
+      // uma aba, o navegador muda o foco para ela, colocando nossa aba em background. 
+      // Abas em background não podem pedir permissão de microfone e lançariam erro.
+      let micError: any = null
+      const micPromise = navigator.mediaDevices.getUserMedia({ audio: true }).catch(err => {
+         micError = err
+         return null
+      })
+      
+      // 2. Tenta captar o áudio do Sistema/Guia (Aluno no Meet)
       let displayStream: MediaStream | null = null
       try {
          displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
@@ -33,11 +43,14 @@ export function useAudioRecorder() {
          console.warn("Captura de tela cancelada ou falhou. O sistema gravará apenas o microfone.")
       }
 
-      // 2. Capta o áudio do Microfone do Usuário (Professor) em seguida
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // 3. Resolve a promessa do microfone
+      const micStream = await micPromise
+      if (micError || !micStream) {
+         throw new Error("Acesso ao microfone negado ou falhou. Detalhes: " + (micError?.message || ''))
+      }
       activeStreams.current.push(micStream)
 
-      // 3. Verifica se o usuário de fato compartilhou o Áudio na Guia
+      // 4. Verifica se o usuário de fato compartilhou o Áudio na Guia
       const hasSystemAudio = displayStream && displayStream.getAudioTracks().length > 0;
 
       let finalStream = micStream;
@@ -45,6 +58,11 @@ export function useAudioRecorder() {
       if (hasSystemAudio) {
          // Cria o pipeline de WebAudio para mesclar microfone e guia
          audioContext.current = new AudioContext()
+         
+         if (audioContext.current.state === 'suspended') {
+           await audioContext.current.resume()
+         }
+
          const dest = audioContext.current.createMediaStreamDestination()
          
          const micSource = audioContext.current.createMediaStreamSource(micStream)

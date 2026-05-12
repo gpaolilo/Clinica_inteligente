@@ -22,33 +22,36 @@ export function useAudioRecorder() {
       
       activeStreams.current = []
       
-      // 1. Inicia a requisição do Microfone (Professor) em paralelo com a captura de tela.
-      // - Não usamos await aqui, pois no MacOS (Safari) o getDisplayMedia precisa ser 
-      // chamado no mesmo loop do clique do usuário (senão o user gesture expira).
-      // - Iniciamos antes do await getDisplayMedia porque no Chrome, ao compartilhar 
-      // uma aba, o navegador muda o foco para ela, colocando nossa aba em background. 
-      // Abas em background não podem pedir permissão de microfone e lançariam erro.
-      let micError: any = null
-      const micPromise = navigator.mediaDevices.getUserMedia({ audio: true }).catch(err => {
-         micError = err
-         return null
-      })
+      // Resolve conflitos de navegadores entre getDisplayMedia e getUserMedia
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
-      // 2. Tenta captar o áudio do Sistema/Guia (Aluno no Meet)
-      let displayStream: MediaStream | null = null
-      try {
-         displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
-         activeStreams.current.push(displayStream)
-      } catch (e) {
-         console.warn("Captura de tela cancelada ou falhou. O sistema gravará apenas o microfone.")
-      }
+      let micStream: MediaStream;
+      let displayStream: MediaStream | null = null;
 
-      // 3. Resolve a promessa do microfone
-      const micStream = await micPromise
-      if (micError || !micStream) {
-         throw new Error("Acesso ao microfone negado ou falhou. Detalhes: " + (micError?.message || ''))
+      try {
+        if (isSafari) {
+           // No Safari, o getDisplayMedia deve ser a PRIMEIRA operação, senão o user gesture expira.
+           try {
+              displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
+              if (displayStream) activeStreams.current.push(displayStream)
+           } catch (e) { console.warn("Captura de tela cancelada no Safari.") }
+
+           micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+           activeStreams.current.push(micStream)
+        } else {
+           // No Chrome/Edge, pedimos o microfone PRIMEIRO. Se pedirmos simultaneamente ou depois, 
+           // o prompt pode ser rejeitado instantaneamente ou falhar porque a aba foi para background.
+           micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+           activeStreams.current.push(micStream)
+
+           try {
+              displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
+              if (displayStream) activeStreams.current.push(displayStream)
+           } catch (e) { console.warn("Captura de tela cancelada no Chrome/Edge.") }
+        }
+      } catch (err: any) {
+         throw new Error("Permissão de câmera/microfone negada. Detalhes: " + err.message);
       }
-      activeStreams.current.push(micStream)
 
       // 4. Verifica se o usuário de fato compartilhou o Áudio na Guia
       const hasSystemAudio = displayStream && displayStream.getAudioTracks().length > 0;
@@ -56,24 +59,29 @@ export function useAudioRecorder() {
       let finalStream = micStream;
 
       if (hasSystemAudio) {
-         // Cria o pipeline de WebAudio para mesclar microfone e guia
-         audioContext.current = new AudioContext()
-         
-         if (audioContext.current.state === 'suspended') {
-           await audioContext.current.resume()
-         }
+         try {
+           // Cria o pipeline de WebAudio para mesclar microfone e guia
+           audioContext.current = new AudioContext()
+           
+           if (audioContext.current.state === 'suspended') {
+             audioContext.current.resume().catch(console.warn)
+           }
 
-         const dest = audioContext.current.createMediaStreamDestination()
-         
-         const micSource = audioContext.current.createMediaStreamSource(micStream)
-         micSource.connect(dest)
-         
-         const sysAudioTrack = displayStream!.getAudioTracks()[0]
-         const sysAudioStream = new MediaStream([sysAudioTrack])
-         const sysSource = audioContext.current.createMediaStreamSource(sysAudioStream)
-         sysSource.connect(dest)
-         
-         finalStream = dest.stream
+           const dest = audioContext.current.createMediaStreamDestination()
+           
+           const micSource = audioContext.current.createMediaStreamSource(micStream)
+           micSource.connect(dest)
+           
+           const sysAudioTrack = displayStream!.getAudioTracks()[0]
+           const sysAudioStream = new MediaStream([sysAudioTrack])
+           const sysSource = audioContext.current.createMediaStreamSource(sysAudioStream)
+           sysSource.connect(dest)
+           
+           finalStream = dest.stream
+         } catch (mergeError) {
+           console.error("Erro ao mesclar áudios, gravando apenas microfone:", mergeError)
+           finalStream = micStream;
+         }
       }
 
       mediaRecorder.current = new MediaRecorder(finalStream)

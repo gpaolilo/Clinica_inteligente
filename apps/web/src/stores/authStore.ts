@@ -13,17 +13,28 @@ interface AuthState {
   signOut: () => Promise<void>
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
   role: null,
   loading: true,
   setSession: async (session) => {
-    set({ loading: true })
+    const currentState = get()
+
     if (!session?.user) {
       set({ session: null, user: null, role: null, loading: false })
       return
     }
+    
+    // Se o usuário já está logado e já temos o papel dele, apenas atualiza a sessão
+    // Isso evita definir `loading: true` durante refreshes de token (ex: ao voltar para a aba),
+    // o que desmontaria toda a árvore de componentes e faria a gravação ser perdida.
+    if (currentState.user?.id === session.user.id && currentState.role) {
+       set({ session, user: session.user, loading: false })
+       return
+    }
+
+    set({ loading: true })
     
     // Buscar perfil para capturar a role
     const { data: profile } = await supabase

@@ -21,8 +21,42 @@ export default function ClientLayout() {
             to="/client" 
             className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname === '/client' ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
           >
-            Início
+            Dashboard
           </Link>
+          {role === 'STUDENT' && (
+            <>
+              <Link 
+                to="/client/insights" 
+                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/insights') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              >
+                Evolução & Insights
+              </Link>
+              <Link 
+                to="/client/analytics" 
+                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/analytics') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              >
+                Analytics de Progresso
+              </Link>
+              <Link 
+                to="/client/homework" 
+                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/homework') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              >
+                Meus Exercícios
+              </Link>
+              <Link 
+                to="/client/practice" 
+                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/practice') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              >
+                Prática com IA
+              </Link>
+              <Link 
+                to="/client/vocabulary" 
+                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/vocabulary') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              >
+                Banco de Vocabulário
+              </Link>
+            </>
+          )}
           <Link 
             to="/client/profile" 
             className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/profile') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}

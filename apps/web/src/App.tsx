@@ -21,6 +21,8 @@ import UserManagement from './pages/admin/UserManagement'
 // Layouts e Páginas (Client)
 import ClientLayout from './layouts/ClientLayout'
 import ClientDashboard from './pages/client/ClientDashboard'
+import LessonInsights from './pages/client/LessonInsights'
+import ProgressAnalytics from './pages/client/ProgressAnalytics'
 
 // Router Inteligente da Raiz
 function RootRouter() {
@@ -76,6 +78,8 @@ export default function App() {
         {/* Rotas de Clientes Finais */}
         <Route path="/client" element={<RoleGuard allowedRoles={['STUDENT', 'PATIENT']}><ClientLayout /></RoleGuard>}>
           <Route index element={<ClientDashboard />} />
+          <Route path="insights" element={<LessonInsights />} />
+          <Route path="analytics" element={<ProgressAnalytics />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

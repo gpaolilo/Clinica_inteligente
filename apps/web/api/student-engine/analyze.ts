@@ -76,6 +76,7 @@ export default async function handler(req: any, res: any) {
 
     // 3. Normalize into events
     const eventsToInsert = []
+    const vocabToInsert = []
 
     if (analysis.grammar_errors) {
       for (const e of analysis.grammar_errors) {
@@ -103,6 +104,15 @@ export default async function handler(req: any, res: any) {
           frequency: 1,
           confidence: 1.0,
           details: { missing_word: e.missing_word, suggested_word: e.suggested_word, context: e.context }
+        })
+        
+        // Add to new Vocabulary Memory System
+        vocabToInsert.push({
+          patient_id: patientId,
+          word: e.suggested_word,
+          definition: `Meaning in context of: ${e.missing_word || 'conversation'}`,
+          example_sentence: e.context,
+          origin_session_id: sessionId
         })
       }
     }
@@ -168,10 +178,25 @@ export default async function handler(req: any, res: any) {
       }
     })
 
-    // 4. Save events
+    // 4. Save events and vocabulary
     if (eventsToInsert.length > 0) {
       const { error: eventsError } = await supabaseAuth.from('learning_events').insert(eventsToInsert)
       if (eventsError) throw new Error(`Database Error saving events: ${eventsError.message}`)
+    }
+
+    if (vocabToInsert.length > 0) {
+      const { error: vocabError } = await supabaseAuth.from('vocabulary_bank').insert(vocabToInsert)
+      if (vocabError) console.error(`Database Error saving vocabulary: ${vocabError.message}`)
+    }
+    
+    // Grant XP for completing a session analysis
+    try {
+      const { data: gamification } = await supabaseAuth.from('gamification_profiles').select('xp').eq('patient_id', patientId).single()
+      if (gamification) {
+         await supabaseAuth.from('gamification_profiles').update({ xp: gamification.xp + 50 }).eq('patient_id', patientId)
+      }
+    } catch (xpErr) {
+      console.error('Error updating XP', xpErr)
     }
 
     // 5. Update student profile

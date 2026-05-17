@@ -16,7 +16,7 @@ export default function ClientDashboard() {
   const { session, role } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [patientRecord, setPatientRecord] = useState<any>(null)
-  const [upcomingSession, setUpcomingSession] = useState<any>(null)
+  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([])
   const [gamification, setGamification] = useState<any>({ xp: 0, level: 1, current_streak: 0 })
   const [pendingHomework, setPendingHomework] = useState<any[]>([])
   const [latestInsights, setLatestInsights] = useState<any>(null)
@@ -39,18 +39,18 @@ export default function ClientDashboard() {
     }
     setPatientRecord(patient)
 
-    // 2. Buscar próxima sessão
+    // 2. Buscar próximas sessões com info do professor
     const { data: sessionsData } = await supabase
       .from('sessions')
-      .select('*')
+      .select('*, psychologists(name)')
       .eq('patient_id', patient.id)
       .in('status', ['SCHEDULED', 'PENDING'])
       .gte('scheduled_date', new Date().toISOString())
       .order('scheduled_date', { ascending: true })
-      .limit(1)
+      .limit(3)
 
-    if (sessionsData && sessionsData.length > 0) {
-      setUpcomingSession(sessionsData[0])
+    if (sessionsData) {
+      setUpcomingSessions(sessionsData)
     }
 
     // 3. Buscar Gamificação
@@ -201,33 +201,37 @@ export default function ClientDashboard() {
         {/* Next Session & Pending Homework (Left Col) */}
         <div className="md:col-span-2 space-y-6">
           
-          {upcomingSession && (
+          {upcomingSessions.length > 0 && (
             <motion.div variants={itemVariants}>
               <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary-500" /> Próxima Aula
+                <Calendar className="w-5 h-5 text-primary-500" /> Próximas Aulas
               </h2>
-              <GlassCard className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-l-4 border-l-primary-500">
-                <div className="flex items-center gap-4">
-                  <div className="bg-primary-50 p-4 rounded-2xl text-center min-w-[80px]">
-                    <p className="text-primary-600 text-xs font-black uppercase">
-                      {new Date(upcomingSession.scheduled_date).toLocaleDateString('pt-BR', { month: 'short' })}
-                    </p>
-                    <p className="text-primary-700 text-2xl font-black">
-                      {new Date(upcomingSession.scheduled_date).getDate()}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg text-slate-800">Sessão com Professor(a)</h3>
-                    <p className="text-slate-500 flex items-center gap-1 mt-1 font-medium">
-                      <Clock className="w-4 h-4" />
-                      {new Date(upcomingSession.scheduled_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-                <div className="px-4 py-2 bg-slate-100 rounded-xl font-bold text-sm text-slate-600 self-start sm:self-auto">
-                  {upcomingSession.status === 'PENDING' ? 'Aguardando Aprovação' : 'Confirmado'}
-                </div>
-              </GlassCard>
+              <div className="space-y-4">
+                {upcomingSessions.map((session) => (
+                  <GlassCard key={session.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-l-4 border-l-primary-500">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-primary-50 p-4 rounded-2xl text-center min-w-[80px]">
+                        <p className="text-primary-600 text-xs font-black uppercase">
+                          {new Date(session.scheduled_date).toLocaleDateString('pt-BR', { month: 'short' })}
+                        </p>
+                        <p className="text-primary-700 text-2xl font-black">
+                          {new Date(session.scheduled_date).getDate()}
+                        </p>
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-800">Aula com {session.psychologists?.name?.split(' ')[0] || 'Professor'}</h3>
+                        <p className="text-slate-500 flex items-center gap-1 mt-1 font-medium">
+                          <Clock className="w-4 h-4" />
+                          {new Date(session.scheduled_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="px-4 py-2 bg-slate-100 rounded-xl font-bold text-sm text-slate-600 self-start sm:self-auto">
+                      {session.status === 'PENDING' ? 'Aguardando Aprovação' : 'Confirmado'}
+                    </div>
+                  </GlassCard>
+                ))}
+              </div>
             </motion.div>
           )}
 

@@ -76,7 +76,7 @@ export default function HomeworkHub() {
         </GlassCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {homeworks.map((hw, idx) => {
+          {homeworks.map((hw) => {
             const exercisesCount = hw.exercises?.length || 0
             const date = new Date(hw.sessions?.scheduled_date || hw.created_at).toLocaleDateString('pt-BR')
             

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../stores/authStore'
-import { Mic, Send, MessageSquare, Play, X, Briefcase, ShoppingBag, Coffee, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Mic, Send, MessageSquare, X, Briefcase, ShoppingBag, Coffee, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const GlassCard = ({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (

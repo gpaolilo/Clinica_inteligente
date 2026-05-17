@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
-import { Brain, CheckCircle, TrendingUp, AlertTriangle, MessageSquare, Mic, AlertCircle } from 'lucide-react'
+import { Brain, TrendingUp, AlertTriangle, MessageSquare, AlertCircle } from 'lucide-react'
 
 const GlassCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
   <div className={`bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300 rounded-[24px] overflow-hidden ${className}`}>

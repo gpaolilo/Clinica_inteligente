@@ -1,85 +1,127 @@
+import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../stores/authStore'
+import GamificationOverlay from '../components/ui/GamificationOverlay'
+import { Menu, X, LayoutDashboard, Brain, Activity, BookOpen, MessageSquare, Book, User, LogOut } from 'lucide-react'
 
 export default function ClientLayout() {
   const { signOut, role } = useAuthStore()
   const location = useLocation()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [location.pathname])
+
+  const navLinks = role === 'STUDENT' ? [
+    { to: '/client', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/client/insights', label: 'Evolução & Insights', icon: Brain },
+    { to: '/client/analytics', label: 'Analytics de Progresso', icon: Activity },
+    { to: '/client/homework', label: 'Meus Exercícios', icon: BookOpen },
+    { to: '/client/practice', label: 'Prática com IA', icon: MessageSquare },
+    { to: '/client/vocabulary', label: 'Banco de Vocabulário', icon: Book },
+    { to: '/client/profile', label: 'Meu Perfil', icon: User },
+  ] : [
+    { to: '/client', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/client/profile', label: 'Meu Perfil', icon: User },
+  ]
+
+  const SidebarContent = () => (
+    <>
+      <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+            <div className="bg-primary-500 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black">C</div>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Portal do {role === 'STUDENT' ? 'Aluno' : 'Paciente'}</h1>
+        </div>
+        <button className="lg:hidden text-slate-500" onClick={() => setIsMobileMenuOpen(false)}>
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        {navLinks.map((link) => {
+          const isActive = link.to === '/client' 
+            ? location.pathname === '/client' 
+            : location.pathname.includes(link.to)
+            
+          return (
+            <Link 
+              key={link.to}
+              to={link.to} 
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-colors ${isActive ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+            >
+              <link.icon className={`w-5 h-5 ${isActive ? 'text-primary-600' : 'text-slate-400'}`} />
+              {link.label}
+            </Link>
+          )
+        })}
+      </nav>
+      
+      <div className="p-4 border-t border-slate-100">
+        <button 
+          onClick={signOut}
+          className="flex items-center justify-center gap-2 font-bold px-4 py-3 w-full rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          Sair do Portal
+        </button>
+      </div>
+    </>
+  )
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar Client */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center space-x-3">
-             <div className="bg-primary-500 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black">C</div>
-             <h1 className="text-xl font-bold text-slate-800 tracking-tight">Portal do {role === 'STUDENT' ? 'Aluno' : 'Paciente'}</h1>
-          </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+      {/* Mobile Header */}
+      <div className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between z-20">
+        <div className="flex items-center space-x-3">
+          <div className="bg-primary-500 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black">C</div>
+          <h1 className="font-bold text-slate-800 tracking-tight">Portal do Aluno</h1>
         </div>
-        
-        <nav className="flex-1 p-4 space-y-2">
-          <Link 
-            to="/client" 
-            className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname === '/client' ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-          >
-            Dashboard
-          </Link>
-          {role === 'STUDENT' && (
-            <>
-              <Link 
-                to="/client/insights" 
-                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/insights') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                Evolução & Insights
-              </Link>
-              <Link 
-                to="/client/analytics" 
-                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/analytics') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                Analytics de Progresso
-              </Link>
-              <Link 
-                to="/client/homework" 
-                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/homework') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                Meus Exercícios
-              </Link>
-              <Link 
-                to="/client/practice" 
-                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/practice') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                Prática com IA
-              </Link>
-              <Link 
-                to="/client/vocabulary" 
-                className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/vocabulary') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                Banco de Vocabulário
-              </Link>
-            </>
-          )}
-          <Link 
-            to="/client/profile" 
-            className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/client/profile') ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-          >
-            Meu Perfil
-          </Link>
-        </nav>
-        
-        <div className="p-4 border-t border-slate-100">
-          <button 
-            onClick={signOut}
-            className="flex items-center justify-center font-bold px-4 py-3 w-full rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-          >
-            Sair do Portal
-          </button>
-        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="p-2 text-slate-500 bg-slate-50 rounded-lg"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+            />
+            <motion.aside 
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+              className="fixed inset-y-0 left-0 w-72 bg-white flex flex-col z-50 lg:hidden shadow-2xl"
+            >
+              <SidebarContent />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex w-72 bg-white border-r border-slate-200 flex-col z-10 shrink-0 h-screen sticky top-0">
+        <SidebarContent />
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 relative h-[calc(100vh-73px)] lg:h-screen">
+        <div className="flex-1 overflow-y-auto w-full">
           <Outlet />
         </div>
+        <GamificationOverlay />
       </main>
     </div>
   )

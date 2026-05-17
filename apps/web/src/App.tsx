@@ -23,6 +23,9 @@ import ClientLayout from './layouts/ClientLayout'
 import ClientDashboard from './pages/client/ClientDashboard'
 import LessonInsights from './pages/client/LessonInsights'
 import ProgressAnalytics from './pages/client/ProgressAnalytics'
+import HomeworkHub from './pages/client/HomeworkHub'
+import ScenarioPractice from './pages/client/ScenarioPractice'
+import VocabularyBank from './pages/client/VocabularyBank'
 
 // Router Inteligente da Raiz
 function RootRouter() {
@@ -80,6 +83,9 @@ export default function App() {
           <Route index element={<ClientDashboard />} />
           <Route path="insights" element={<LessonInsights />} />
           <Route path="analytics" element={<ProgressAnalytics />} />
+          <Route path="homework" element={<HomeworkHub />} />
+          <Route path="practice" element={<ScenarioPractice />} />
+          <Route path="vocabulary" element={<VocabularyBank />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import RequestSessionModal from '../../components/client/RequestSessionModal'
-import { motion } from 'framer-motion'
+import { motion, Variants } from 'framer-motion'
 import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, TrendingUp, CheckCircle, Clock } from 'lucide-react'
 
 // Premium glassmorphism container
@@ -103,7 +103,7 @@ export default function ClientDashboard() {
     }
   }
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
   }

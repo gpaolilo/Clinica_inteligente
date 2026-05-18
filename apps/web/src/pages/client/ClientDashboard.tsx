@@ -141,7 +141,7 @@ export default function ClientDashboard() {
           </div>
           
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => window.location.href='/client/book'}
             className="flex items-center gap-2 bg-white text-slate-900 font-bold py-4 px-8 rounded-2xl hover:bg-slate-100 hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.3)]"
           >
             <Calendar className="w-5 h-5" />
@@ -205,11 +205,14 @@ export default function ClientDashboard() {
         {/* Next Session & Pending Homework (Left Col) */}
         <div className="md:col-span-2 space-y-6">
           
-          {upcomingSessions.length > 0 && (
+          {upcomingSessions.length > 0 ? (
             <motion.div variants={itemVariants}>
-              <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary-500" /> Próximas Aulas
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary-500" /> Próximas Aulas
+                </h2>
+                <button onClick={() => window.location.href='/client/agenda'} className="text-sm font-bold text-primary-600 hover:text-primary-700">Ver Agenda Completa</button>
+              </div>
               <div className="space-y-4">
                 {upcomingSessions.map((session) => (
                   <GlassCard key={session.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-l-4 border-l-primary-500">
@@ -236,6 +239,20 @@ export default function ClientDashboard() {
                   </GlassCard>
                 ))}
               </div>
+            </motion.div>
+          ) : (
+            <motion.div variants={itemVariants}>
+               <GlassCard className="p-8 border-l-4 border-l-primary-500">
+                  <h2 className="text-2xl font-black text-slate-800 mb-2">Nenhuma aula agendada</h2>
+                  <p className="text-slate-500 mb-6">Você tem <strong>{patientRecord?.class_balance || 0} aulas disponíveis</strong> em seu saldo. Agende sua próxima aula para continuar evoluindo.</p>
+                  <button 
+                    onClick={() => window.location.href='/client/book'}
+                    className="bg-slate-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2"
+                  >
+                    <Calendar className="w-5 h-5" />
+                    Agendar Agora
+                  </button>
+               </GlassCard>
             </motion.div>
           )}
 

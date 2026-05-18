@@ -17,6 +17,8 @@ import Profile from './pages/Profile'
 import AdminLayout from './layouts/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserManagement from './pages/admin/UserManagement'
+import AdminSettings from './pages/admin/AdminSettings'
+import AvailabilitySettings from './pages/admin/AvailabilitySettings'
 
 // Layouts e Páginas (Client)
 import ClientLayout from './layouts/ClientLayout'
@@ -26,6 +28,8 @@ import ProgressAnalytics from './pages/client/ProgressAnalytics'
 import HomeworkHub from './pages/client/HomeworkHub'
 import ScenarioPractice from './pages/client/ScenarioPractice'
 import VocabularyBank from './pages/client/VocabularyBank'
+import BookClass from './pages/client/BookClass'
+import StudentAgenda from './pages/client/StudentAgenda'
 
 // Router Inteligente da Raiz
 function RootRouter() {
@@ -86,6 +90,8 @@ export default function App() {
           <Route path="homework" element={<HomeworkHub />} />
           <Route path="practice" element={<ScenarioPractice />} />
           <Route path="vocabulary" element={<VocabularyBank />} />
+          <Route path="book" element={<BookClass />} />
+          <Route path="agenda" element={<StudentAgenda />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

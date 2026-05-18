@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../stores/authStore'
 import GamificationOverlay from '../components/ui/GamificationOverlay'
-import { Menu, X, LayoutDashboard, Brain, Activity, BookOpen, MessageSquare, Book, User, LogOut } from 'lucide-react'
+import { Menu, X, LayoutDashboard, Brain, Activity, BookOpen, MessageSquare, Book, User, LogOut, CalendarPlus, CalendarDays } from 'lucide-react'
 
 export default function ClientLayout() {
   const { signOut, role } = useAuthStore()
@@ -17,6 +17,8 @@ export default function ClientLayout() {
 
   const navLinks = role === 'STUDENT' ? [
     { to: '/client', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/client/book', label: 'Agendar Aula', icon: CalendarPlus },
+    { to: '/client/agenda', label: 'Minha Agenda', icon: CalendarDays },
     { to: '/client/insights', label: 'Evolução & Insights', icon: Brain },
     { to: '/client/analytics', label: 'Analytics de Progresso', icon: Activity },
     { to: '/client/homework', label: 'Meus Exercícios', icon: BookOpen },

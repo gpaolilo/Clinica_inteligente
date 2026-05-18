@@ -12,13 +12,12 @@ import ActiveSession from './pages/ActiveSession'
 import Settings from './pages/Settings'
 import Finance from './pages/Finance'
 import Profile from './pages/Profile'
+import AvailabilitySettings from './pages/admin/AvailabilitySettings'
 
 // Layouts e Páginas (Admin)
 import AdminLayout from './layouts/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserManagement from './pages/admin/UserManagement'
-import AdminSettings from './pages/admin/AdminSettings'
-import AvailabilitySettings from './pages/admin/AvailabilitySettings'
 
 // Layouts e Páginas (Client)
 import ClientLayout from './layouts/ClientLayout'
@@ -71,6 +70,7 @@ export default function App() {
           <Route path="agenda" element={<Agenda />} />
           <Route path="session/:id" element={<ActiveSession />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="availability" element={<AvailabilitySettings />} />
           <Route path="finance" element={<Finance />} />
           <Route path="profile" element={<Profile />} />
         </Route>

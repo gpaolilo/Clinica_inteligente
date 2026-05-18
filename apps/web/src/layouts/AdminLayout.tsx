@@ -29,14 +29,6 @@ export default function AdminLayout() {
           >
             Gerenciar Usuários
           </Link>
-          <Link to="/admin/settings" className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/admin/settings') ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
-            <Settings className={`w-5 h-5 mr-3 ${location.pathname.includes('/admin/settings') ? 'text-white' : 'text-slate-400'}`} />
-            Configurações
-          </Link>
-          <Link to="/admin/availability" className={`flex items-center px-4 py-3 rounded-xl font-bold transition-colors ${location.pathname.includes('/admin/availability') ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
-            <Calendar className={`w-5 h-5 mr-3 ${location.pathname.includes('/admin/availability') ? 'text-white' : 'text-slate-400'}`} />
-            Minha Agenda
-          </Link>
         </nav>
         
         <div className="p-4 border-t border-slate-800">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../stores/authStore'
 import { supabase } from '../../lib/supabase'
-import { Calendar, Clock, X, RefreshCw, MessageSquare, CheckCircle } from 'lucide-react'
+import { Calendar, Clock, X, MessageSquare, CheckCircle } from 'lucide-react'
 
 type Tab = 'UPCOMING' | 'PAST' | 'CANCELLED'
 

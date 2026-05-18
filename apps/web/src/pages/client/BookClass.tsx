@@ -82,7 +82,7 @@ export default function BookClass() {
     setBookingLoading(true)
 
     try {
-      const { data, error } = await supabase.rpc('book_session', {
+      const { error } = await supabase.rpc('book_session', {
         p_psychologist_id: teacher.id,
         p_patient_id: patientData.id,
         p_scheduled_date: selectedSlot.timestamp.toISOString(),

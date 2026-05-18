@@ -40,14 +40,18 @@ export default function ClientDashboard() {
     setPatientRecord(patient)
 
     // 2. Buscar próximas sessões com info do professor
-    const { data: sessionsData } = await supabase
+    const { data: sessionsData, error } = await supabase
       .from('sessions')
-      .select('*, psychologists(name)')
+      .select('*, psychologists(full_name)')
       .eq('patient_id', patient.id)
       .in('status', ['SCHEDULED', 'PENDING'])
       .gte('scheduled_date', new Date().toISOString())
       .order('scheduled_date', { ascending: true })
       .limit(3)
+
+    if (error) {
+      console.error("Erro ao buscar sessões:", error)
+    }
 
     if (sessionsData) {
       setUpcomingSessions(sessionsData)
@@ -219,7 +223,7 @@ export default function ClientDashboard() {
                         </p>
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg text-slate-800">Aula com {session.psychologists?.name?.split(' ')[0] || 'Professor'}</h3>
+                        <h3 className="font-bold text-lg text-slate-800">Aula com {session.psychologists?.full_name?.split(' ')[0] || 'Professor'}</h3>
                         <p className="text-slate-500 flex items-center gap-1 mt-1 font-medium">
                           <Clock className="w-4 h-4" />
                           {new Date(session.scheduled_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}

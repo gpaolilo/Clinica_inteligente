@@ -16,6 +16,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
   )
   const [studentLevel, setStudentLevel] = useState(patient?.student_level || '')
   const [studentGoal, setStudentGoal] = useState(patient?.student_goal || '')
+  const [classBalance, setClassBalance] = useState(patient?.class_balance || 0)
 
   const [notes, setNotes] = useState<any[]>([])
   const [insights, setInsights] = useState<any[]>([])
@@ -101,7 +102,8 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
       status, 
       client_type: clientType,
       student_level: clientType === 'ALUNO' ? studentLevel : null,
-      student_goal: clientType === 'ALUNO' ? studentGoal : null
+      student_goal: clientType === 'ALUNO' ? studentGoal : null,
+      class_balance: parseFloat(classBalance.toString()) || 0
     }
 
     if (patient) {
@@ -231,6 +233,14 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                     <label className="block text-sm font-medium text-blue-800 mb-1">Objetivo de Aprendizado</label>
                     <input required type="text" value={studentGoal} onChange={e => setStudentGoal(e.target.value)} placeholder="Ex: Viagem, Negócios, Fluência" className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 transition-all" />
                   </div>
+                </div>
+              )}
+
+              {role === 'TEACHER' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Saldo de Aulas (Créditos)</label>
+                  <p className="text-xs text-slate-500 mb-2">Quantas aulas o aluno tem disponíveis para agendar?</p>
+                  <input type="number" step="0.5" min="0" value={classBalance} onChange={e => setClassBalance(e.target.value)} className="w-full md:w-1/3 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all" />
                 </div>
               )}
 

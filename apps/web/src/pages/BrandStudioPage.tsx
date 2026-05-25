@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
-import { getTenantBrandingByOwnerId, saveTenantBrandDraft, BrandSettings } from '../lib/brandingService'
+import { getTenantBrandingByOwnerId, saveTenantBrandDraft, BrandSettings, updateTenantSlug } from '../lib/brandingService'
 import { brandingPresets } from '../components/branding/DesignPresetSelector'
 import { IdentitySection } from '../components/branding/IdentitySection'
 import { ColorSection } from '../components/branding/ColorSection'
@@ -18,6 +18,7 @@ export default function BrandStudioPage() {
   const { refreshBranding } = useTenantBranding()
   
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [slug, setSlug] = useState<string>('')
   const [draftSettings, setDraftSettings] = useState<BrandSettings>({
     app_name: 'Clinica.ia',
     primary_color: '#22c55e',
@@ -48,6 +49,7 @@ export default function BrandStudioPage() {
       const result = await getTenantBrandingByOwnerId(user.id)
       if (result) {
         setTenantId(result.tenantId)
+        setSlug(result.slug)
         // Carrega rascunho de draft se houver, senão as configurações atuais
         setDraftSettings(result.draft || result.branding)
       }
@@ -56,6 +58,13 @@ export default function BrandStudioPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleUpdateSlug = async (newSlug: string) => {
+    if (!tenantId) return
+    const updated = await updateTenantSlug(tenantId, newSlug)
+    setSlug(updated)
+    await refreshBranding()
   }
 
   useEffect(() => {
@@ -225,7 +234,9 @@ export default function BrandStudioPage() {
                 faviconUrl={draftSettings.favicon_url || null}
                 bannerUrl={draftSettings.banner_url || null}
                 loginBackgroundUrl={draftSettings.login_background_url || null}
+                slug={slug}
                 onChange={handleFieldChange}
+                onUpdateSlug={handleUpdateSlug}
               />
             )}
 

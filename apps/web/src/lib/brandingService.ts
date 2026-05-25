@@ -81,11 +81,11 @@ export const getTenantBrandingBySlug = async (slug: string): Promise<{ tenantId:
 // 3. Obter branding (incluindo draft de rascunho) para o dono (Teacher) do Tenant
 export const getTenantBrandingByOwnerId = async (
   ownerId: string
-): Promise<{ tenantId: string; branding: BrandSettings; draft: BrandSettings | null } | null> => {
+): Promise<{ tenantId: string; slug: string; branding: BrandSettings; draft: BrandSettings | null } | null> => {
   try {
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
-      .select('id')
+      .select('id, slug')
       .eq('owner_user_id', ownerId)
       .maybeSingle()
 
@@ -116,6 +116,7 @@ export const getTenantBrandingByOwnerId = async (
 
     return {
       tenantId: tenant.id,
+      slug: tenant.slug,
       branding: branding || draft || {
         app_name: 'Clinica.ia',
         primary_color: '#22c55e',
@@ -134,6 +135,45 @@ export const getTenantBrandingByOwnerId = async (
     console.error('Erro ao buscar branding por owner:', err)
     return null
   }
+}
+
+// 3.5 Atualizar slug do Tenant
+export const updateTenantSlug = async (tenantId: string, slug: string): Promise<string> => {
+  // Validação básica do slug: minúsculas, números e hifens
+  const cleanSlug = slug
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^a-z0-9-]/g, '-') // remove especiais
+    .replace(/-+/g, '-') // remove hifens duplicados
+    .replace(/^-|-$/g, '') // remove hifen nas pontas
+
+  if (!cleanSlug) {
+    throw new Error('O link da academia não pode ser vazio.')
+  }
+  
+  // Verificar duplicidade
+  const { data: existing } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', cleanSlug)
+    .neq('id', tenantId)
+    .maybeSingle()
+    
+  if (existing) {
+    throw new Error('Este link de academia já está em uso por outro professor.')
+  }
+
+  const { error } = await supabase
+    .from('tenants')
+    .update({ slug: cleanSlug })
+    .eq('id', tenantId)
+
+  if (error) {
+    throw new Error('Falha ao atualizar o link: ' + error.message)
+  }
+
+  return cleanSlug
 }
 
 // 4. Salvar Rascunho do Branding

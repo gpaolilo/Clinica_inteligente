@@ -188,7 +188,7 @@ BEGIN
         'dashboard_message', 'Pronto para a aula de hoje?'
       ));
     END IF;
-  END FOR;
+  END LOOP;
 END $$;
 
 -- 8. Configuração de Row Level Security (RLS)

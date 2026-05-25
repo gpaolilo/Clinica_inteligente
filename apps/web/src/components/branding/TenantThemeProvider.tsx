@@ -66,6 +66,29 @@ export function darkenColor(hex: string, percent: number): string {
   }
 }
 
+// Helper to determine the best text color (black or white) for readability on a given background
+export function getContrastColor(hex: string): string {
+  try {
+    const cleanHex = hex.replace('#', '')
+    let r = 0, g = 0, b = 0
+    if (cleanHex.length === 3) {
+      r = parseInt(cleanHex.substring(0, 1).repeat(2), 16)
+      g = parseInt(cleanHex.substring(1, 2).repeat(2), 16)
+      b = parseInt(cleanHex.substring(2, 3).repeat(2), 16)
+    } else if (cleanHex.length === 6) {
+      r = parseInt(cleanHex.substring(0, 2), 16)
+      g = parseInt(cleanHex.substring(2, 4), 16)
+      b = parseInt(cleanHex.substring(4, 6), 16)
+    } else {
+      return '#FFFFFF'
+    }
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000
+    return yiq >= 180 ? '#1A1A1A' : '#FFFFFF'
+  } catch {
+    return '#FFFFFF'
+  }
+}
+
 export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, role } = useAuthStore()
   const location = useLocation()
@@ -83,6 +106,10 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Aplicar cores
       root.style.setProperty('--tenant-primary', settings.primary_color)
       root.style.setProperty('--tenant-primary-hover', darkenColor(settings.primary_color, 10))
+      root.style.setProperty('--tenant-primary-dark', darkenColor(settings.primary_color, 20))
+      root.style.setProperty('--tenant-primary-50', settings.primary_color + '1a') // 10% opacity
+      root.style.setProperty('--tenant-primary-100', settings.primary_color + '33') // 20% opacity
+      root.style.setProperty('--tenant-primary-contrast', getContrastColor(settings.primary_color))
       root.style.setProperty('--tenant-secondary', settings.secondary_color)
       root.style.setProperty('--tenant-accent', settings.accent_color)
       root.style.setProperty('--tenant-background', settings.background_color)
@@ -108,6 +135,57 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       else if (settings.card_style === 'Glass') cardRadius = '24px'
       else if (settings.card_style === 'Bordered') cardRadius = '12px'
       root.style.setProperty('--tenant-card-radius', cardRadius)
+
+      // Compute card styles based on settings.card_style
+      let cardShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
+      let cardBorderColor = isDark ? '#334155' : '#e2e8f0'
+      let cardBorderWidth = '1px'
+      let cardBg = isDark ? '#1e293b' : '#ffffff'
+      let cardBackdropBlur = '0px'
+
+      if (settings.card_style === 'Minimal') {
+        cardShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+        cardBorderWidth = '1px'
+      } else if (settings.card_style === 'Elevated') {
+        cardShadow = isDark 
+          ? '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)'
+          : '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)'
+        cardBorderWidth = '0px'
+      } else if (settings.card_style === 'Glass') {
+        cardShadow = isDark 
+          ? '0 8px 32px 0 rgba(0, 0, 0, 0.37)' 
+          : '0 8px 32px 0 rgba(31, 38, 135, 0.07)'
+        cardBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.4)'
+        cardBorderWidth = '1px'
+        cardBg = isDark ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.65)'
+        cardBackdropBlur = '16px'
+      } else if (settings.card_style === 'Bordered') {
+        cardShadow = 'none'
+        cardBorderColor = settings.primary_color
+        cardBorderWidth = '2px'
+      }
+
+      root.style.setProperty('--tenant-card-shadow', cardShadow)
+      root.style.setProperty('--tenant-card-border-color', cardBorderColor)
+      root.style.setProperty('--tenant-card-border-width', cardBorderWidth)
+      root.style.setProperty('--tenant-card-bg', cardBg)
+      root.style.setProperty('--tenant-card-backdrop-blur', cardBackdropBlur)
+
+      // Set global DOM attributes representing the branding identity and style selectors
+      root.setAttribute('data-tenant-preset', settings.design_preset || 'Minimal')
+      root.setAttribute('data-tenant-card-style', settings.card_style || 'Minimal')
+      root.setAttribute('data-tenant-button-style', settings.button_style || 'Rounded')
+
+      // Aplicar estilo de ícones
+      let iconStroke = '2px'
+      if (settings.design_preset === 'Minimal') iconStroke = '1.5px'
+      else if (settings.design_preset === 'Luxury') iconStroke = '1.3px'
+      else if (settings.design_preset === 'Modern') iconStroke = '1.7px'
+      else if (settings.design_preset === 'Playful') iconStroke = '2.5px'
+      else if (settings.design_preset === 'Corporate') iconStroke = '2.0px'
+      else if (settings.design_preset === 'Dark') iconStroke = '1.7px'
+      else if (settings.design_preset === 'Education') iconStroke = '2.0px'
+      root.style.setProperty('--tenant-icon-stroke', iconStroke)
 
       // Atualizar Favicon
       if (settings.favicon_url) {

@@ -215,7 +215,11 @@ export default function Agenda() {
           const isGoogleEvent = s.status === 'BLOCKED'
 
           return (
-            <div key={s.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+            <div 
+              key={s.id} 
+              onClick={() => !isGoogleEvent && navigate(`/dashboard/session/${s.id}`)}
+              className={`p-6 flex items-center justify-between hover:bg-slate-50 transition-colors ${!isGoogleEvent ? 'cursor-pointer' : ''}`}
+            >
               <div className="flex items-center space-x-6">
                 <div className={`flex flex-col items-center justify-center p-3 rounded-lg w-20 border text-center ${
                   isGoogleEvent 
@@ -253,7 +257,7 @@ export default function Agenda() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4" onClick={(e) => e.stopPropagation()}>
                 {isGoogleEvent ? (
                   <button 
                     onClick={() => handleDeleteGoogle(s.google_event_id!)}

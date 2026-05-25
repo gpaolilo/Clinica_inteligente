@@ -1,7 +1,38 @@
 import { supabase } from './supabase'
 
-export const syncPendingSessions = async (token: string, psychologist_id: string) => {
+export const fetchValidGoogleToken = async (psychologist_id: string): Promise<string | null> => {
   try {
+    const { data } = await supabase.auth.getSession()
+    const sessionToken = data.session?.access_token
+    
+    const response = await fetch(`/api/dashboard/google-token?psychologist_id=${psychologist_id}`, {
+      headers: {
+        ...(sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {})
+      }
+    })
+    
+    if (response.ok) {
+      const body = await response.json()
+      return body.access_token
+    }
+    return null
+  } catch (err) {
+    console.error('Erro ao buscar google-token no backend:', err)
+    return null
+  }
+}
+
+export const syncPendingSessions = async (token: string | null, psychologist_id: string) => {
+  try {
+    let activeToken = token
+    if (!activeToken) {
+      activeToken = await fetchValidGoogleToken(psychologist_id)
+    }
+    if (!activeToken) {
+      console.warn('Sincronização abortada: sem token válido para o Google Calendar.')
+      return
+    }
+
     const now = new Date().toISOString()
     
     // 1. Busca sessões futuras que ainda não tem google_event_id
@@ -34,7 +65,7 @@ export const syncPendingSessions = async (token: string, psychologist_id: string
         const gcalResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${activeToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -80,7 +111,7 @@ export const syncPendingSessions = async (token: string, psychologist_id: string
         const gcalResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${session.google_event_id}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${activeToken}`
           }
         })
 
@@ -101,8 +132,17 @@ export const syncPendingSessions = async (token: string, psychologist_id: string
   }
 }
 
-export const pullGoogleEvents = async (token: string, psychologist_id: string) => {
+export const pullGoogleEvents = async (token: string | null, psychologist_id: string) => {
   try {
+    let activeToken = token
+    if (!activeToken) {
+      activeToken = await fetchValidGoogleToken(psychologist_id)
+    }
+    if (!activeToken) {
+      console.warn('Pull abortado: sem token válido para o Google Calendar.')
+      return
+    }
+
     const timeMin = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() // Puxa dos últimos 7 dias para abranger a semana atual
     const timeMax = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // Próximos 90 dias
 
@@ -110,7 +150,7 @@ export const pullGoogleEvents = async (token: string, psychologist_id: string) =
     
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${activeToken}`
       }
     })
 
@@ -186,3 +226,4 @@ export const pullGoogleEvents = async (token: string, psychologist_id: string) =
     console.error('Erro no pull de eventos do Google:', err)
   }
 }
+

@@ -1,19 +1,81 @@
+import { useState, useEffect } from 'react'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useGoogleStore } from '../stores/googleStore'
 import { useAuthStore } from '../stores/authStore'
+import { supabase } from '../lib/supabase'
 import { syncPendingSessions, pullGoogleEvents } from '../lib/googleSync'
 
 export default function Settings() {
-  const { accessToken, setAccessToken } = useGoogleStore()
+  const { setAccessToken } = useGoogleStore()
   const { session } = useAuthStore()
+  const [isConnected, setIsConnected] = useState(false)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    const checkGoogleConnection = async () => {
+      if (!session?.user?.id) return
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        
+        const res = await fetch(`/api/dashboard/google-token?psychologist_id=${session.user.id}`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setAccessToken(data.access_token)
+          setIsConnected(true)
+        } else {
+          setAccessToken(null)
+          setIsConnected(false)
+        }
+      } catch (err) {
+        console.error('Erro ao verificar conexão Google:', err)
+        setAccessToken(null)
+        setIsConnected(false)
+      } finally {
+        setChecking(false)
+      }
+    }
+    checkGoogleConnection()
+  }, [session])
 
   const login = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setAccessToken(tokenResponse.access_token)
-      alert('Google Calendar conectado com sucesso! Iniciando sincronização das próximas sessões...')
-      if (session?.user?.id) {
-        await syncPendingSessions(tokenResponse.access_token, session.user.id)
-        await pullGoogleEvents(tokenResponse.access_token, session.user.id)
+    flow: 'auth-code',
+    onSuccess: async (codeResponse) => {
+      try {
+        if (!session?.user?.id) return
+        setChecking(true)
+        
+        const res = await fetch('/api/dashboard/google-auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            code: codeResponse.code,
+            user_id: session.user.id
+          })
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          setAccessToken(data.access_token)
+          setIsConnected(true)
+          alert('Google Calendar conectado com sucesso! Iniciando sincronização das próximas sessões...')
+          await syncPendingSessions(data.access_token, session.user.id)
+          await pullGoogleEvents(data.access_token, session.user.id)
+        } else {
+          const errData = await res.json()
+          alert('Falha ao autenticar com o servidor Google: ' + (errData.error || 'Erro desconhecido'))
+        }
+      } catch (err: any) {
+        console.error(err)
+        alert('Erro ao conectar ao Google Calendar: ' + err.message)
+      } finally {
+        setChecking(false)
       }
     },
     onError: () => {
@@ -21,6 +83,29 @@ export default function Settings() {
     },
     scope: 'https://www.googleapis.com/auth/calendar.events'
   })
+
+  const handleDisconnect = async () => {
+    if (window.confirm('Tem certeza que deseja desconectar sua conta do Google Calendar?')) {
+      setChecking(true)
+      if (session?.user?.id) {
+        const { error } = await supabase
+          .from('psychologists')
+          .update({
+            google_access_token: null,
+            google_refresh_token: null,
+            google_token_expires_at: null
+          })
+          .eq('id', session.user.id)
+          
+        if (error) {
+          console.error('Erro ao desconectar no banco:', error)
+        }
+      }
+      setAccessToken(null)
+      setIsConnected(false)
+      setChecking(false)
+    }
+  }
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -66,15 +151,17 @@ export default function Settings() {
           <div className="mb-4 sm:mb-0">
             <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center">
               Google Calendar
-              {accessToken && <span className="ml-3 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">CONECTADO</span>}
+              {isConnected && <span className="ml-3 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">CONECTADO</span>}
             </h3>
             <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
               Sincronização com o Google Calendar. Crie e apague eventos da sua agenda diretamente do aplicativo.
             </p>
           </div>
-          {accessToken ? (
+          {checking ? (
+            <span className="text-sm font-semibold text-slate-400">Verificando...</span>
+          ) : isConnected ? (
             <button 
-              onClick={() => setAccessToken(null)}
+              onClick={handleDisconnect}
               className="border border-rose-300 hover:bg-rose-50 text-rose-700 font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center bg-white shadow-sm"
             >
               Desconectar

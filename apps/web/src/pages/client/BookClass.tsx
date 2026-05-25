@@ -49,6 +49,19 @@ export default function BookClass() {
       setBalance(patient.class_balance || 0)
       setTeacher(patient.psychologists)
       
+      // Atualizar eventos do Google Calendar do professor em tempo real no servidor
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        await fetch(`/api/dashboard/pull-google?psychologist_id=${patient.psychologists.id}`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        })
+      } catch (err) {
+        console.warn('Falha no pull em tempo real do Google Calendar do professor:', err)
+      }
+      
       // Ao carregar, já buscar os slots da semana atual
       await fetchSlots(patient.psychologists.id, new Date())
     }

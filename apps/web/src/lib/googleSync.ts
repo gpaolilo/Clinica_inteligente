@@ -69,3 +69,85 @@ export const syncPendingSessions = async (token: string, psychologist_id: string
     console.error('Erro no processo de sync automático:', err)
   }
 }
+
+export const pullGoogleEvents = async (token: string, psychologist_id: string) => {
+  try {
+    const timeMin = new Date().toISOString()
+    const timeMax = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // Próximos 90 dias
+
+    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      console.error('Erro ao buscar eventos do Google Calendar', await response.text())
+      return
+    }
+
+    const data = await response.json()
+    const events = data.items || []
+
+    // Filtrar apenas eventos que ocupam tempo (transparent = livre) e têm data de início/fim claras
+    const busyEvents = events.filter((evt: any) => 
+      evt.transparency !== 'transparent' && 
+      evt.start?.dateTime && 
+      evt.end?.dateTime
+    )
+
+    if (busyEvents.length === 0) {
+      console.log('Nenhum evento ocupado encontrado no Google Calendar.')
+    } else {
+      console.log(`Sincronizando ${busyEvents.length} eventos do Google Calendar para o app...`)
+      
+      const payload = busyEvents.map((evt: any) => ({
+        psychologist_id,
+        google_event_id: evt.id,
+        summary: evt.summary || 'Evento Google',
+        start_time: evt.start.dateTime,
+        end_time: evt.end.dateTime
+      }))
+
+      // Upsert: como criamos o índice único em (psychologist_id, google_event_id), podemos usar onConflict
+      const { error } = await supabase
+        .from('google_calendar_events')
+        .upsert(payload, { onConflict: 'psychologist_id,google_event_id' })
+
+      if (error) {
+        console.error('Erro ao salvar eventos do Google no banco:', error)
+      } else {
+        console.log('Eventos sincronizados com sucesso.')
+      }
+    }
+    
+    // Opcional: remover eventos deletados (que estão no banco mas não vieram na resposta)
+    // Extraímos os IDs que recebemos agora:
+    const currentGoogleIds = busyEvents.map((e: any) => e.id)
+    
+    if (currentGoogleIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('google_calendar_events')
+        .delete()
+        .eq('psychologist_id', psychologist_id)
+        .gte('start_time', timeMin)
+        .not('google_event_id', 'in', `(${currentGoogleIds.join(',')})`)
+        
+      if (deleteError) {
+        console.error('Erro ao limpar eventos deletados:', deleteError)
+      }
+    } else {
+      // Se não há eventos, deletar todos a partir de agora
+      const { error: deleteError } = await supabase
+        .from('google_calendar_events')
+        .delete()
+        .eq('psychologist_id', psychologist_id)
+        .gte('start_time', timeMin)
+    }
+
+  } catch (err) {
+    console.error('Erro no pull de eventos do Google:', err)
+  }
+}

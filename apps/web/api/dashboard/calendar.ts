@@ -44,6 +44,26 @@ export default async function handler(req: any, res: any) {
       status: s.status,
     })) || []
 
+    // Buscar eventos bloqueados do Google Calendar
+    const { data: googleEvents, error: googleError } = await supabaseAuth
+      .from('google_calendar_events')
+      .select('*')
+      .gte('end_time', startDate.toISOString())
+      .lt('start_time', endDate.toISOString())
+
+    if (!googleError && googleEvents) {
+      googleEvents.forEach((g: any) => {
+        formattedSessions.push({
+          session_id: `google_${g.id}`,
+          student_name: g.summary || 'Bloqueado (Google Calendar)',
+          start_time: g.start_time,
+          end_time: g.end_time,
+          price: 0,
+          status: 'BLOCKED'
+        })
+      })
+    }
+
     res.status(200).json({
       week_start: startDate.toISOString(),
       sessions: formattedSessions

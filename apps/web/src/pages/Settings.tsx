@@ -1,7 +1,7 @@
 import { useGoogleLogin } from '@react-oauth/google'
 import { useGoogleStore } from '../stores/googleStore'
 import { useAuthStore } from '../stores/authStore'
-import { syncPendingSessions } from '../lib/googleSync'
+import { syncPendingSessions, pullGoogleEvents } from '../lib/googleSync'
 
 export default function Settings() {
   const { accessToken, setAccessToken } = useGoogleStore()
@@ -13,6 +13,7 @@ export default function Settings() {
       alert('Google Calendar conectado com sucesso! Iniciando sincronização das próximas sessões...')
       if (session?.user?.id) {
         await syncPendingSessions(tokenResponse.access_token, session.user.id)
+        await pullGoogleEvents(tokenResponse.access_token, session.user.id)
       }
     },
     onError: () => {

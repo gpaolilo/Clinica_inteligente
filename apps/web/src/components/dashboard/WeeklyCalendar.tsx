@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { pullGoogleEvents } from '../../lib/googleSync'
+import { useGoogleStore } from '../../stores/googleStore'
 
 interface Session {
   session_id: string
@@ -16,6 +18,7 @@ export default function WeeklyCalendar() {
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getStartOfWeek(new Date()))
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(false)
+  const { accessToken } = useGoogleStore()
 
   // Função para pegar a segunda-feira da semana
   function getStartOfWeek(date: Date) {
@@ -85,6 +88,25 @@ export default function WeeklyCalendar() {
           status: s.status,
         })) || []
 
+        const { data: dbGoogle } = await supabase
+          .from('google_calendar_events')
+          .select('*')
+          .gte('end_time', startDate.toISOString())
+          .lt('start_time', endDate.toISOString())
+
+        if (dbGoogle) {
+          dbGoogle.forEach((g: any) => {
+            fallbackSessions.push({
+              session_id: `google_${g.id}`,
+              student_name: g.summary || 'Bloqueado (Google)',
+              start_time: g.start_time,
+              end_time: g.end_time,
+              price: 0,
+              status: 'BLOCKED'
+            })
+          })
+        }
+
         setSessions(fallbackSessions)
       }
 
@@ -96,8 +118,17 @@ export default function WeeklyCalendar() {
   }
 
   useEffect(() => {
-    fetchWeek(currentWeekStart)
-  }, [currentWeekStart])
+    const init = async () => {
+      if (accessToken) {
+        const { data } = await supabase.auth.getSession()
+        if (data.session?.user?.id) {
+          await pullGoogleEvents(accessToken, data.session.user.id)
+        }
+      }
+      fetchWeek(currentWeekStart)
+    }
+    init()
+  }, [currentWeekStart, accessToken])
 
   const nextWeek = () => {
     const next = new Date(currentWeekStart)
@@ -197,6 +228,7 @@ export default function WeeklyCalendar() {
                       if (s.status === 'COMPLETED') bgTheme = "bg-green-100 border-green-200 text-green-800"
                       // Neon approach for completed maybe instead of dark red
                       if (s.status === 'CANCELLED') bgTheme = "bg-rose-50 border-rose-100 text-rose-700"
+                      if (s.status === 'BLOCKED') bgTheme = "bg-slate-100 border-slate-300 text-slate-500"
 
                       return (
                         <div 
@@ -205,14 +237,21 @@ export default function WeeklyCalendar() {
                           style={{ top: `${top}px`, height: `${height}px` }}
                         >
                           <div 
-                            onClick={() => navigate(`/dashboard/session/${s.session_id}`)}
-                            className={`block w-full h-full p-2 border-l-4 rounded-md shadow-sm transition-all hover:shadow-md cursor-pointer ${bgTheme} overflow-hidden text-xs no-underline hover:brightness-95`}
+                            onClick={() => s.status !== 'BLOCKED' && navigate(`/dashboard/session/${s.session_id}`)}
+                            className={`block w-full h-full p-2 border-l-4 rounded-md shadow-sm transition-all ${s.status !== 'BLOCKED' ? 'hover:shadow-md cursor-pointer hover:brightness-95' : 'cursor-default'} ${bgTheme} overflow-hidden text-xs no-underline`}
                           >
                              <div className="font-bold truncate">{s.student_name}</div>
-                             <div className="opacity-80 flex justify-between mt-1">
-                               <span>R$ {s.price?.toFixed(2) || '0.00'}</span>
-                               <span className="uppercase font-semibold text-[9px]">{s.status === 'SCHEDULED' ? 'AGEN' : s.status}</span>
-                             </div>
+                             {s.status !== 'BLOCKED' && (
+                               <div className="opacity-80 flex justify-between mt-1">
+                                 <span>R$ {s.price?.toFixed(2) || '0.00'}</span>
+                                 <span className="uppercase font-semibold text-[9px]">{s.status === 'SCHEDULED' ? 'AGEN' : s.status}</span>
+                               </div>
+                             )}
+                             {s.status === 'BLOCKED' && (
+                               <div className="opacity-80 mt-1">
+                                 <span className="uppercase font-semibold text-[9px]">Não disponível</span>
+                               </div>
+                             )}
                           </div>
                         </div>
                       )

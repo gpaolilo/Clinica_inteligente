@@ -48,6 +48,14 @@ export async function getAvailableSlots(
     .gte('scheduled_date', startDate.toISOString())
     .lte('scheduled_date', endDate.toISOString())
 
+  // 5. Fetch Google Calendar Events
+  const { data: googleEvents } = await supabase
+    .from('google_calendar_events')
+    .select('start_time, end_time')
+    .eq('psychologist_id', psychologistId)
+    .gte('end_time', startDate.toISOString())
+    .lte('start_time', endDate.toISOString())
+
   const availableSlots: Slot[] = []
   
   // Helper to parse "HH:mm:ss" to minutes from midnight
@@ -114,15 +122,27 @@ export async function getAvailableSlots(
           return currentStart < sEnd && slotEnd > sStart
         }) || false
 
-        // 3. Check if in the past
+        // Exat time of the slot
         const exactTime = new Date(currentDate)
         exactTime.setHours(Math.floor(currentStart/60), currentStart%60, 0, 0)
-        
+
+        // 3. Check if overlaps with Google events
+        const isGoogleBlocked = googleEvents?.some(g => {
+          const gStart = new Date(g.start_time).getTime()
+          const gEnd = new Date(g.end_time).getTime()
+          
+          const sStartTime = exactTime.getTime()
+          const sEndTime = sStartTime + durationMinutes * 60000
+          
+          return sStartTime < gEnd && sEndTime > gStart
+        }) || false
+
+        // 4. Check if in the past
         // Let's enforce a minimum notice of 2 hours for safety, or grab from booking settings
         const minNoticeMs = 2 * 60 * 60 * 1000
         const isTooSoon = exactTime.getTime() < (new Date().getTime() + minNoticeMs)
 
-        if (!isBlocked && !isBooked && !isTooSoon) {
+        if (!isBlocked && !isBooked && !isGoogleBlocked && !isTooSoon) {
           availableSlots.push({
             date: dateStr,
             startTime: formatTime(currentStart),

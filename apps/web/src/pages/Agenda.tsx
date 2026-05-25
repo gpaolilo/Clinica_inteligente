@@ -224,7 +224,9 @@ export default function Agenda() {
                 <div className={`flex flex-col items-center justify-center p-3 rounded-lg w-20 border text-center ${
                   isGoogleEvent 
                     ? 'bg-slate-50 border-slate-200 text-slate-500' 
-                    : 'bg-primary-50 border-primary-100 text-primary-700'
+                    : s.status === 'SCHEDULED'
+                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                      : 'bg-primary-50 border-primary-100 text-primary-700'
                 }`}>
                   <span className="text-sm font-bold uppercase">{dt.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
                   <span className="text-2xl font-black">{dt.getDate()}</span>
@@ -233,8 +235,8 @@ export default function Agenda() {
                   <div className="flex items-center space-x-3 mb-1">
                     <h4 className="text-lg font-bold text-slate-800">{patientName}</h4>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                      s.status === 'SCHEDULED' ? 'bg-sky-100 text-sky-700' : 
-                      s.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 
+                      s.status === 'SCHEDULED' ? 'bg-emerald-100 text-emerald-700' : 
+                      s.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 
                       s.status === 'BLOCKED' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                     }`}>
                       {s.status === 'SCHEDULED' ? 'Agendado' : 
@@ -251,6 +253,12 @@ export default function Agenda() {
                       <span className="flex items-center">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         R$ {s.price.toFixed(2)}
+                      </span>
+                    )}
+                    {s.status === 'SCHEDULED' && (
+                      <span className="flex items-center text-emerald-700 font-bold underline">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                        Acessar Aula
                       </span>
                     )}
                   </div>

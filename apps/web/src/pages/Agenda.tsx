@@ -54,7 +54,12 @@ export default function Agenda() {
       }
     }
 
-    // 3. Mesclando sessões locais e compromissos importados do Google Calendar
+    // 3. Identificar IDs de eventos do Google Calendar vinculados a sessões do app
+    const linkedGoogleEventIds = new Set(
+      dbSessions?.map((s: any) => s.google_event_id).filter(Boolean) || []
+    )
+
+    // 4. Mesclando sessões locais e compromissos importados do Google Calendar
     const mergedList = [
       ...(dbSessions || []).map((s: any) => ({
         id: s.id,
@@ -67,17 +72,19 @@ export default function Agenda() {
           name: Array.isArray(s.patient) ? s.patient[0]?.name : s.patient?.name || 'Sem nome'
         }
       })),
-      ...googleEvents.map((g: any) => ({
-        id: `google_${g.google_event_id}`,
-        scheduled_date: g.start_time,
-        status: 'BLOCKED',
-        price: 0,
-        google_event_id: g.google_event_id,
-        patient: {
-          id: '',
-          name: g.summary || 'Compromisso (Google)'
-        }
-      }))
+      ...googleEvents
+        .filter((g: any) => !linkedGoogleEventIds.has(g.google_event_id))
+        .map((g: any) => ({
+          id: `google_${g.google_event_id}`,
+          scheduled_date: g.start_time,
+          status: 'BLOCKED',
+          price: 0,
+          google_event_id: g.google_event_id,
+          patient: {
+            id: '',
+            name: g.summary || 'Compromisso (Google)'
+          }
+        }))
     ]
 
     // 4. Ordenar por data

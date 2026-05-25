@@ -25,6 +25,7 @@ export default async function handler(req: any, res: any) {
         scheduled_date, 
         status, 
         price, 
+        google_event_id,
         patient:patients (id, name)
       `)
       .gte('scheduled_date', startDate.toISOString())
@@ -32,6 +33,11 @@ export default async function handler(req: any, res: any) {
       .order('scheduled_date', { ascending: true })
 
     if (error) throw error
+
+    // Identificar IDs do Google Calendar que já estão associados a sessões locais
+    const linkedGoogleEventIds = new Set(
+      sessions?.map((s: any) => s.google_event_id).filter(Boolean) || []
+    )
 
     // Formatar os dados para o frontend
     const formattedSessions = sessions?.map((s: any) => ({
@@ -53,8 +59,12 @@ export default async function handler(req: any, res: any) {
 
     if (!googleError && googleEvents) {
       googleEvents.forEach((g: any) => {
+        // Se o evento do Google já está atrelado a uma sessão local do app, não exibe duplicado em cinza
+        if (linkedGoogleEventIds.has(g.google_event_id)) {
+          return
+        }
         formattedSessions.push({
-          session_id: `google_${g.id}`,
+          session_id: `google_${g.google_event_id}`,
           student_name: g.summary || 'Bloqueado (Google Calendar)',
           start_time: g.start_time,
           end_time: g.end_time,

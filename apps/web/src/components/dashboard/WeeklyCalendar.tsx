@@ -71,12 +71,17 @@ export default function WeeklyCalendar() {
             scheduled_date, 
             status, 
             price, 
+            google_event_id,
             patient:patients (id, name)
           `)
           .gte('scheduled_date', startDate.toISOString())
           .lt('scheduled_date', endDate.toISOString())
 
         if (error) throw error
+
+        const linkedGoogleEventIds = new Set(
+          dbSessions?.map((s: any) => s.google_event_id).filter(Boolean) || []
+        )
 
         const fallbackSessions = dbSessions?.map((s: any) => ({
           session_id: s.id,
@@ -96,8 +101,11 @@ export default function WeeklyCalendar() {
 
         if (dbGoogle) {
           dbGoogle.forEach((g: any) => {
+            if (linkedGoogleEventIds.has(g.google_event_id)) {
+              return
+            }
             fallbackSessions.push({
-              session_id: `google_${g.id}`,
+              session_id: `google_${g.google_event_id}`,
               student_name: g.summary || 'Bloqueado (Google)',
               start_time: g.start_time,
               end_time: g.end_time,

@@ -226,7 +226,7 @@ export default function WeeklyCalendar() {
                       const height = (durationMins / 60) * 64
                       
                       let bgTheme = "bg-primary-100 border-primary-200 text-primary-800"
-                      if (s.status === 'SCHEDULED') bgTheme = "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100/70 hover:border-emerald-400"
+                      if (s.status === 'SCHEDULED' || s.status === 'PENDING') bgTheme = "bg-green-50 border-green-300 text-green-800 hover:bg-green-100/70 hover:border-green-400"
                       if (s.status === 'COMPLETED') bgTheme = "bg-green-100 border-green-200 text-green-800"
                       // Neon approach for completed maybe instead of dark red
                       if (s.status === 'CANCELLED') bgTheme = "bg-rose-50 border-rose-100 text-rose-700"
@@ -250,7 +250,7 @@ export default function WeeklyCalendar() {
                                    <span className="uppercase font-semibold text-[9px]">{s.status === 'SCHEDULED' ? 'AGEN' : s.status}</span>
                                  </div>
                                  <div className={`mt-1.5 font-bold text-[10px] underline flex items-center space-x-0.5 ${
-                                   s.status === 'SCHEDULED' ? 'text-emerald-700 group-hover:text-emerald-950' : 'text-slate-600'
+                                   s.status === 'SCHEDULED' || s.status === 'PENDING' ? 'text-green-700 group-hover:text-green-950' : 'text-slate-600'
                                  }`}>
                                    <svg className="w-3 h-3 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                    <span>Acessar Aula</span>

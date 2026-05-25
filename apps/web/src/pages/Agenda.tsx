@@ -224,8 +224,8 @@ export default function Agenda() {
                 <div className={`flex flex-col items-center justify-center p-3 rounded-lg w-20 border text-center ${
                   isGoogleEvent 
                     ? 'bg-slate-50 border-slate-200 text-slate-500' 
-                    : s.status === 'SCHEDULED'
-                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                    : (s.status === 'SCHEDULED' || s.status === 'PENDING')
+                      ? 'bg-green-50 border-green-100 text-green-700'
                       : 'bg-primary-50 border-primary-100 text-primary-700'
                 }`}>
                   <span className="text-sm font-bold uppercase">{dt.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
@@ -235,11 +235,12 @@ export default function Agenda() {
                   <div className="flex items-center space-x-3 mb-1">
                     <h4 className="text-lg font-bold text-slate-800">{patientName}</h4>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                      s.status === 'SCHEDULED' ? 'bg-emerald-100 text-emerald-700' : 
+                      (s.status === 'SCHEDULED' || s.status === 'PENDING') ? 'bg-green-100 text-green-700' : 
                       s.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 
                       s.status === 'BLOCKED' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                     }`}>
                       {s.status === 'SCHEDULED' ? 'Agendado' : 
+                       s.status === 'PENDING' ? 'Pendente' :
                        s.status === 'COMPLETED' ? 'Concluída' : 
                        s.status === 'BLOCKED' ? 'Ocupado (Google)' : s.status}
                     </span>
@@ -255,8 +256,8 @@ export default function Agenda() {
                         R$ {s.price.toFixed(2)}
                       </span>
                     )}
-                    {s.status === 'SCHEDULED' && (
-                      <span className="flex items-center text-emerald-700 font-bold underline">
+                    {(s.status === 'SCHEDULED' || s.status === 'PENDING') && (
+                      <span className="flex items-center text-green-700 font-bold underline">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                         Acessar Aula
                       </span>

@@ -27,8 +27,9 @@ export default function Agenda() {
 
   const fetchAgenda = async () => {
     setLoading(true)
-    // Buscando as sessões em join explícito com inner para filtrar o tipo de cliente
-    const { data } = await supabase
+    
+    // 1. Buscando as sessões em join explícito com inner para filtrar o tipo de cliente
+    const { data: dbSessions } = await supabase
       .from('sessions')
       .select(`
         id, 
@@ -39,8 +40,50 @@ export default function Agenda() {
         patient:patients!inner (id, name, client_type)
       `)
       .order('scheduled_date', { ascending: true })
+
+    // 2. Buscando eventos do Google Calendar se o usuário estiver logado
+    let googleEvents: any[] = []
+    if (session?.user?.id) {
+      const { data: dbGoogle } = await supabase
+        .from('google_calendar_events')
+        .select('*')
+        .eq('psychologist_id', session.user.id)
+      
+      if (dbGoogle) {
+        googleEvents = dbGoogle
+      }
+    }
+
+    // 3. Mesclando sessões locais e compromissos importados do Google Calendar
+    const mergedList = [
+      ...(dbSessions || []).map((s: any) => ({
+        id: s.id,
+        scheduled_date: s.scheduled_date,
+        status: s.status,
+        price: s.price,
+        google_event_id: s.google_event_id,
+        patient: {
+          id: Array.isArray(s.patient) ? s.patient[0]?.id : s.patient?.id || '',
+          name: Array.isArray(s.patient) ? s.patient[0]?.name : s.patient?.name || 'Sem nome'
+        }
+      })),
+      ...googleEvents.map((g: any) => ({
+        id: `google_${g.google_event_id}`,
+        scheduled_date: g.start_time,
+        status: 'BLOCKED',
+        price: 0,
+        google_event_id: g.google_event_id,
+        patient: {
+          id: '',
+          name: g.summary || 'Compromisso (Google)'
+        }
+      }))
+    ]
+
+    // 4. Ordenar por data
+    mergedList.sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
     
-    setSessionsList(data as any || [])
+    setSessionsList(mergedList)
     setLoading(false)
   }
 
@@ -92,10 +135,50 @@ export default function Agenda() {
     }
   }
 
-  const upcomingSessions = sessionsList.filter(s => s.status === 'SCHEDULED')
+  const handleDeleteGoogle = async (google_event_id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este compromisso do seu Google Calendar?')) {
+      setLoading(true)
+      
+      if (accessToken) {
+        try {
+          const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${google_event_id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          })
+          if (!res.ok && res.status !== 404) {
+             alert('Falha ao remover compromisso no Google Calendar.')
+             setLoading(false)
+             return
+          }
+        } catch (err) {
+          console.error('Erro ao excluir no Google Calendar:', err)
+        }
+      }
+      
+      const { error } = await supabase
+        .from('google_calendar_events')
+        .delete()
+        .eq('google_event_id', google_event_id)
+        
+      if (error) {
+        alert('Erro ao excluir do banco. (' + error.message + ')')
+        setLoading(false)
+      } else {
+        fetchAgenda()
+      }
+    }
+  }
+
+  const upcomingSessions = sessionsList.filter(s => 
+    s.status === 'SCHEDULED' || 
+    (s.status === 'BLOCKED' && new Date(s.scheduled_date) >= new Date())
+  )
   
   const pastSessions = sessionsList.filter(s => {
-    if (s.status === 'SCHEDULED') return false
+    const isFutureBlocked = s.status === 'BLOCKED' && new Date(s.scheduled_date) >= new Date()
+    if (s.status === 'SCHEDULED' || isFutureBlocked) return false
     if (historyFilter === 'all') return true
     
     const sessionDate = new Date(s.scheduled_date)
@@ -129,11 +212,16 @@ export default function Agenda() {
         {list.map(s => {
           const dt = new Date(s.scheduled_date)
           const patientName = Array.isArray(s.patient) ? s.patient[0]?.name : s.patient?.name || 'Paciente deletado'
-          
+          const isGoogleEvent = s.status === 'BLOCKED'
+
           return (
             <div key={s.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
               <div className="flex items-center space-x-6">
-                <div className="flex flex-col items-center justify-center p-3 bg-primary-50 rounded-lg w-20 border border-primary-100 text-primary-700">
+                <div className={`flex flex-col items-center justify-center p-3 rounded-lg w-20 border text-center ${
+                  isGoogleEvent 
+                    ? 'bg-slate-50 border-slate-200 text-slate-500' 
+                    : 'bg-primary-50 border-primary-100 text-primary-700'
+                }`}>
                   <span className="text-sm font-bold uppercase">{dt.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
                   <span className="text-2xl font-black">{dt.getDate()}</span>
                 </div>
@@ -142,9 +230,12 @@ export default function Agenda() {
                     <h4 className="text-lg font-bold text-slate-800">{patientName}</h4>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                       s.status === 'SCHEDULED' ? 'bg-sky-100 text-sky-700' : 
-                      s.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                      s.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 
+                      s.status === 'BLOCKED' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                     }`}>
-                      {s.status === 'SCHEDULED' ? 'Agendado' : s.status === 'COMPLETED' ? 'Concluída' : s.status}
+                      {s.status === 'SCHEDULED' ? 'Agendado' : 
+                       s.status === 'COMPLETED' ? 'Concluída' : 
+                       s.status === 'BLOCKED' ? 'Ocupado (Google)' : s.status}
                     </span>
                   </div>
                   <div className="text-sm text-slate-500 flex items-center space-x-4">
@@ -152,35 +243,48 @@ export default function Agenda() {
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                       {dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                      R$ {s.price.toFixed(2)}
-                    </span>
+                    {!isGoogleEvent && (
+                      <span className="flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        R$ {s.price.toFixed(2)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center space-x-4">
-                <button 
-                  onClick={() => handleDelete(s.id, s.google_event_id)}
-                  className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors"
-                >
-                  Excluir
-                </button>
-                {s.status === 'SCHEDULED' ? (
+                {isGoogleEvent ? (
                   <button 
-                    onClick={() => navigate(`/dashboard/session/${s.id}`)}
-                    className="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                    onClick={() => handleDeleteGoogle(s.google_event_id!)}
+                    className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors"
                   >
-                    Iniciar Sessão
+                    Excluir compromisso
                   </button>
                 ) : (
-                  <button 
-                    onClick={() => navigate(`/dashboard/session/${s.id}`)}
-                    className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
-                  >
-                    Ver Sessão
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => handleDelete(s.id, s.google_event_id)}
+                      className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors"
+                    >
+                      Excluir
+                    </button>
+                    {s.status === 'SCHEDULED' ? (
+                      <button 
+                        onClick={() => navigate(`/dashboard/session/${s.id}`)}
+                        className="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                      >
+                        Iniciar Sessão
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => navigate(`/dashboard/session/${s.id}`)}
+                        className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                      >
+                        Ver Sessão
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

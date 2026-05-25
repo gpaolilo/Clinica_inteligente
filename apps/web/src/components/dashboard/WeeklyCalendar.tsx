@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { pullGoogleEvents } from '../../lib/googleSync'
+import { pullGoogleEvents, syncPendingSessions } from '../../lib/googleSync'
 import { useGoogleStore } from '../../stores/googleStore'
 
 interface Session {
@@ -122,6 +122,7 @@ export default function WeeklyCalendar() {
       if (accessToken) {
         const { data } = await supabase.auth.getSession()
         if (data.session?.user?.id) {
+          await syncPendingSessions(accessToken, data.session.user.id)
           await pullGoogleEvents(accessToken, data.session.user.id)
         }
       }

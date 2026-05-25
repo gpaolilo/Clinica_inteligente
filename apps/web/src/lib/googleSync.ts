@@ -4,7 +4,7 @@ export const syncPendingSessions = async (token: string, psychologist_id: string
   try {
     const now = new Date().toISOString()
     
-    // Busca sessões futuras que ainda não tem google_event_id
+    // 1. Busca sessões futuras que ainda não tem google_event_id
     const { data: sessions, error } = await supabase
       .from('sessions')
       .select(`
@@ -19,50 +19,81 @@ export const syncPendingSessions = async (token: string, psychologist_id: string
 
     if (error) {
       console.error('Erro ao buscar sessões pendentes para sync', error)
-      return
-    }
+    } else if (sessions && sessions.length > 0) {
+      console.log(`Encontradas ${sessions.length} sessões para sincronizar com o Google Calendar...`)
 
-    if (!sessions || sessions.length === 0) {
-      return // Nada para sincronizar
-    }
-
-    console.log(`Encontradas ${sessions.length} sessões para sincronizar com o Google Calendar...`)
-
-    for (const session of sessions) {
-      const startDateTime = new Date(session.scheduled_date)
-      const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000) // +1 hora
-      
-      const patientName = Array.isArray(session.patient) 
-        ? session.patient[0]?.name 
-        : (session.patient as any)?.name || 'Paciente'
-
-      // Cria no Google Calendar
-      const gcalResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          summary: `Sessão com ${patientName}`,
-          description: 'Sessão sincronizada via Clinica.ia',
-          start: { dateTime: startDateTime.toISOString() },
-          end: { dateTime: endDateTime.toISOString() }
-        })
-      })
-
-      if (gcalResponse.ok) {
-        const event = await gcalResponse.json()
+      for (const session of sessions) {
+        const startDateTime = new Date(session.scheduled_date)
+        const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000) // +1 hora
         
-        // Atualiza no banco
-        await supabase
-          .from('sessions')
-          .update({ google_event_id: event.id })
-          .eq('id', session.id)
+        const patientName = Array.isArray(session.patient) 
+          ? session.patient[0]?.name 
+          : (session.patient as any)?.name || 'Paciente'
+
+        // Cria no Google Calendar
+        const gcalResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            summary: `Sessão com ${patientName}`,
+            description: 'Sessão sincronizada via Clinica.ia',
+            start: { dateTime: startDateTime.toISOString() },
+            end: { dateTime: endDateTime.toISOString() }
+          })
+        })
+
+        if (gcalResponse.ok) {
+          const event = await gcalResponse.json()
           
-        console.log(`Sessão ${session.id} sincronizada com sucesso.`)
-      } else {
-        console.error(`Falha ao sincronizar sessão ${session.id}`, await gcalResponse.text())
+          // Atualiza no banco
+          await supabase
+            .from('sessions')
+            .update({ google_event_id: event.id })
+            .eq('id', session.id)
+            
+          console.log(`Sessão ${session.id} sincronizada com sucesso.`)
+        } else {
+          console.error(`Falha ao sincronizar sessão ${session.id}`, await gcalResponse.text())
+        }
+      }
+    }
+
+    // 2. Busca sessões que foram canceladas mas ainda têm o google_event_id ativo
+    const { data: cancelledSessions, error: cancelError } = await supabase
+      .from('sessions')
+      .select('id, google_event_id')
+      .eq('psychologist_id', psychologist_id)
+      .eq('status', 'CANCELLED')
+      .not('google_event_id', 'is', null)
+
+    if (cancelError) {
+      console.error('Erro ao buscar sessões canceladas para sync', cancelError)
+    } else if (cancelledSessions && cancelledSessions.length > 0) {
+      console.log(`Encontradas ${cancelledSessions.length} sessões canceladas para limpar no Google Calendar...`)
+
+      for (const session of cancelledSessions) {
+        if (!session.google_event_id) continue
+
+        const gcalResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${session.google_event_id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        // 204 No Content, 404 Not Found ou OK são sucessos aceitáveis para limpeza
+        if (gcalResponse.status === 204 || gcalResponse.status === 404 || gcalResponse.ok) {
+          await supabase
+            .from('sessions')
+            .update({ google_event_id: null })
+            .eq('id', session.id)
+          console.log(`Evento Google ${session.google_event_id} removido e sessão ${session.id} atualizada.`)
+        } else {
+          console.error(`Falha ao remover evento Google ${session.google_event_id}`, await gcalResponse.text())
+        }
       }
     }
   } catch (err) {
@@ -72,7 +103,7 @@ export const syncPendingSessions = async (token: string, psychologist_id: string
 
 export const pullGoogleEvents = async (token: string, psychologist_id: string) => {
   try {
-    const timeMin = new Date().toISOString()
+    const timeMin = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() // Puxa dos últimos 7 dias para abranger a semana atual
     const timeMax = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // Próximos 90 dias
 
     const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`
@@ -140,11 +171,15 @@ export const pullGoogleEvents = async (token: string, psychologist_id: string) =
       }
     } else {
       // Se não há eventos, deletar todos a partir de agora
-      const { error: deleteError } = await supabase
+      const { error: deleteAllError } = await supabase
         .from('google_calendar_events')
         .delete()
         .eq('psychologist_id', psychologist_id)
         .gte('start_time', timeMin)
+        
+      if (deleteAllError) {
+        console.error('Erro ao limpar todos eventos futuros do Google:', deleteAllError)
+      }
     }
 
   } catch (err) {

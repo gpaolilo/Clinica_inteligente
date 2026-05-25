@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import BrandStudioPage from './pages/BrandStudioPage'
+import { TenantThemeProvider } from './components/branding/TenantThemeProvider'
 
 // Layouts e Páginas (Profissionais)
 import DashboardLayout from './layouts/DashboardLayout'
@@ -55,7 +57,8 @@ function RoleGuard({ allowedRoles, children }: { allowedRoles: string[], childre
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <TenantThemeProvider>
+        <Routes>
         {/* Rotas Públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -73,6 +76,7 @@ export default function App() {
           <Route path="availability" element={<AvailabilitySettings />} />
           <Route path="finance" element={<Finance />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="brand-studio" element={<BrandStudioPage />} />
         </Route>
 
         {/* Rotas de Admin */}
@@ -95,9 +99,13 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
         </Route>
 
+        {/* Rota Pública Adicional para White-label Academy (Login Customizado) */}
+        <Route path="/academy/:slug" element={<Login />} />
+
         {/* Captura Tudo -> Joga pra Raiz que decide o destino */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </TenantThemeProvider>
     </BrowserRouter>
   )
 }

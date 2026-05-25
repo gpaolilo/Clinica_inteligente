@@ -1,25 +1,44 @@
 import { useState } from 'react'
-import { Navigate, Outlet, Link } from 'react-router-dom'
+import { Navigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import { useTenantBranding } from '../hooks/useTenantBranding'
 
 export default function DashboardLayout() {
   const { session, user, loading, signOut } = useAuthStore()
+  const { appName, logoUrl } = useTenantBranding()
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const location = useLocation()
   
   const initial = user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || 'U'
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
   if (!session) return <Navigate to="/login" replace />
 
+  const getLinkClass = (path: string) => {
+    const base = "flex items-center px-4 py-3 text-sm rounded-xl transition-all duration-200"
+    const isActive = path === '/dashboard'
+      ? location.pathname === '/dashboard' || location.pathname === '/dashboard/'
+      : location.pathname.startsWith(path)
+      
+    if (isActive) {
+      return `${base} bg-tenant-primary/10 text-tenant-primary font-bold shadow-sm`
+    }
+    return `${base} text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-semibold`
+  }
+
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-dark font-sans selection:bg-neon selection:text-dark">
       {/* Horizontal Header */}
       <header className="flex justify-between items-center px-6 py-4 bg-white shadow-sm border-b border-slate-100 z-20">
         <div className="flex items-center">
-          <div className="w-8 h-8 rounded-lg bg-neon mr-3 shadow-sm flex items-center justify-center border border-lime-300">
-             <svg className="w-5 h-5 text-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          </div>
-          <h1 className="text-xl font-bold text-dark tracking-tight">Clinica.ia</h1>
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName} className="h-8 max-w-[150px] object-contain mr-3" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-neon mr-3 shadow-sm flex items-center justify-center border border-lime-300">
+               <svg className="w-5 h-5 text-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+          )}
+          <h1 className="text-xl font-bold text-dark tracking-tight">{appName}</h1>
         </div>
         <div className="flex items-center space-x-5">
           <Link to="/dashboard/settings" className="text-slate-400 hover:text-dark transition-colors">
@@ -71,29 +90,34 @@ export default function DashboardLayout() {
           {/* Main Navigation Sidebar */}
           <aside className="bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all overflow-y-auto no-scrollbar">
             <nav className="space-y-1">
-              <Link to="/dashboard" className="flex items-center px-4 py-3 text-sm font-bold rounded-xl bg-blue-50 text-blue-600 shadow-sm transition-all duration-200">
+              <Link to="/dashboard" className={getLinkClass('/dashboard')}>
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                 Dashboard
               </Link>
               
-              <Link to="/dashboard/patients" className="flex items-center px-4 py-3 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors">
+              <Link to="/dashboard/patients" className={getLinkClass('/dashboard/patients')}>
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                 Clients
               </Link>
               
-              <Link to="/dashboard/agenda" className="flex items-center px-4 py-3 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors">
+              <Link to="/dashboard/agenda" className={getLinkClass('/dashboard/agenda')}>
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 Agenda
               </Link>
               
-              <Link to="/dashboard/finance" className="flex items-center px-4 py-3 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors">
+              <Link to="/dashboard/finance" className={getLinkClass('/dashboard/finance')}>
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 Finance
               </Link>
 
-              <Link to="/dashboard/availability" className="flex items-center px-4 py-3 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors">
+              <Link to="/dashboard/availability" className={getLinkClass('/dashboard/availability')}>
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 Disponibilidade
+              </Link>
+
+              <Link to="/dashboard/brand-studio" className={getLinkClass('/dashboard/brand-studio')}>
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                Estúdio de Marca
               </Link>
 
               <Link to="/dashboard" className="flex items-center px-4 py-3 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors">

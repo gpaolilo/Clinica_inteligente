@@ -4,16 +4,18 @@ import { useAuthStore } from '../../stores/authStore'
 import RequestSessionModal from '../../components/client/RequestSessionModal'
 import { motion, Variants } from 'framer-motion'
 import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, TrendingUp, CheckCircle, Clock } from 'lucide-react'
+import { useTenantBranding } from '../../hooks/useTenantBranding'
 
 // Premium glassmorphism container
 const GlassCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <div className={`bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300 rounded-[24px] overflow-hidden ${className}`}>
+  <div className={`bg-tenant-surface/80 backdrop-blur-xl border border-tenant-border shadow-sm hover:shadow-md transition-all duration-300 rounded-tenant-card overflow-hidden ${className}`}>
     {children}
   </div>
 )
 
 export default function ClientDashboard() {
   const { session, role } = useAuthStore()
+  const { dashboardMessage } = useTenantBranding()
   const [loading, setLoading] = useState(true)
   const [patientRecord, setPatientRecord] = useState<any>(null)
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([])
@@ -94,7 +96,7 @@ export default function ClientDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tenant-primary"></div>
       </div>
     )
   }
@@ -123,10 +125,10 @@ export default function ClientDashboard() {
       className="p-4 md:p-8 max-w-7xl mx-auto space-y-6"
     >
       {/* Premium Hero Header */}
-      <motion.div variants={itemVariants} className="relative bg-slate-900 rounded-[32px] p-8 md:p-12 text-white shadow-2xl overflow-hidden">
+      <motion.div variants={itemVariants} className="relative bg-slate-900 rounded-tenant-card p-8 md:p-12 text-white shadow-2xl overflow-hidden animate-fade-in">
         {/* Abstract background blobs */}
-        <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-primary-600 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
-        <div className="absolute bottom-[-20%] left-[10%] w-72 h-72 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-tenant-primary rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
+        <div className="absolute bottom-[-20%] left-[10%] w-72 h-72 bg-tenant-secondary rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
         
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
@@ -134,15 +136,15 @@ export default function ClientDashboard() {
               Olá, {firstName} <span className="inline-block animate-wave">👋</span>
             </h1>
             <p className="text-slate-300 text-lg max-w-xl">
-              {latestInsights?.fluency_score > 80 
+              {dashboardMessage || (latestInsights?.fluency_score > 80 
                 ? "Sua fluência está excelente! Continue o ótimo trabalho."
-                : "Pronto para evoluir ainda mais no seu aprendizado hoje?"}
+                : "Pronto para evoluir ainda mais no seu aprendizado hoje?")}
             </p>
           </div>
           
           <button 
             onClick={() => window.location.href='/client/book'}
-            className="flex items-center gap-2 bg-white text-slate-900 font-bold py-4 px-8 rounded-2xl hover:bg-slate-100 hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.3)]"
+            className="flex items-center gap-2 bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-4 px-8 rounded-tenant-btn hover:scale-105 transition-all duration-300 shadow-lg"
           >
             <Calendar className="w-5 h-5" />
             Agendar Aula
@@ -209,19 +211,19 @@ export default function ClientDashboard() {
             <motion.div variants={itemVariants}>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary-500" /> Próximas Aulas
+                  <Calendar className="w-5 h-5 text-tenant-primary" /> Próximas Aulas
                 </h2>
-                <button onClick={() => window.location.href='/client/agenda'} className="text-sm font-bold text-primary-600 hover:text-primary-700">Ver Agenda Completa</button>
+                <button onClick={() => window.location.href='/client/agenda'} className="text-sm font-bold text-tenant-primary hover:text-tenant-primary-hover">Ver Agenda Completa</button>
               </div>
               <div className="space-y-4">
                 {upcomingSessions.map((session) => (
-                  <GlassCard key={session.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-l-4 border-l-primary-500">
+                  <GlassCard key={session.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-l-4 border-l-tenant-primary">
                     <div className="flex items-center gap-4">
-                      <div className="bg-primary-50 p-4 rounded-2xl text-center min-w-[80px]">
-                        <p className="text-primary-600 text-xs font-black uppercase">
+                      <div className="bg-tenant-primary/10 p-4 rounded-2xl text-center min-w-[80px]">
+                        <p className="text-tenant-primary text-xs font-black uppercase">
                           {new Date(session.scheduled_date).toLocaleDateString('pt-BR', { month: 'short' })}
                         </p>
-                        <p className="text-primary-700 text-2xl font-black">
+                        <p className="text-tenant-primary text-2xl font-black">
                           {new Date(session.scheduled_date).getDate()}
                         </p>
                       </div>
@@ -242,12 +244,12 @@ export default function ClientDashboard() {
             </motion.div>
           ) : (
             <motion.div variants={itemVariants}>
-               <GlassCard className="p-8 border-l-4 border-l-primary-500">
+               <GlassCard className="p-8 border-l-4 border-l-tenant-primary">
                   <h2 className="text-2xl font-black text-slate-800 mb-2">Nenhuma aula agendada</h2>
                   <p className="text-slate-500 mb-6">Você tem <strong>{patientRecord?.class_balance || 0} aulas disponíveis</strong> em seu saldo. Agende sua próxima aula para continuar evoluindo.</p>
                   <button 
                     onClick={() => window.location.href='/client/book'}
-                    className="bg-slate-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2"
+                    className="bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-3 px-6 rounded-tenant-btn transition-all flex items-center gap-2"
                   >
                     <Calendar className="w-5 h-5" />
                     Agendar Agora
@@ -262,7 +264,7 @@ export default function ClientDashboard() {
                 <Brain className="w-5 h-5 text-purple-500" /> Exercícios Recomendados
               </h2>
               {pendingHomework.length > 0 && (
-                <button className="text-sm font-bold text-primary-600 hover:text-primary-700 flex items-center gap-1 transition-colors">
+                <button className="text-sm font-bold text-tenant-primary hover:text-tenant-primary-hover flex items-center gap-1 transition-colors">
                   Ver todos <ArrowRight className="w-4 h-4" />
                 </button>
               )}
@@ -291,7 +293,7 @@ export default function ClientDashboard() {
                         Criado a partir da sua última aula para fortalecer seus pontos fracos.
                       </p>
                     </div>
-                    <button className="w-full mt-4 bg-slate-900 text-white font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 group-hover:bg-primary-600 transition-colors">
+                    <button className="w-full mt-4 bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-2.5 rounded-tenant-btn flex items-center justify-center gap-2 transition-colors">
                       Iniciar Prática
                     </button>
                   </GlassCard>
@@ -317,7 +319,7 @@ export default function ClientDashboard() {
                   <ul className="space-y-3 mt-4">
                     {latestInsights.main_weaknesses.slice(0,3).map((w: string, i: number) => (
                       <li key={i} className="flex gap-2 text-sm text-slate-300">
-                        <ArrowRight className="w-4 h-4 text-primary-400 shrink-0 mt-0.5" />
+                        <ArrowRight className="w-4 h-4 text-tenant-accent shrink-0 mt-0.5" />
                         <span>{w}</span>
                       </li>
                     ))}
@@ -345,7 +347,7 @@ export default function ClientDashboard() {
                   <span className="font-bold text-slate-800">75%</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className="bg-primary-500 h-2 rounded-full" style={{ width: '75%' }}></div>
+                  <div className="bg-tenant-primary h-2 rounded-full" style={{ width: '75%' }}></div>
                 </div>
               </div>
               <div>

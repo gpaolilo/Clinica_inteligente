@@ -4,12 +4,14 @@ import { useGoogleStore } from '../stores/googleStore'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '../lib/supabase'
 import { syncPendingSessions, pullGoogleEvents } from '../lib/googleSync'
+import { useNavigate } from 'react-router-dom'
 
 export default function Settings() {
   const { setAccessToken } = useGoogleStore()
   const { session } = useAuthStore()
   const [isConnected, setIsConnected] = useState(false)
   const [checking, setChecking] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const checkGoogleConnection = async () => {
@@ -175,6 +177,25 @@ export default function Settings() {
               Conectar Conta Google
             </button>
           )}
+        </section>
+
+        {/* Personalização de Marca (White-Label) */}
+        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between hover:shadow-md transition-shadow">
+          <div className="mb-4 sm:mb-0">
+            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center">
+              Personalização da Academia (White-Label)
+              <span className="ml-3 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">ESTÚDIO</span>
+            </h3>
+            <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
+              Personalize o nome da plataforma, logo, favicon, cores, presets e mensagens para dar a sua própria identidade visual aos seus alunos.
+            </p>
+          </div>
+          <button 
+            onClick={() => navigate('/dashboard/brand-studio')}
+            className="bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center shadow-sm shrink-0"
+          >
+            Acessar Estúdio
+          </button>
         </section>
       </div>
     </div>

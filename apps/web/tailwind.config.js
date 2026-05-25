@@ -20,7 +20,23 @@ export default {
         neon: '#D4FF59',       // Neon Lime da referência
         dark: '#1A1A1A',       // Texto quase preto/slate profudo
         surface: '#FFFFFF',    // Branco puro dos cartões
-        background: '#F8F9FA'  // Fundo cinza ultralight
+        background: '#F8F9FA', // Fundo cinza ultralight
+        
+        // White-label dynamic tenant colors
+        tenant: {
+          primary: 'var(--tenant-primary)',
+          'primary-hover': 'var(--tenant-primary-hover)',
+          secondary: 'var(--tenant-secondary)',
+          accent: 'var(--tenant-accent)',
+          background: 'var(--tenant-background)',
+          surface: 'var(--tenant-surface)',
+          text: 'var(--tenant-text)',
+          border: 'var(--tenant-border)',
+        }
+      },
+      borderRadius: {
+        'tenant-btn': 'var(--tenant-button-radius)',
+        'tenant-card': 'var(--tenant-card-radius)',
       }
     },
   },

@@ -4,9 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../stores/authStore'
 import GamificationOverlay from '../components/ui/GamificationOverlay'
 import { Menu, X, LayoutDashboard, Brain, Activity, BookOpen, MessageSquare, Book, User, LogOut, CalendarPlus, CalendarDays } from 'lucide-react'
+import { useTenantBranding } from '../hooks/useTenantBranding'
 
 export default function ClientLayout() {
   const { signOut, role } = useAuthStore()
+  const { appName, logoUrl } = useTenantBranding()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -34,8 +36,14 @@ export default function ClientLayout() {
     <>
       <div className="p-6 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-            <div className="bg-primary-500 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black">C</div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Portal do {role === 'STUDENT' ? 'Aluno' : 'Paciente'}</h1>
+             {logoUrl ? (
+               <img src={logoUrl} alt={appName} className="h-8 max-w-[120px] object-contain" />
+             ) : (
+               <div className="bg-tenant-primary text-white w-8 h-8 rounded-lg flex items-center justify-center font-black">
+                 {appName.charAt(0)}
+               </div>
+             )}
+             <h1 className="text-xl font-bold text-tenant-text tracking-tight">{appName}</h1>
         </div>
         <button className="lg:hidden text-slate-500" onClick={() => setIsMobileMenuOpen(false)}>
           <X className="w-6 h-6" />
@@ -52,9 +60,9 @@ export default function ClientLayout() {
             <Link 
               key={link.to}
               to={link.to} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-colors ${isActive ? 'bg-primary-50 text-primary-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              className={`flex items-center gap-3 px-4 py-3 rounded-tenant-btn font-bold transition-colors ${isActive ? 'bg-tenant-primary/10 text-tenant-primary' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
             >
-              <link.icon className={`w-5 h-5 ${isActive ? 'text-primary-600' : 'text-slate-400'}`} />
+              <link.icon className={`w-5 h-5 ${isActive ? 'text-tenant-primary' : 'text-slate-400'}`} />
               {link.label}
             </Link>
           )
@@ -64,7 +72,7 @@ export default function ClientLayout() {
       <div className="p-4 border-t border-slate-100">
         <button 
           onClick={signOut}
-          className="flex items-center justify-center gap-2 font-bold px-4 py-3 w-full rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          className="flex items-center justify-center gap-2 font-bold px-4 py-3 w-full rounded-tenant-btn text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
         >
           <LogOut className="w-5 h-5" />
           Sair do Portal
@@ -78,8 +86,14 @@ export default function ClientLayout() {
       {/* Mobile Header */}
       <div className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between z-20">
         <div className="flex items-center space-x-3">
-          <div className="bg-primary-500 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black">C</div>
-          <h1 className="font-bold text-slate-800 tracking-tight">Portal do Aluno</h1>
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName} className="h-8 max-w-[120px] object-contain" />
+          ) : (
+            <div className="bg-tenant-primary text-white w-8 h-8 rounded-lg flex items-center justify-center font-black">
+              {appName.charAt(0)}
+            </div>
+          )}
+          <h1 className="font-bold text-tenant-text tracking-tight">{appName}</h1>
         </div>
         <button 
           onClick={() => setIsMobileMenuOpen(true)}

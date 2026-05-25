@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTenantBranding } from '../hooks/useTenantBranding'
 
 type ViewState = 'LOGIN' | 'FORGOT_PASSWORD' | 'UPDATE_PASSWORD'
 
@@ -12,6 +13,13 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const navigate = useNavigate()
+  
+  const { 
+    appName, 
+    logoUrl, 
+    loginBackgroundUrl, 
+    loginMessage
+  } = useTenantBranding()
 
   useEffect(() => {
     // Detecta se o usuário clicou em um link de recuperação de senha
@@ -79,17 +87,27 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 font-sans selection:bg-neon selection:text-dark">
-      <div className="bg-surface p-10 rounded-[32px] shadow-2xl w-full max-w-sm border border-slate-100 flex flex-col items-center">
+    <div 
+      className="min-h-screen flex items-center justify-center bg-tenant-background px-4 font-sans selection:bg-tenant-accent selection:text-dark relative overflow-hidden"
+      style={loginBackgroundUrl ? { backgroundImage: `url(${loginBackgroundUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+    >
+      {/* Fallback overlay para fundos escuros/claros se houver imagem para melhorar contraste */}
+      {loginBackgroundUrl && <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] z-0" />}
+
+      <div className="bg-tenant-surface p-10 rounded-tenant-card shadow-2xl w-full max-w-sm border border-tenant-border flex flex-col items-center z-10">
         <div className="text-center mb-8 w-full">
-          <div className="bg-neon text-dark w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-lime-300">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-extrabold text-dark tracking-tight">Clinica.ia</h2>
-          <p className="text-slate-500 font-medium mt-1">
-            {view === 'LOGIN' && 'Inteligência Privada Autônoma'}
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName} className="max-h-20 max-w-[200px] object-contain mx-auto mb-6" />
+          ) : (
+            <div className="bg-tenant-accent text-dark w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-lime-300">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+          )}
+          <h2 className="text-3xl font-extrabold text-tenant-text tracking-tight">{appName}</h2>
+          <p className="text-slate-500 font-medium mt-1.5 text-sm">
+            {view === 'LOGIN' && (loginMessage || 'Inteligência Privada Autônoma')}
             {view === 'FORGOT_PASSWORD' && 'Recuperação de Senha'}
             {view === 'UPDATE_PASSWORD' && 'Criar Nova Senha'}
           </p>
@@ -101,23 +119,23 @@ export default function Login() {
         {view === 'LOGIN' && (
           <form onSubmit={handleLogin} className="space-y-5 w-full">
             <div>
-              <label className="block text-sm font-bold text-dark mb-1.5 px-1">E-mail</label>
+              <label className="block text-sm font-bold text-tenant-text mb-1.5 px-1">E-mail</label>
               <input 
                 type="email" 
                 required
                 placeholder="dr@clinica.com"
-                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-neon focus:border-neon outline-none transition-all text-dark font-medium shadow-sm"
+                className="w-full px-5 py-3.5 bg-slate-50/50 border border-tenant-border rounded-tenant-btn focus:bg-tenant-surface focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-tenant-text font-medium shadow-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div>
                <div className="flex justify-between items-center mb-1.5 px-1">
-                 <label className="block text-sm font-bold text-dark">Senha</label>
+                 <label className="block text-sm font-bold text-tenant-text">Senha</label>
                  <button 
                    type="button" 
                    onClick={() => { setView('FORGOT_PASSWORD'); setError(null); setMessage(null); }}
-                   className="text-xs font-bold text-slate-500 hover:text-dark transition-colors"
+                   className="text-xs font-bold text-slate-500 hover:text-tenant-primary transition-colors"
                  >
                    Esqueceu a senha?
                  </button>
@@ -126,14 +144,14 @@ export default function Login() {
                 type="password" 
                 required
                 placeholder="••••••••"
-                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-neon focus:border-neon outline-none transition-all text-dark font-medium shadow-sm"
+                className="w-full px-5 py-3.5 bg-slate-50/50 border border-tenant-border rounded-tenant-btn focus:bg-tenant-surface focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-tenant-text font-medium shadow-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <button 
               disabled={loading}
-              className="w-full bg-dark hover:bg-black text-neon font-bold py-4 px-6 rounded-full transition-all mt-4 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center"
+              className="w-full bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-4 px-6 rounded-tenant-btn transition-all mt-4 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center"
             >
               {loading ? 'Autenticando...' : 'Acessar Plataforma'}
             </button>
@@ -143,26 +161,26 @@ export default function Login() {
         {view === 'FORGOT_PASSWORD' && (
           <form onSubmit={handleForgotPassword} className="space-y-5 w-full">
             <div>
-              <label className="block text-sm font-bold text-dark mb-1.5 px-1">E-mail para recuperação</label>
+              <label className="block text-sm font-bold text-tenant-text mb-1.5 px-1">E-mail para recuperação</label>
               <input 
                 type="email" 
                 required
                 placeholder="dr@clinica.com"
-                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-neon focus:border-neon outline-none transition-all text-dark font-medium shadow-sm"
+                className="w-full px-5 py-3.5 bg-slate-50/50 border border-tenant-border rounded-tenant-btn focus:bg-tenant-surface focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-tenant-text font-medium shadow-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <button 
               disabled={loading}
-              className="w-full bg-dark hover:bg-black text-neon font-bold py-4 px-6 rounded-full transition-all mt-4 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center"
+              className="w-full bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-4 px-6 rounded-tenant-btn transition-all mt-4 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center"
             >
               {loading ? 'Enviando...' : 'Enviar Link de Recuperação'}
             </button>
             <button 
               type="button"
               onClick={() => { setView('LOGIN'); setError(null); setMessage(null); }}
-              className="w-full bg-white hover:bg-slate-50 text-dark border border-slate-200 font-bold py-4 px-6 rounded-full transition-all mt-2"
+              className="w-full bg-tenant-surface hover:bg-slate-50 text-tenant-text border border-tenant-border font-bold py-4 px-6 rounded-tenant-btn transition-all mt-2"
             >
               Voltar ao Login
             </button>
@@ -172,19 +190,19 @@ export default function Login() {
         {view === 'UPDATE_PASSWORD' && (
           <form onSubmit={handleUpdatePassword} className="space-y-5 w-full">
             <div>
-              <label className="block text-sm font-bold text-dark mb-1.5 px-1">Nova Senha</label>
+              <label className="block text-sm font-bold text-tenant-text mb-1.5 px-1">Nova Senha</label>
               <input 
                 type="password" 
                 required
                 placeholder="••••••••"
-                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-neon focus:border-neon outline-none transition-all text-dark font-medium shadow-sm"
+                className="w-full px-5 py-3.5 bg-slate-50/50 border border-tenant-border rounded-tenant-btn focus:bg-tenant-surface focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-tenant-text font-medium shadow-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <button 
               disabled={loading}
-              className="w-full bg-dark hover:bg-black text-neon font-bold py-4 px-6 rounded-full transition-all mt-4 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center"
+              className="w-full bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-4 px-6 rounded-tenant-btn transition-all mt-4 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center"
             >
               {loading ? 'Atualizando...' : 'Atualizar Senha'}
             </button>
@@ -194,7 +212,7 @@ export default function Login() {
         {view === 'LOGIN' && (
           <p className="mt-8 text-center text-sm font-medium text-slate-500">
             Não possui uma clínica digital? <br/>
-            <Link to="/register" className="text-dark font-extrabold border-b-2 border-neon hover:text-black mt-2 inline-block transition-colors pb-0.5">Criar Conta</Link>
+            <Link to="/register" className="text-tenant-primary font-extrabold border-b-2 border-tenant-accent hover:text-tenant-primary-hover mt-2 inline-block transition-colors pb-0.5">Criar Conta</Link>
           </p>
         )}
       </div>

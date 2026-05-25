@@ -53,7 +53,7 @@ export default function BookClass() {
       try {
         const { data: sessionData } = await supabase.auth.getSession()
         const token = sessionData.session?.access_token
-        await fetch(`/api/dashboard/pull-google?psychologist_id=${patient.psychologists.id}`, {
+        await fetch(`/api/dashboard/google?action=pull&psychologist_id=${patient.psychologists.id}`, {
           headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           }

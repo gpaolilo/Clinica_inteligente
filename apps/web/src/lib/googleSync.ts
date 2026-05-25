@@ -5,7 +5,7 @@ export const fetchValidGoogleToken = async (psychologist_id: string): Promise<st
     const { data } = await supabase.auth.getSession()
     const sessionToken = data.session?.access_token
     
-    const response = await fetch(`/api/dashboard/google-token?psychologist_id=${psychologist_id}`, {
+    const response = await fetch(`/api/dashboard/google?action=token&psychologist_id=${psychologist_id}`, {
       headers: {
         ...(sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {})
       }

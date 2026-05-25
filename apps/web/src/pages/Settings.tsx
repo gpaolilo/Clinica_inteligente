@@ -18,7 +18,7 @@ export default function Settings() {
         const { data: sessionData } = await supabase.auth.getSession()
         const token = sessionData.session?.access_token
         
-        const res = await fetch(`/api/dashboard/google-token?psychologist_id=${session.user.id}`, {
+        const res = await fetch(`/api/dashboard/google?action=token&psychologist_id=${session.user.id}`, {
           headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           }
@@ -49,7 +49,7 @@ export default function Settings() {
         if (!session?.user?.id) return
         setChecking(true)
         
-        const res = await fetch('/api/dashboard/google-auth', {
+        const res = await fetch('/api/dashboard/google', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

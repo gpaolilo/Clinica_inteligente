@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { AssetUploader } from './AssetUploader'
-import { Link2, Sparkles } from 'lucide-react'
+import { Link2, Sparkles, Copy, Check } from 'lucide-react'
 
 interface IdentitySectionProps {
   tenantId: string | null
@@ -35,6 +35,7 @@ export const IdentitySection: React.FC<IdentitySectionProps> = ({
   const [savingSlug, setSavingSlug] = useState(false)
   const [slugError, setSlugError] = useState<string | null>(null)
   const [slugSuccess, setSlugSuccess] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setCurrentSlug(slug)
@@ -70,6 +71,17 @@ export const IdentitySection: React.FC<IdentitySectionProps> = ({
       setSlugError(err.message || 'Erro ao atualizar link.')
     } finally {
       setSavingSlug(false)
+    }
+  }
+
+  const handleCopyLink = async () => {
+    const fullLink = `${window.location.origin}/academy/${slug}`
+    try {
+      await navigator.clipboard.writeText(fullLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Falha ao copiar link:', err)
     }
   }
 
@@ -150,6 +162,33 @@ export const IdentitySection: React.FC<IdentitySectionProps> = ({
             <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full inline-block"></span>
             {slugSuccess}
           </p>
+        )}
+
+        {slug && (
+          <div className="flex items-center justify-between bg-white border border-slate-200/50 p-3 rounded-xl shadow-sm text-xs mt-2 transition-all">
+            <span className="text-slate-500 truncate mr-2 font-mono select-all">
+              {window.location.origin}/academy/{slug}
+            </span>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className={`flex items-center gap-1.5 font-bold transition-all px-3 py-1.5 rounded-lg border ${
+                copied 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm' 
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 active:scale-95 shadow-sm'
+              }`}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5" /> Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Copiar Link
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
 

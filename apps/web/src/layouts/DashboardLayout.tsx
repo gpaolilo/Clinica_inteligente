@@ -44,7 +44,7 @@ export default function DashboardLayout() {
   ]
 
   const getLinkClass = (path: string, exact = false) => {
-    const base = "flex items-center px-4 py-2.5 text-sm rounded-tenant-btn transition-all duration-200"
+    const base = "flex items-center px-3.5 py-2 text-sm rounded-tenant-btn transition-all duration-200"
     const isActive = exact
       ? location.pathname === path || location.pathname === `${path}/`
       : location.pathname.startsWith(path)
@@ -132,8 +132,8 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-dark font-sans selection:bg-neon selection:text-dark">
-      {/* Horizontal Header */}
-      <header className="flex justify-between items-center px-6 py-4 bg-white shadow-sm border-b border-slate-100 z-20 w-full shrink-0">
+      {/* Floating Header */}
+      <header className="mx-4 sm:mx-6 mt-4 sm:mt-6 bg-white rounded-3xl border border-slate-100 shadow-sm px-6 py-2.5 flex justify-between items-center z-20 shrink-0">
         <div className="flex items-center space-x-3">
           {/* Hamburger Menu Button (visible on mobile/tablet) */}
           <button 
@@ -144,7 +144,7 @@ export default function DashboardLayout() {
           </button>
 
           {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="h-8 max-w-[150px] object-contain" />
+            <img src={logoUrl} alt={appName} className="h-7 max-w-[150px] object-contain" />
           ) : (
             <div className="w-8 h-8 rounded-lg bg-tenant-primary text-white shadow-sm flex items-center justify-center font-black">
                {appName.charAt(0)}
@@ -161,9 +161,9 @@ export default function DashboardLayout() {
           <div className="relative">
             <button 
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm hover:border-slate-300 transition-colors focus:outline-none"
+              className="w-8.5 h-8.5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm hover:border-slate-300 transition-colors focus:outline-none"
             >
-              <span className="font-bold text-sm text-slate-600">{initial}</span>
+              <span className="font-bold text-xs text-slate-600">{initial}</span>
             </button>
 
             {isProfileMenuOpen && (
@@ -221,9 +221,9 @@ export default function DashboardLayout() {
       </AnimatePresence>
 
       {/* Main Page Layout */}
-      <div className="flex flex-1 overflow-hidden p-4 sm:p-6 gap-6">
+      <div className="flex-1 flex overflow-hidden px-4 sm:px-6 pb-4 sm:pb-6 pt-3 sm:pt-4 gap-6">
         {/* Left Sidebars Container (Desktop layout with 2 floating cards) */}
-        <div className="hidden lg:flex flex-col gap-6 w-72 h-full shrink-0">
+        <div className="hidden lg:flex flex-col gap-6 w-60 h-full shrink-0">
           
           {/* Main Navigation Sidebar */}
           <aside className="bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all overflow-y-auto no-scrollbar">

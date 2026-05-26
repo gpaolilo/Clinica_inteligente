@@ -264,7 +264,10 @@ export default function ClientDashboard() {
                 <Brain className="w-5 h-5 text-purple-500" /> Exercícios Recomendados
               </h2>
               {pendingHomework.length > 0 && (
-                <button className="text-sm font-bold text-tenant-primary hover:text-tenant-primary-hover flex items-center gap-1 transition-colors">
+                <button 
+                  onClick={() => window.location.href = '/client/homework'}
+                  className="text-sm font-bold text-tenant-primary hover:text-tenant-primary-hover flex items-center gap-1 transition-colors"
+                >
                   Ver todos <ArrowRight className="w-4 h-4" />
                 </button>
               )}
@@ -293,7 +296,10 @@ export default function ClientDashboard() {
                         Criado a partir da sua última aula para fortalecer seus pontos fracos.
                       </p>
                     </div>
-                    <button className="w-full mt-4 bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-2.5 rounded-tenant-btn flex items-center justify-center gap-2 transition-colors">
+                    <button 
+                      onClick={() => window.location.href = `/client/homework?start=true&id=${hw.id}`}
+                      className="w-full mt-4 bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-2.5 rounded-tenant-btn flex items-center justify-center gap-2 transition-colors"
+                    >
                       Iniciar Prática
                     </button>
                   </GlassCard>

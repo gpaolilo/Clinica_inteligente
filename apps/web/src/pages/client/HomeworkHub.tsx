@@ -17,6 +17,7 @@ export default function HomeworkHub() {
   const { session } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [homeworks, setHomeworks] = useState<any[]>([])
+  const [completedHomeworks, setCompletedHomeworks] = useState<Record<string, any>>({})
   
   // Estados para a Prática de Exercícios
   const [activeHomework, setActiveHomework] = useState<any | null>(null)
@@ -51,7 +52,45 @@ export default function HomeworkHub() {
       .eq('status', 'PUBLISHED')
       .order('created_at', { ascending: false })
 
+    const { data: results } = await supabase
+      .from('homework_results')
+      .select('homework_plan_id, score, completed_at')
+      .eq('patient_id', patient.id)
+
     if (plans) setHomeworks(plans)
+    
+    if (results) {
+      const resultsMap = results.reduce((acc: Record<string, any>, r: any) => {
+        // Guardar o resultado (preferencialmente com maior score ou mais recente)
+        if (!acc[r.homework_plan_id] || new Date(r.completed_at) > new Date(acc[r.homework_plan_id].completed_at)) {
+          acc[r.homework_plan_id] = r
+        }
+        return acc
+      }, {})
+      setCompletedHomeworks(resultsMap)
+    }
+
+    // Verificar se há parâmetros na URL para auto-iniciar prática do dashboard
+    const searchParams = new URLSearchParams(window.location.search)
+    const startParam = searchParams.get('start')
+    const idParam = searchParams.get('id')
+
+    if (plans && startParam === 'true' && idParam) {
+      const planToStart = plans.find((p: any) => p.id === idParam)
+      if (planToStart) {
+        window.history.replaceState(null, '', '/client/homework')
+        // Iniciar prática
+        setActiveHomework(planToStart)
+        setCurrentExerciseIdx(0)
+        setAnswers(new Array(planToStart.exercises?.length || 0).fill(''))
+        setCheckedExercises(new Array(planToStart.exercises?.length || 0).fill(false))
+        setIsCorrectArray(new Array(planToStart.exercises?.length || 0).fill(false))
+        setShowResultsScreen(false)
+        setFinalScore(0)
+        setXpEarned(0)
+      }
+    }
+
     setLoading(false)
   }
 
@@ -431,16 +470,23 @@ export default function HomeworkHub() {
           {homeworks.map((hw) => {
             const exercisesCount = hw.exercises?.length || 0
             const date = new Date(hw.sessions?.scheduled_date || hw.created_at).toLocaleDateString('pt-BR')
+            const result = completedHomeworks[hw.id]
             
             return (
               <motion.div key={hw.id} variants={itemVariants}>
                 <GlassCard className="p-6 flex flex-col h-full group hover:-translate-y-1">
                   <div className="mb-auto">
                     <div className="flex justify-between items-start mb-4">
-                      <span className="text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100 flex items-center gap-1">
-                        <Trophy className="w-3 h-3" /> Adaptativo
-                      </span>
-                      <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
+                      {result ? (
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 flex items-center gap-1">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Concluído ({result.score}%)
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100 flex items-center gap-1">
+                          <Trophy className="w-3 h-3" /> Adaptativo
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-slate-400 flex items-center gap-1 ml-auto">
                         <Clock className="w-3 h-3" /> Aula de {date}
                       </span>
                     </div>
@@ -458,9 +504,14 @@ export default function HomeworkHub() {
                   
                   <button 
                     onClick={() => handleStartPractice(hw)}
-                    className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 group-hover:bg-tenant-primary transition-colors shadow-md hover:shadow-lg"
+                    className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg ${
+                      result 
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60' 
+                        : 'bg-slate-900 text-white hover:bg-tenant-primary'
+                    }`}
                   >
-                    <PlayCircle className="w-5 h-5" /> Iniciar Prática
+                    <PlayCircle className="w-5 h-5" /> 
+                    {result ? 'Refazer Prática' : 'Iniciar Prática'}
                   </button>
                 </GlassCard>
               </motion.div>

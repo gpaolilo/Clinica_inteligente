@@ -70,9 +70,15 @@ export default async function handler(req: any, res: any) {
 
     // 3. Grant XP
     try {
-      const { data: gamification } = await supabaseAuth.from('gamification_profiles').select('xp').eq('patient_id', patientId).single()
+      const { data: gamification } = await supabaseAuth.from('gamification_profiles').select('xp, level').eq('patient_id', patientId).single()
       if (gamification) {
-         await supabaseAuth.from('gamification_profiles').update({ xp: gamification.xp + 100 }).eq('patient_id', patientId)
+         const newXp = (gamification.xp || 0) + 100
+         const newLevel = Math.floor(newXp / 100) + 1
+         await supabaseAuth.from('gamification_profiles').update({ 
+           xp: newXp,
+           level: newLevel,
+           last_practice_date: new Date().toISOString()
+         }).eq('patient_id', patientId)
       }
     } catch (xpErr) {
       console.error('Error updating XP', xpErr)

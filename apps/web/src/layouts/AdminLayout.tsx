@@ -16,25 +16,25 @@ export default function AdminLayout() {
           </div>
         </div>
         
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-3 space-y-1">
           <Link 
             to="/admin" 
-            className={`flex items-center px-4 py-3 rounded-xl transition-colors ${location.pathname === '/admin' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'}`}
+            className={`flex items-center px-3.5 py-2.5 text-sm rounded-xl transition-colors font-semibold ${location.pathname === '/admin' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
           >
             Dashboard
           </Link>
           <Link 
             to="/admin/users" 
-            className={`flex items-center px-4 py-3 rounded-xl transition-colors ${location.pathname.includes('/admin/users') ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'}`}
+            className={`flex items-center px-3.5 py-2.5 text-sm rounded-xl transition-colors font-semibold ${location.pathname.includes('/admin/users') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
           >
             Gerenciar Usuários
           </Link>
         </nav>
         
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-3 border-t border-slate-800">
           <button 
             onClick={signOut}
-            className="flex items-center px-4 py-3 w-full rounded-xl text-rose-400 hover:bg-slate-800 hover:text-rose-300 transition-colors"
+            className="flex items-center px-3.5 py-2.5 text-sm w-full rounded-xl text-rose-400 hover:bg-slate-800 hover:text-rose-300 font-semibold transition-colors"
           >
             Sair do Sistema
           </button>

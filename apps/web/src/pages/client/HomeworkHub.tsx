@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
-import { BookOpen, CheckCircle, Clock, PlayCircle, Trophy } from 'lucide-react'
+import { BookOpen, CheckCircle, Clock, PlayCircle, Trophy, ArrowLeft, Send, Award, Sparkles, AlertCircle } from 'lucide-react'
 
-const GlassCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <div className={`bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300 rounded-[24px] overflow-hidden ${className}`}>
+const GlassCard = ({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
+  <div 
+    onClick={onClick}
+    className={`bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300 rounded-[24px] overflow-hidden ${onClick ? 'cursor-pointer hover:-translate-y-1' : ''} ${className}`}
+  >
     {children}
   </div>
 )
@@ -14,32 +17,172 @@ export default function HomeworkHub() {
   const { session } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [homeworks, setHomeworks] = useState<any[]>([])
+  
+  // Estados para a Prática de Exercícios
+  const [activeHomework, setActiveHomework] = useState<any | null>(null)
+  const [currentExerciseIdx, setCurrentExerciseIdx] = useState<number>(0)
+  const [answers, setAnswers] = useState<string[]>([])
+  const [checkedExercises, setCheckedExercises] = useState<boolean[]>([])
+  const [isCorrectArray, setIsCorrectArray] = useState<boolean[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [showResultsScreen, setShowResultsScreen] = useState(false)
+  const [finalScore, setFinalScore] = useState<number>(0)
+  const [xpEarned, setXpEarned] = useState<number>(0)
 
-  useEffect(() => {
-    const fetchHomeworks = async () => {
-      if (!session) return
-      
-      const { data: patient } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .single()
+  const fetchHomeworks = async () => {
+    if (!session) return
+    setLoading(true)
+    
+    const { data: patient } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .single()
 
-      if (!patient) return
-
-      const { data: plans } = await supabase
-        .from('homework_plans')
-        .select('*, sessions(scheduled_date)')
-        .eq('patient_id', patient.id)
-        .eq('status', 'PUBLISHED')
-        .order('created_at', { ascending: false })
-
-      if (plans) setHomeworks(plans)
+    if (!patient) {
       setLoading(false)
+      return
     }
 
+    const { data: plans } = await supabase
+      .from('homework_plans')
+      .select('*, sessions(scheduled_date)')
+      .eq('patient_id', patient.id)
+      .eq('status', 'PUBLISHED')
+      .order('created_at', { ascending: false })
+
+    if (plans) setHomeworks(plans)
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchHomeworks()
   }, [session])
+
+  const handleStartPractice = (hw: any) => {
+    setActiveHomework(hw)
+    setCurrentExerciseIdx(0)
+    setAnswers(new Array(hw.exercises?.length || 0).fill(''))
+    setCheckedExercises(new Array(hw.exercises?.length || 0).fill(false))
+    setIsCorrectArray(new Array(hw.exercises?.length || 0).fill(false))
+    setShowResultsScreen(false)
+    setFinalScore(0)
+    setXpEarned(0)
+  }
+
+  const handleVerifyAnswer = () => {
+    if (!activeHomework) return
+    const currentEx = activeHomework.exercises[currentExerciseIdx]
+    const userAnswer = (answers[currentExerciseIdx] || '').trim().toLowerCase()
+    const correctAnswer = (currentEx.answer || '').trim().toLowerCase()
+    
+    // Comparação simples sem levar em conta acentos ou espaços extras
+    const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g,"").replace(/\s+/g," ")
+    
+    const isCorrect = normalize(userAnswer) === normalize(correctAnswer)
+
+    const newChecked = [...checkedExercises]
+    newChecked[currentExerciseIdx] = true
+    setCheckedExercises(newChecked)
+
+    const newIsCorrect = [...isCorrectArray]
+    newIsCorrect[currentExerciseIdx] = isCorrect
+    setIsCorrectArray(newIsCorrect)
+  }
+
+  const handleOverrideCorrection = (isCorrect: boolean) => {
+    const newIsCorrect = [...isCorrectArray]
+    newIsCorrect[currentExerciseIdx] = isCorrect
+    setIsCorrectArray(newIsCorrect)
+  }
+
+  const handleNext = () => {
+    if (!activeHomework) return
+    if (currentExerciseIdx < activeHomework.exercises.length - 1) {
+      setCurrentExerciseIdx(prev => prev + 1)
+    }
+  }
+
+  const handleFinish = async () => {
+    if (!activeHomework || !session) return
+    setSubmitting(true)
+    
+    const correctCount = isCorrectArray.filter(Boolean).length
+    const totalExercises = activeHomework.exercises.length
+    const scorePercentage = parseFloat(((correctCount / totalExercises) * 100).toFixed(1))
+    const totalXp = correctCount * 15 // 15 XP por acerto
+    
+    try {
+      // 1. Salvar os resultados em homework_results
+      const { error: insertError } = await supabase
+        .from('homework_results')
+        .insert([{
+          homework_plan_id: activeHomework.id,
+          psychologist_id: activeHomework.psychologist_id,
+          patient_id: activeHomework.patient_id,
+          exercises_results: activeHomework.exercises.map((ex: any, idx: number) => ({
+            question: ex.question,
+            user_answer: answers[idx] || '',
+            is_correct: isCorrectArray[idx] || false,
+            answer: ex.answer,
+            explanation: ex.explanation,
+            type: ex.type
+          })),
+          score: scorePercentage,
+          completed_at: new Date().toISOString()
+        }])
+
+      if (insertError) throw insertError
+
+      // 2. Atualizar XP e Nível na tabela gamification_profiles
+      try {
+        const { data: gamification, error: gError } = await supabase
+          .from('gamification_profiles')
+          .select('xp, level')
+          .eq('patient_id', activeHomework.patient_id)
+          .single()
+
+        if (gError && gError.code !== 'PGRST116') throw gError
+
+        if (gamification) {
+          const currentXp = gamification.xp || 0
+          const newXp = currentXp + totalXp
+          // Cada 100 XP sobe um nível
+          const newLevel = Math.floor(newXp / 100) + 1
+          
+          await supabase
+            .from('gamification_profiles')
+            .update({
+              xp: newXp,
+              level: newLevel,
+              last_practice_date: new Date().toISOString()
+            })
+            .eq('patient_id', activeHomework.patient_id)
+        } else {
+          // Caso não exista, cria um perfil básico
+          await supabase
+            .from('gamification_profiles')
+            .insert([{
+              patient_id: activeHomework.patient_id,
+              xp: totalXp,
+              level: Math.floor(totalXp / 100) + 1,
+              last_practice_date: new Date().toISOString()
+            }])
+        }
+      } catch (gErr) {
+        console.warn("Erro ao atualizar perfil de gamificação (pode ser contornado):", gErr)
+      }
+
+      setFinalScore(scorePercentage)
+      setXpEarned(totalXp)
+      setShowResultsScreen(true)
+    } catch (err: any) {
+      console.error("Erro ao salvar exercícios:", err)
+      alert("Erro ao concluir dever de casa: " + err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -58,6 +201,215 @@ export default function HomeworkHub() {
     show: { opacity: 1, y: 0 }
   }
 
+  // MODO 1: Tela de Conclusão / Resultados
+  if (activeHomework && showResultsScreen) {
+    return (
+      <div className="p-4 md:p-8 max-w-2xl mx-auto min-h-[80vh] flex flex-col justify-center">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
+          <GlassCard className="p-8 text-center border-emerald-100 relative overflow-hidden">
+            <div className="absolute top-[-20%] right-[-10%] w-72 h-72 bg-emerald-100 rounded-full mix-blend-multiply filter blur-3xl opacity-30"></div>
+            
+            <Award className="w-20 h-20 text-emerald-500 mx-auto mb-6 animate-bounce" />
+            
+            <h1 className="text-3xl font-black text-slate-800 mb-2">Prática Concluída!</h1>
+            <p className="text-slate-500 mb-8 font-medium">Você completou seus exercícios adaptativos com sucesso.</p>
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Aproveitamento</span>
+                <span className="text-3xl font-black text-slate-800">{finalScore}%</span>
+              </div>
+              <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex flex-col justify-center items-center">
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Recompensa
+                </span>
+                <span className="text-3xl font-black text-emerald-700">+{xpEarned} XP</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                setActiveHomework(null)
+                fetchHomeworks()
+              }}
+              className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-colors shadow-lg"
+            >
+              Voltar para Central
+            </button>
+          </GlassCard>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // MODO 2: Interface Ativa de Resolução de Exercício
+  if (activeHomework) {
+    const currentEx = activeHomework.exercises[currentExerciseIdx]
+    const totalExercises = activeHomework.exercises.length
+    const progressPercent = ((currentExerciseIdx + 1) / totalExercises) * 100
+    const isChecked = checkedExercises[currentExerciseIdx]
+    const isUserCorrect = isCorrectArray[currentExerciseIdx]
+
+    return (
+      <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6">
+        {/* Header da Prática */}
+        <div className="flex justify-between items-center">
+          <button 
+            onClick={() => {
+              if (window.confirm("Tem certeza que deseja sair? O progresso desta sessão de prática será perdido.")) {
+                setActiveHomework(null)
+              }
+            }}
+            className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Voltar
+          </button>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Exercício {currentExerciseIdx + 1} de {totalExercises}
+          </span>
+        </div>
+
+        {/* Barra de Progresso */}
+        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPercent}%` }}
+            transition={{ duration: 0.3 }}
+            className="bg-tenant-primary h-full rounded-full"
+          />
+        </div>
+
+        {/* Card do Exercício */}
+        <motion.div 
+          key={currentExerciseIdx}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <GlassCard className="p-6 md:p-8 space-y-6">
+            {/* Categoria */}
+            <div className="flex justify-between items-center">
+              <span className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider ${
+                currentEx.type === 'grammar' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                currentEx.type === 'vocabulary' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                'bg-blue-50 text-blue-600 border border-blue-100'
+              }`}>
+                {currentEx.type}
+              </span>
+              {isChecked && (
+                <span className={`text-xs font-bold flex items-center gap-1 ${isUserCorrect ? 'text-emerald-600' : 'text-rose-500'}`}>
+                  {isUserCorrect ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                  {isUserCorrect ? 'Correto' : 'Revisar'}
+                </span>
+              )}
+            </div>
+
+            {/* Pergunta */}
+            <h2 className="text-xl md:text-2xl font-black text-slate-800 leading-snug">
+              {currentEx.question}
+            </h2>
+
+            {/* Campo de Resposta */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Sua Resposta</label>
+              <textarea 
+                disabled={isChecked}
+                value={answers[currentExerciseIdx] || ''}
+                onChange={(e) => {
+                  const newAnswers = [...answers]
+                  newAnswers[currentExerciseIdx] = e.target.value
+                  setAnswers(newAnswers)
+                }}
+                rows={3}
+                placeholder="Escreva sua resposta em inglês aqui..."
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-[20px] focus:bg-white focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-slate-800 font-medium shadow-sm resize-none disabled:opacity-75 disabled:bg-slate-50/50"
+              />
+            </div>
+
+            {/* Feedback / Correção */}
+            {isChecked && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="pt-4 border-t border-slate-100 space-y-4"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block mb-1">Gabarito</span>
+                    <p className="text-emerald-900 font-bold">{currentEx.answer}</p>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Feedback do Sistema</span>
+                    <p className="text-slate-700 text-sm font-semibold">
+                      {isUserCorrect 
+                        ? 'Excelente! Resposta equivalente ao gabarito.' 
+                        : 'A resposta digitada divergiu do padrão. Você pode ajustar abaixo se considerar que estava correta.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-5">
+                  <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block mb-1">Explicação Teórica</span>
+                  <p className="text-slate-600 text-sm leading-relaxed font-medium">{currentEx.explanation}</p>
+                </div>
+
+                {/* Sobrescrever Correção Manual */}
+                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl text-xs font-bold text-slate-500 border border-slate-100">
+                  <span>A correção da IA estava correta?</span>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleOverrideCorrection(true)}
+                      className={`px-3 py-1.5 rounded-lg border transition-all ${isUserCorrect ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
+                    >
+                      Marcar como Certo
+                    </button>
+                    <button 
+                      onClick={() => handleOverrideCorrection(false)}
+                      className={`px-3 py-1.5 rounded-lg border transition-all ${!isUserCorrect ? 'bg-rose-500 text-white border-rose-500' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
+                    >
+                      Marcar como Errado
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Ações */}
+            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+              {!isChecked ? (
+                <button 
+                  onClick={handleVerifyAnswer}
+                  disabled={!(answers[currentExerciseIdx] || '').trim()}
+                  className="bg-slate-900 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-slate-800 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Send className="w-4 h-4" /> Verificar Resposta
+                </button>
+              ) : (
+                currentExerciseIdx < totalExercises - 1 ? (
+                  <button 
+                    onClick={handleNext}
+                    className="bg-tenant-primary text-white font-bold py-3.5 px-8 rounded-xl hover:bg-tenant-primary-hover transition-colors shadow-md flex items-center gap-2"
+                  >
+                    Próximo Exercício
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleFinish}
+                    disabled={submitting}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-8 rounded-xl transition-colors shadow-md disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {submitting ? 'Salvando...' : 'Concluir Prática'}
+                  </button>
+                )
+              )}
+            </div>
+          </GlassCard>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // MODO 3: Listagem de Exercícios Disponíveis (Estado Inicial)
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       
@@ -94,17 +446,20 @@ export default function HomeworkHub() {
                     </div>
                     
                     <h3 className="font-bold text-xl text-slate-800 mb-2">Revisão e Prática</h3>
-                    <p className="text-slate-500 text-sm mb-4">
-                      Criado a partir da sua aula para fortalecer pontos específicos.
+                    <p className="text-slate-500 text-sm mb-4 font-medium">
+                      Criado a partir da sua aula para fortalecer pontos específicos de gramática, vocabulário e conversação.
                     </p>
                     
-                    <div className="bg-slate-50 rounded-xl p-3 flex justify-between items-center mb-6">
-                      <span className="text-sm font-medium text-slate-600">Exercícios</span>
-                      <span className="font-bold text-slate-800 bg-white px-2 py-1 rounded-md shadow-sm">{exercisesCount}</span>
+                    <div className="bg-slate-50 rounded-xl p-3 flex justify-between items-center mb-6 border border-slate-100">
+                      <span className="text-sm font-bold text-slate-500">Total de Questões</span>
+                      <span className="font-black text-slate-800 bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm">{exercisesCount}</span>
                     </div>
                   </div>
                   
-                  <button className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 group-hover:bg-primary-600 transition-colors">
+                  <button 
+                    onClick={() => handleStartPractice(hw)}
+                    className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 group-hover:bg-tenant-primary transition-colors shadow-md hover:shadow-lg"
+                  >
                     <PlayCircle className="w-5 h-5" /> Iniciar Prática
                   </button>
                 </GlassCard>
@@ -116,3 +471,4 @@ export default function HomeworkHub() {
     </motion.div>
   )
 }
+

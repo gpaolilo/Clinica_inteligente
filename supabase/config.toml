@@ -23,4 +23,4 @@ port = 54323
 
 [edge_runtime]
 enabled = true
-port = 54324
+# port = 54324

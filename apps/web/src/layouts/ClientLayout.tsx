@@ -62,7 +62,7 @@ export default function ClientLayout() {
               to={link.to} 
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-tenant-btn text-sm font-semibold transition-colors ${isActive ? 'bg-tenant-primary/10 text-tenant-primary' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
             >
-              <link.icon className={`w-4.5 h-4.5 ${isActive ? 'text-tenant-primary' : 'text-slate-400'}`} />
+              <link.icon className={`w-5 h-5 ${isActive ? 'text-tenant-primary' : 'text-slate-400'}`} />
               {link.label}
             </Link>
           )
@@ -74,7 +74,7 @@ export default function ClientLayout() {
           onClick={signOut}
           className="flex items-center justify-center gap-2 font-semibold px-3 py-2.5 w-full rounded-tenant-btn text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
         >
-          <LogOut className="w-4.5 h-4.5" />
+          <LogOut className="w-5 h-5" />
           Sair do Portal
         </button>
       </div>

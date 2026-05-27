@@ -133,7 +133,7 @@ export default function DashboardLayout() {
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-dark font-sans selection:bg-neon selection:text-dark">
       {/* Stuck Header (Option 3 Optimized & Height Adjusted) */}
-      <header className="w-full bg-tenant-surface border-b border-tenant-border shadow-[0_10px_30px_rgba(0,0,0,0.03)] px-8 py-4.5 flex justify-between items-center z-20 shrink-0 rounded-b-[2.5rem] border-x-0 border-t-0">
+      <header className="w-full bg-tenant-surface border-b border-tenant-border shadow-[0_10px_30px_rgba(0,0,0,0.03)] px-8 py-5.5 flex justify-between items-center z-20 shrink-0 rounded-b-[2.5rem] border-x-0 border-t-0">
         <div className="flex items-center space-x-4">
           {/* Hamburger Menu Button (visible on mobile/tablet) */}
           <button 
@@ -221,7 +221,7 @@ export default function DashboardLayout() {
       </AnimatePresence>
 
       {/* Main Page Layout */}
-      <div className="flex-1 flex overflow-hidden px-4 sm:px-6 pb-4 sm:pb-6 pt-4 sm:pt-6 gap-6">
+      <div className="flex-1 flex overflow-hidden px-4 sm:px-6 pb-4 sm:pb-6 pt-4.5 sm:pt-6.5 gap-6">
         {/* Left Sidebars Container (Desktop layout with 2 floating cards) */}
         <div className="hidden lg:flex flex-col gap-6 w-60 h-full shrink-0">
           

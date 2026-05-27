@@ -22,6 +22,7 @@ export default function DashboardLayout() {
   const { appName, logoUrl } = useTenantBranding()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const [headerOption, setHeaderOption] = useState<1 | 2 | 3>(1)
   const location = useLocation()
 
   // Close mobile menu on route change
@@ -132,8 +133,14 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-dark font-sans selection:bg-neon selection:text-dark">
-      {/* Floating Header */}
-      <header className="mx-4 sm:mx-6 mt-4 sm:mt-6 bg-white rounded-3xl border border-slate-100 shadow-sm px-6 py-2.5 flex justify-between items-center z-20 shrink-0">
+      {/* Stuck Header Options Preview */}
+      <header className={
+        headerOption === 1 
+          ? "w-full bg-tenant-surface/90 backdrop-blur-md border-b border-tenant-border shadow-sm px-6 py-5 flex justify-between items-center z-20 shrink-0 rounded-b-3xl"
+          : headerOption === 2
+          ? "w-full bg-tenant-surface border-b border-tenant-border shadow-[0_8px_30px_rgb(0,0,0,0.03)] px-6 py-6 flex justify-between items-center z-20 shrink-0 rounded-b-[2.5rem] relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:bg-gradient-to-r after:from-tenant-primary after:to-tenant-secondary after:rounded-b-[2.5rem]"
+          : "w-full bg-tenant-surface border-b border-tenant-border shadow-[0_10px_30px_rgba(0,0,0,0.03)] px-8 py-5 flex justify-between items-center z-20 shrink-0 rounded-b-[2rem]"
+      }>
         <div className="flex items-center space-x-3">
           {/* Hamburger Menu Button (visible on mobile/tablet) */}
           <button 
@@ -221,7 +228,7 @@ export default function DashboardLayout() {
       </AnimatePresence>
 
       {/* Main Page Layout */}
-      <div className="flex-1 flex overflow-hidden px-4 sm:px-6 pb-4 sm:pb-6 pt-3 sm:pt-4 gap-6">
+      <div className="flex-1 flex overflow-hidden px-4 sm:px-6 pb-4 sm:pb-6 pt-4 sm:pt-6 gap-6">
         {/* Left Sidebars Container (Desktop layout with 2 floating cards) */}
         <div className="hidden lg:flex flex-col gap-6 w-60 h-full shrink-0">
           
@@ -265,6 +272,26 @@ export default function DashboardLayout() {
         <main className="flex-1 overflow-y-auto no-scrollbar relative rounded-3xl h-full">
           <Outlet />
         </main>
+      </div>
+
+      {/* Floating Preview Switcher (Apenas para Visualização/Estudo) */}
+      <div className="fixed bottom-6 right-6 bg-slate-900/90 text-white p-3.5 rounded-2xl shadow-2xl z-50 flex items-center gap-3 border border-slate-700/50 backdrop-blur-sm">
+        <span className="text-xs font-bold text-slate-300">Preview do Header:</span>
+        <div className="flex gap-1.5">
+          {[1, 2, 3].map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setHeaderOption(opt as 1 | 2 | 3)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                headerOption === opt
+                  ? 'bg-tenant-primary text-white shadow-md font-black'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+              }`}
+            >
+              Opção {opt}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

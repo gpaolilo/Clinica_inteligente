@@ -1,7 +1,6 @@
 import React from 'react'
 import { Menu } from 'lucide-react'
 import { HeaderLogo } from './HeaderLogo'
-import { HeaderSearch } from './HeaderSearch'
 import { HeaderActions } from './HeaderActions'
 
 interface HeaderProps {
@@ -57,9 +56,6 @@ export const Header: React.FC<HeaderProps> = ({
 
         <HeaderLogo appName={appName} logoUrl={logoUrl} />
       </div>
-
-      {/* Center side: Global Search */}
-      <HeaderSearch />
 
       {/* Right side: Actions & Profile Menu */}
       <div className="relative">

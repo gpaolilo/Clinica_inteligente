@@ -44,26 +44,51 @@ export default function ProgressAnalytics() {
         .from('student_insights')
         .select('created_at, fluency_score, confidence_score, grammar_errors, vocabulary_suggestions')
         .eq('patient_id', patient.id)
-        .order('created_at', { ascending: true })
 
-      if (insights && insights.length > 0) {
-        const formattedTimeline = insights.map((i: any) => ({
-          date: new Date(i.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
-          Fluência: i.fluency_score || 0,
-          Confiança: i.confidence_score || 0
+      // Fetch AI scenario sessions
+      const { data: scenarioSessions } = await supabase
+        .from('scenario_sessions')
+        .select('created_at, fluency_score, confidence_score, grammar_score')
+        .eq('patient_id', patient.id)
+
+      // Merge and sort chronologically
+      const allActivities = [
+        ...(insights || []).map(i => ({
+          created_at: i.created_at,
+          fluency_score: i.fluency_score || 0,
+          confidence_score: i.confidence_score || 0,
+          grammar_errors_count: i.grammar_errors?.length || 0,
+          vocab_suggestions_count: i.vocabulary_suggestions?.length || 0
+        })),
+        ...(scenarioSessions || []).map(s => ({
+          created_at: s.created_at,
+          fluency_score: s.fluency_score || 0,
+          confidence_score: s.confidence_score || 0,
+          grammar_errors_count: s.grammar_score ? Math.max(0, Math.round((100 - s.grammar_score) / 10)) : 2,
+          vocab_suggestions_count: s.fluency_score ? Math.max(0, Math.round((100 - s.fluency_score) / 15)) : 1
+        }))
+      ]
+
+      allActivities.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+      if (allActivities.length > 0) {
+        const formattedTimeline = allActivities.map((act: any) => ({
+          date: new Date(act.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+          Fluência: act.fluency_score || 0,
+          Confiança: act.confidence_score || 0
         }))
         setTimelineData(formattedTimeline)
 
         // Calculate averages for Radar
-        const avgFluency = insights.reduce((acc: number, i: any) => acc + (i.fluency_score || 0), 0) / insights.length
-        const avgConfidence = insights.reduce((acc: number, i: any) => acc + (i.confidence_score || 0), 0) / insights.length
+        const avgFluency = allActivities.reduce((acc: number, act: any) => acc + (act.fluency_score || 0), 0) / allActivities.length
+        const avgConfidence = allActivities.reduce((acc: number, act: any) => acc + (act.confidence_score || 0), 0) / allActivities.length
         
         // Estimate Grammar Score (start at 100, subtract for errors)
-        const avgGrammarErrors = insights.reduce((acc: number, i: any) => acc + (i.grammar_errors?.length || 0), 0) / insights.length
+        const avgGrammarErrors = allActivities.reduce((acc: number, act: any) => acc + (act.grammar_errors_count || 0), 0) / allActivities.length
         const grammarScore = Math.max(0, 100 - (avgGrammarErrors * 10))
 
         // Vocabulary engagement (based on suggestions provided)
-        const avgVocab = insights.reduce((acc: number, i: any) => acc + (i.vocabulary_suggestions?.length || 0), 0) / insights.length
+        const avgVocab = allActivities.reduce((acc: number, act: any) => acc + (act.vocab_suggestions_count || 0), 0) / allActivities.length
         const vocabScore = Math.min(100, 50 + (avgVocab * 10))
 
         setRadarData([

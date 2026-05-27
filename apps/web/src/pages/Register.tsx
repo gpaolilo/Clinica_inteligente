@@ -14,8 +14,13 @@ export default function Register() {
   const { 
     appName, 
     logoUrl, 
-    loginBackgroundUrl
+    loginBackgroundUrl,
+    loading: brandingLoading
   } = useTenantBranding()
+
+  if (brandingLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50">Carregando...</div>
+  }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()

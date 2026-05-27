@@ -8,7 +8,7 @@ import { useTenantBranding } from '../hooks/useTenantBranding'
 
 export default function ClientLayout() {
   const { signOut, role } = useAuthStore()
-  const { appName, logoUrl } = useTenantBranding()
+  const { appName, logoUrl, loading: brandingLoading } = useTenantBranding()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -16,6 +16,10 @@ export default function ClientLayout() {
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [location.pathname])
+
+  if (brandingLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+  }
 
   const navLinks = role === 'STUDENT' ? [
     { to: '/client', label: 'Dashboard', icon: LayoutDashboard },

@@ -94,10 +94,55 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const location = useLocation()
   const [searchParams] = useSearchParams()
   
-  const [tenantId, setTenantId] = useState<string | null>(null)
-  const [branding, setBranding] = useState<BrandSettings>(defaultBrandSettings)
-  const [loading, setLoading] = useState(true)
+  const [tenantId, setTenantId] = useState<string | null>(() => {
+    return localStorage.getItem('current-tenant-id')
+  })
+  const [branding, setBranding] = useState<BrandSettings>(() => {
+    try {
+      const cached = localStorage.getItem('current-tenant-branding')
+      if (cached) {
+        return JSON.parse(cached)
+      }
+    } catch {}
+    return defaultBrandSettings
+  })
+  const [loading, setLoading] = useState(() => {
+    return !localStorage.getItem('current-tenant-branding')
+  })
   const [error, setError] = useState<string | null>(null)
+
+  // Synchronously apply cached styles on render to avoid default green theme flashes
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('current-tenant-branding')
+      if (cached) {
+        applyThemeToDOM(JSON.parse(cached))
+      } else {
+        applyThemeToDOM(defaultBrandSettings)
+      }
+    } catch {}
+  }, [])
+
+  // Invalidate cache and reset to default styles if user logs out and there is no URL slug
+  useEffect(() => {
+    if (!user) {
+      let tenantSlug = searchParams.get('tenant')
+      if (!tenantSlug) {
+        const pathParts = location.pathname.split('/')
+        const academyIndex = pathParts.indexOf('academy')
+        if (academyIndex !== -1 && pathParts[academyIndex + 1]) {
+          tenantSlug = pathParts[academyIndex + 1]
+        }
+      }
+      
+      if (!tenantSlug) {
+        localStorage.removeItem('current-tenant-branding')
+        localStorage.removeItem('current-tenant-id')
+        setBranding(defaultBrandSettings)
+        applyThemeToDOM(defaultBrandSettings)
+      }
+    }
+  }, [user, location.pathname, searchParams])
 
   const applyThemeToDOM = (settings: BrandSettings) => {
     try {
@@ -199,7 +244,7 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       
       // Atualizar título da página se houver App Name customizado
-      if (settings.app_name) {
+    if (settings.app_name) {
         document.title = settings.app_name
       }
     } catch (err) {
@@ -208,7 +253,10 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }
 
   const resolveAndLoadBranding = async () => {
-    setLoading(true)
+    const hasCache = !!localStorage.getItem('current-tenant-branding')
+    if (!hasCache) {
+      setLoading(true)
+    }
     setError(null)
     
     try {
@@ -229,6 +277,8 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
           setTenantId(result.tenantId)
           setBranding(result.branding)
           applyThemeToDOM(result.branding)
+          localStorage.setItem('current-tenant-branding', JSON.stringify(result.branding))
+          localStorage.setItem('current-tenant-id', result.tenantId || '')
           setLoading(false)
           return
         }
@@ -245,6 +295,8 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const activeBranding = result.draft || result.branding
             setBranding(activeBranding)
             applyThemeToDOM(activeBranding)
+            localStorage.setItem('current-tenant-branding', JSON.stringify(activeBranding))
+            localStorage.setItem('current-tenant-id', result.tenantId || '')
             setLoading(false)
             return
           }
@@ -262,6 +314,8 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
               setTenantId(result.tenantId)
               setBranding(result.branding)
               applyThemeToDOM(result.branding)
+              localStorage.setItem('current-tenant-branding', JSON.stringify(result.branding))
+              localStorage.setItem('current-tenant-id', result.tenantId || '')
               setLoading(false)
               return
             }
@@ -272,11 +326,15 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // 3. Fallback se não encontrar nada (Plataforma Clinica.ia padrão)
       setBranding(defaultBrandSettings)
       applyThemeToDOM(defaultBrandSettings)
+      localStorage.removeItem('current-tenant-branding')
+      localStorage.removeItem('current-tenant-id')
     } catch (err: any) {
       console.error('Erro na resolução de branding:', err)
       setError(err.message || 'Erro desconhecido')
       setBranding(defaultBrandSettings)
       applyThemeToDOM(defaultBrandSettings)
+      localStorage.removeItem('current-tenant-branding')
+      localStorage.removeItem('current-tenant-id')
     } finally {
       setLoading(false)
     }

@@ -18,8 +18,13 @@ export default function Login() {
     appName, 
     logoUrl, 
     loginBackgroundUrl, 
-    loginMessage
+    loginMessage,
+    loading: brandingLoading
   } = useTenantBranding()
+
+  if (brandingLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50">Carregando...</div>
+  }
 
   useEffect(() => {
     // Detecta se o usuário clicou em um link de recuperação de senha

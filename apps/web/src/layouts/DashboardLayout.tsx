@@ -18,7 +18,7 @@ import { Header } from '../components/header/Header'
 
 export default function DashboardLayout() {
   const { session, user, loading, signOut } = useAuthStore()
-  const { appName, logoUrl } = useTenantBranding()
+  const { appName, logoUrl, loading: brandingLoading } = useTenantBranding()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const location = useLocation()
@@ -28,7 +28,7 @@ export default function DashboardLayout() {
     setIsMobileMenuOpen(false)
   }, [location.pathname])
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+  if (loading || brandingLoading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
   if (!session) return <Navigate to="/login" replace />
 
   const initial = user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || 'U'

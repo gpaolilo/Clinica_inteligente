@@ -188,6 +188,38 @@ export default async function handler(req: any, res: any) {
       const { error: vocabError } = await supabaseAuth.from('vocabulary_bank').insert(vocabToInsert)
       if (vocabError) console.error(`Database Error saving vocabulary: ${vocabError.message}`)
     }
+
+    // 4.5 Save to student_insights (Evolução & Insights)
+    const formattedGrammarErrors = (analysis.grammar_errors || []).map((err: any) => ({
+      mistake: err.sentence || err.mistake || '',
+      correction: err.correction || '',
+      explanation: err.explanation || ''
+    }))
+
+    const formattedVocabSuggestions = (analysis.vocabulary_gaps || []).map((v: any) => ({
+      word: v.suggested_word || v.word || ''
+    }))
+
+    const formattedWeaknesses = (analysis.grammar_errors || []).map((g: any) => g.explanation || '')
+
+    const { error: insightsError } = await supabaseAuth.from('student_insights').upsert({
+      session_id: sessionId,
+      psychologist_id: psychologistId,
+      patient_id: patientId,
+      summary: analysis.summary || "Aula focada em conversação e correção de pequenos desvios gramaticais.",
+      fluency_score: Math.round((analysis.fluency?.score || 0.8) * 100),
+      confidence_score: Math.round((analysis.learning_patterns?.[0]?.confidence || 0.8) * 100),
+      grammar_errors: formattedGrammarErrors,
+      vocabulary_suggestions: formattedVocabSuggestions,
+      main_weaknesses: formattedWeaknesses,
+      recommended_topics: (analysis.context_needs || []).map((c: any) => c.scenario || ''),
+      next_actions: []
+    }, { onConflict: 'session_id' })
+
+    if (insightsError) {
+      console.error(`Database Error saving student_insights: ${insightsError.message}`)
+      throw new Error(`Database Error saving student_insights: ${insightsError.message}`)
+    }
     
     // Grant XP for completing a session analysis
     try {

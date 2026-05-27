@@ -73,7 +73,17 @@ export default function ClientDashboard() {
       .eq('patient_id', patient.id)
       .order('created_at', { ascending: false })
       .limit(1)
-    if (insights && insights.length > 0) setLatestInsights(insights[0])
+    if (insights && insights.length > 0) {
+      const latest = insights[0]
+      // Calcular score de gramática e vocabulário dinamicamente
+      const grammarErrorsCount = latest.grammar_errors?.length || 0
+      latest.grammar_score = Math.max(0, 100 - (grammarErrorsCount * 10))
+
+      const vocabCount = latest.vocabulary_suggestions?.length || 0
+      latest.vocabulary_score = Math.min(100, 50 + (vocabCount * 10))
+
+      setLatestInsights(latest)
+    }
 
     setLoading(false)
   }

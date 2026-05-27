@@ -124,7 +124,7 @@ export default function Dashboard() {
   }, [])
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">
       {/* Dashboard KPI Cards */}
       <div className="flex flex-wrap gap-4 mb-8">
         <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">

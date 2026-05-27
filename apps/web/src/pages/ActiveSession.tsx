@@ -218,24 +218,24 @@ export default function ActiveSession() {
   const clientName = Array.isArray(sessionData.patient) ? sessionData.patient[0]?.name : sessionData.patient?.name
 
   return (
-    <div className="p-8 max-w-6xl mx-auto h-full flex flex-col">
-      <div className="mb-6 flex justify-between items-end">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto min-h-full lg:h-full flex flex-col">
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h2 className={`text-xs font-bold tracking-wider uppercase mb-1 px-2 py-0.5 inline-block rounded ${isAluno ? 'bg-blue-100 text-blue-700' : 'bg-neon text-dark'}`}>
              Sessão em Andamento ({isAluno ? 'Aluno' : 'Paciente'})
           </h2>
-          <h1 className="text-3xl font-extrabold text-dark tracking-tight">{clientName}</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-dark tracking-tight">{clientName}</h1>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-slate-500">Horário Agendado</p>
-          <p className="text-xl font-bold text-dark">{new Date(sessionData.scheduled_date).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</p>
+        <div className="text-left sm:text-right shrink-0">
+          <p className="text-xs sm:text-sm font-medium text-slate-500">Horário Agendado</p>
+          <p className="text-lg sm:text-xl font-bold text-dark">{new Date(sessionData.scheduled_date).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</p>
         </div>
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Painel Esquerdo - Gravador */}
-        <div className="lg:col-span-1 bg-surface rounded-[24px] shadow-sm p-8 flex flex-col items-center justify-center relative border border-slate-100">
+        <div className="lg:col-span-1 bg-surface rounded-[24px] shadow-sm p-6 sm:p-8 flex flex-col items-center justify-center relative border border-slate-100 py-8 lg:py-0">
           
           {processingState === 'DONE' ? (
              <div className="text-center w-full">
@@ -315,7 +315,7 @@ export default function ActiveSession() {
         </div>
 
         {/* Painel Direito - Tela de Edição/Informações */}
-        <div className="lg:col-span-2 bg-surface rounded-[24px] border border-slate-100 shadow-sm flex flex-col h-full overflow-hidden">
+        <div className="lg:col-span-2 bg-surface rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px] lg:h-full overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
             <h3 className="font-bold text-dark text-lg">{isAluno ? "Relatório Final (Geração Estática)" : "Editor do Prontuário"}</h3>
             <span className="text-xs font-bold text-slate-500 bg-background px-3 py-1.5 rounded-full">LLaMA 3 (Groq API)</span>

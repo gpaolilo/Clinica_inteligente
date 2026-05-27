@@ -155,13 +155,13 @@ export default function WeeklyCalendar() {
   const hours = Array.from({ length: 18 }, (_, i) => i + 6) // 6 to 23
 
   return (
-    <div className="bg-surface rounded-[32px] shadow-sm border border-slate-100 p-8 flex flex-col mt-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="bg-surface rounded-2xl sm:rounded-[32px] shadow-sm border border-slate-100 p-4 sm:p-8 flex flex-col mt-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h3 className="text-xl font-bold text-dark tracking-wide">Sua Agenda</h3>
           <p className="text-sm text-slate-500 font-medium">Controle de Horários Ocupados e Livres</p>
         </div>
-        <div className="flex items-center space-x-4 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+        <div className="flex items-center space-x-4 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 self-stretch sm:self-auto justify-between sm:justify-start">
           <button onClick={prevWeek} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
             <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
           </button>

@@ -225,22 +225,22 @@ export default function Agenda() {
             <div 
               key={s.id} 
               onClick={() => !isGoogleEvent && navigate(`/dashboard/session/${s.id}`)}
-              className={`p-6 flex items-center justify-between hover:bg-slate-50 transition-colors ${!isGoogleEvent ? 'cursor-pointer' : ''}`}
+              className={`p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors ${!isGoogleEvent ? 'cursor-pointer' : ''}`}
             >
-              <div className="flex items-center space-x-6">
-                <div className={`flex flex-col items-center justify-center p-3 rounded-lg w-20 border text-center ${
+              <div className="flex items-center space-x-4 sm:space-x-6">
+                <div className={`flex flex-col items-center justify-center p-2 sm:p-3 rounded-lg w-16 sm:w-20 border text-center shrink-0 ${
                   isGoogleEvent 
                     ? 'bg-slate-50 border-slate-200 text-slate-500' 
                     : (s.status === 'SCHEDULED' || s.status === 'PENDING')
                       ? 'bg-green-50 border-green-100 text-green-700'
                       : 'bg-primary-50 border-primary-100 text-primary-700'
                 }`}>
-                  <span className="text-sm font-bold uppercase">{dt.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
-                  <span className="text-2xl font-black">{dt.getDate()}</span>
+                  <span className="text-xs sm:text-sm font-bold uppercase">{dt.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
+                  <span className="text-xl sm:text-2xl font-black">{dt.getDate()}</span>
                 </div>
-                <div>
-                  <div className="flex items-center space-x-3 mb-1">
-                    <h4 className="text-lg font-bold text-slate-800">{patientName}</h4>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h4 className="text-base sm:text-lg font-bold text-slate-800 truncate">{patientName}</h4>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                       (s.status === 'SCHEDULED' || s.status === 'PENDING') ? 'bg-green-100 text-green-700' : 
                       s.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 
@@ -252,7 +252,7 @@ export default function Agenda() {
                        s.status === 'BLOCKED' ? 'Ocupado (Google)' : s.status}
                     </span>
                   </div>
-                  <div className="text-sm text-slate-500 flex items-center space-x-4">
+                  <div className="text-sm text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="flex items-center">
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                       {dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -273,7 +273,7 @@ export default function Agenda() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full sm:w-auto flex items-center justify-end space-x-3 sm:space-x-4 border-t border-slate-100 pt-3 sm:pt-0 sm:border-0" onClick={(e) => e.stopPropagation()}>
                 {isGoogleEvent ? (
                   <button 
                     onClick={() => handleDeleteGoogle(s.google_event_id!)}
@@ -292,14 +292,14 @@ export default function Agenda() {
                     {s.status === 'SCHEDULED' ? (
                       <button 
                         onClick={() => navigate(`/dashboard/session/${s.id}`)}
-                        className="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                        className="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 px-4 sm:px-6 rounded-lg transition-colors shadow-sm"
                       >
                         Iniciar Sessão
                       </button>
                     ) : (
                       <button 
                         onClick={() => navigate(`/dashboard/session/${s.id}`)}
-                        className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                        className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2 px-4 sm:px-6 rounded-lg transition-colors shadow-sm"
                       >
                         Ver Sessão
                       </button>
@@ -315,15 +315,15 @@ export default function Agenda() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Agenda Semanal</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Agenda Semanal</h2>
           <p className="text-slate-500 mt-1 text-sm">Controle de horários e inicialização das consultas.</p>
         </div>
         <button 
           onClick={openModal}
-          className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center shadow-sm"
+          className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center shadow-sm"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>

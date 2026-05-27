@@ -147,7 +147,7 @@ export default function BrandStudioPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
       {/* Notificação Toast */}
       {notification && (
         <div className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2 text-sm font-bold text-white transition-all duration-300 animate-bounce ${

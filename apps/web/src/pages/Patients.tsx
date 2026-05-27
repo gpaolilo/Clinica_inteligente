@@ -83,15 +83,15 @@ export default function Patients() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Meus {role === 'TEACHER' ? 'Alunos' : 'Pacientes'}</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Meus {role === 'TEACHER' ? 'Alunos' : 'Pacientes'}</h2>
           <p className="text-slate-500 mt-1 text-sm">Gerencie a listagem e o termo de consentimento dos seus {role === 'TEACHER' ? 'alunos' : 'pacientes'}.</p>
         </div>
         <button 
           onClick={() => openModal()}
-          className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center shadow-sm"
+          className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center shadow-sm"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>

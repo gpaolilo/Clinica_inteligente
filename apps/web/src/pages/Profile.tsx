@@ -26,13 +26,13 @@ export default function Profile() {
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-2xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Meu Perfil</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Meu Perfil</h2>
         <p className="text-slate-500 mt-1 text-sm">Atualize suas informações pessoais.</p>
       </div>
 
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div className="bg-white p-4 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
         <form onSubmit={handleUpdate} className="space-y-6">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">E-mail de Acesso</label>

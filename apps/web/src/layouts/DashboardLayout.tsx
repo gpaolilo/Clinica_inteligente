@@ -22,7 +22,6 @@ export default function DashboardLayout() {
   const { appName, logoUrl } = useTenantBranding()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
-  const [headerOption, setHeaderOption] = useState<1 | 2 | 3>(1)
   const location = useLocation()
 
   // Close mobile menu on route change
@@ -133,44 +132,38 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-dark font-sans selection:bg-neon selection:text-dark">
-      {/* Stuck Header Options Preview */}
-      <header className={
-        headerOption === 1 
-          ? "w-full bg-tenant-surface/90 backdrop-blur-md border-b border-tenant-border shadow-sm px-6 py-5 flex justify-between items-center z-20 shrink-0 rounded-b-3xl"
-          : headerOption === 2
-          ? "w-full bg-tenant-surface border-b border-tenant-border shadow-[0_8px_30px_rgb(0,0,0,0.03)] px-6 py-6 flex justify-between items-center z-20 shrink-0 rounded-b-[2.5rem] relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:bg-gradient-to-r after:from-tenant-primary after:to-tenant-secondary after:rounded-b-[2.5rem]"
-          : "w-full bg-tenant-surface border-b border-tenant-border shadow-[0_10px_30px_rgba(0,0,0,0.03)] px-8 py-5 flex justify-between items-center z-20 shrink-0 rounded-b-[2rem]"
-      }>
-        <div className="flex items-center space-x-3">
+      {/* Stuck Header (Option 3 Optimized) */}
+      <header className="w-full bg-tenant-surface border-b border-tenant-border shadow-[0_10px_30px_rgba(0,0,0,0.03)] px-8 py-5.5 flex justify-between items-center z-20 shrink-0 rounded-b-[2.2rem] border-x-0 border-t-0">
+        <div className="flex items-center space-x-4">
           {/* Hamburger Menu Button (visible on mobile/tablet) */}
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
             className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors focus:outline-none"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-7 h-7" />
           </button>
 
           {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="h-7 max-w-[150px] object-contain" />
+            <img src={logoUrl} alt={appName} className="h-9 sm:h-10 max-w-[220px] object-contain" />
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-tenant-primary text-white shadow-sm flex items-center justify-center font-black">
+            <div className="w-11 h-11 rounded-xl bg-tenant-primary text-white shadow-sm flex items-center justify-center font-black text-lg">
                {appName.charAt(0)}
             </div>
           )}
-          <h1 className="text-xl font-bold text-tenant-text tracking-tight hidden sm:block">{appName}</h1>
+          <h1 className="text-2xl font-extrabold text-tenant-text tracking-tight hidden sm:block">{appName}</h1>
         </div>
 
-        <div className="flex items-center space-x-5">
+        <div className="flex items-center space-x-6">
           <Link to="/dashboard/settings" className="text-slate-400 hover:text-tenant-primary transition-colors">
-            <Settings className="w-5 h-5" />
+            <Settings className="w-6 h-6" />
           </Link>
           
           <div className="relative">
             <button 
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="w-8.5 h-8.5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm hover:border-slate-300 transition-colors focus:outline-none"
+              className="w-11 h-11 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm hover:border-slate-300 transition-colors focus:outline-none"
             >
-              <span className="font-bold text-xs text-slate-600">{initial}</span>
+              <span className="font-bold text-sm text-slate-600">{initial}</span>
             </button>
 
             {isProfileMenuOpen && (
@@ -272,26 +265,6 @@ export default function DashboardLayout() {
         <main className="flex-1 overflow-y-auto no-scrollbar relative rounded-3xl h-full">
           <Outlet />
         </main>
-      </div>
-
-      {/* Floating Preview Switcher (Apenas para Visualização/Estudo) */}
-      <div className="fixed bottom-6 right-6 bg-slate-900/90 text-white p-3.5 rounded-2xl shadow-2xl z-50 flex items-center gap-3 border border-slate-700/50 backdrop-blur-sm">
-        <span className="text-xs font-bold text-slate-300">Preview do Header:</span>
-        <div className="flex gap-1.5">
-          {[1, 2, 3].map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setHeaderOption(opt as 1 | 2 | 3)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                headerOption === opt
-                  ? 'bg-tenant-primary text-white shadow-md font-black'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-              }`}
-            >
-              Opção {opt}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   )

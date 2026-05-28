@@ -315,19 +315,23 @@ export default function Onboarding() {
   const isSplitLayout = ['preset', 'colors', 'logo', 'preview'].includes(currentStep)
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans select-none overflow-x-hidden relative">
+      {/* Background dotted grid pattern */}
+      <div className="absolute inset-0 opacity-40 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
       {/* Background blobs */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-650/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Onboarding Header / Progress */}
-      <header className="bg-slate-900/40 border-b border-slate-900 px-6 py-4 flex items-center justify-between shrink-0 z-20 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="bg-lime-400 text-slate-950 w-7 h-7 rounded-lg flex items-center justify-center font-black text-sm">F</div>
-          <span className="font-extrabold text-sm tracking-tight text-white">Flowike <span className="text-lime-400">Onboarding</span></span>
+      <header className="bg-white/80 border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-20 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <img src="/Flowike_icon.png" alt="Flowike" className="w-9 h-9 object-contain" />
+          <img src="/Flowike_logo_name_only.png" alt="Flowike Logo Name" className="h-5.5 object-contain" />
+          <span className="bg-indigo-50 text-indigo-600 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-100/60 ml-1">Onboarding</span>
         </div>
-        <div className="w-48 bg-slate-800 h-1.5 rounded-full overflow-hidden shrink-0">
-          <div className="bg-lime-400 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+        <div className="w-48 bg-slate-200 h-1.5 rounded-full overflow-hidden shrink-0">
+          <div className="bg-gradient-to-r from-indigo-600 to-violet-600 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
         </div>
       </header>
 
@@ -336,7 +340,7 @@ export default function Onboarding() {
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 h-full overflow-hidden">
           {/* Form Side */}
           <div className={`h-full overflow-y-auto p-6 sm:p-10 flex items-center justify-center transition-all ${
-            isSplitLayout ? 'lg:col-span-7 border-r border-slate-900' : 'lg:col-span-12'
+            isSplitLayout ? 'lg:col-span-7 border-r border-slate-200' : 'lg:col-span-12'
           }`}>
             <div className={`w-full max-w-xl mx-auto space-y-6 ${!isSplitLayout ? 'max-w-2xl' : ''}`}>
               <AnimatePresence mode="wait">
@@ -346,33 +350,33 @@ export default function Onboarding() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
-                    className="space-y-6 text-center"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col items-center text-center max-w-md mx-auto space-y-6"
                   >
-                    <div className="inline-flex bg-lime-400/10 text-lime-400 w-16 h-16 rounded-[24px] items-center justify-center border border-lime-400/20 shadow-lg">
+                    <div className="inline-flex bg-indigo-50 text-indigo-600 w-16 h-16 rounded-[24px] items-center justify-center border border-indigo-100 shadow-md">
                       <Rocket className="w-8 h-8" />
                     </div>
                     <div className="space-y-2">
-                      <h1 className="text-4xl font-black text-white tracking-tight sm:text-5xl">Welcome to Flowike 👋</h1>
-                      <p className="text-slate-400 text-sm font-semibold sm:text-base">Let's build your AI-powered academy.</p>
+                      <h1 className="text-3xl font-black text-slate-900 tracking-tight">Welcome to Flowike 👋</h1>
+                      <p className="text-slate-500 text-sm font-semibold">Let's build your AI-powered academy.</p>
                     </div>
 
-                    <div className="bg-slate-900/50 border border-slate-850 p-6 rounded-[24px] text-left max-w-md mx-auto relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-lime-400/5 rounded-full blur-2xl" />
+                    <div className="bg-slate-50 border border-slate-200 p-6 rounded-[24px] text-left w-full relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-600/5 rounded-full blur-2xl" />
                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                        <Compass className="w-3.5 h-3.5 text-lime-400" />
+                        <Compass className="w-3.5 h-3.5 text-indigo-600" />
                         O que faremos juntos:
                       </h4>
-                      <ul className="space-y-2.5 text-xs text-slate-300 font-semibold">
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-lime-400 shrink-0" /> Definir a personalidade da academia</li>
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-lime-400 shrink-0" /> Configurar tema de cores personalizado</li>
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-lime-400 shrink-0" /> Fazer upload de logos e assets</li>
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-lime-400 shrink-0" /> Visualizar e testar antes de lançar</li>
+                      <ul className="space-y-2.5 text-xs text-slate-650 font-semibold">
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Definir a personalidade da academia</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Configurar tema de cores personalizado</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Fazer upload de logos e assets</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Visualizar e testar antes de lançar</li>
                       </ul>
                     </div>
 
                     <button
                       onClick={handleNext}
-                      className="bg-lime-400 hover:bg-lime-500 text-slate-950 font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-lime-400/10 inline-flex items-center gap-2 hover:-translate-y-0.5"
+                      className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-indigo-600/15 flex items-center justify-center gap-2 hover:-translate-y-0.5"
                     >
                       <span>Iniciar Configuração</span>
                       <ArrowRight className="w-4 h-4" />
@@ -386,59 +390,59 @@ export default function Onboarding() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
-                    className="space-y-6"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
                     <div>
-                      <h2 className="text-3xl font-black text-white tracking-tight">Qual o nome da sua Academia?</h2>
-                      <p className="text-slate-400 text-xs mt-1.5 font-semibold">Escreva os detalhes básicos da sua plataforma.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Qual o nome da sua Academia?</h2>
+                      <p className="text-slate-500 text-xs mt-1.5 font-semibold">Escreva os detalhes básicos da sua plataforma.</p>
                     </div>
 
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
-                          <GraduationCap className="w-4 h-4 text-slate-500" />
+                        <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                          <GraduationCap className="w-4 h-4 text-slate-400" />
                           Nome da Academia
                         </label>
                         <input
                           type="text"
                           placeholder="Sarah AI English Academy"
-                          className="w-full px-5 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400/25 transition-all text-sm font-semibold placeholder-slate-650"
+                          className="w-full px-5 py-4 bg-slate-55 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
                           value={academyName}
                           onChange={(e) => setAcademyName(e.target.value)}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
-                          <Tag className="w-4 h-4 text-slate-500" />
+                        <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                          <Tag className="w-4 h-4 text-slate-400" />
                           Slogan Curto / Tagline
                         </label>
                         <input
                           type="text"
                           placeholder="Business English para profissionais modernos"
-                          className="w-full px-5 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400/25 transition-all text-sm font-semibold placeholder-slate-650"
+                          className="w-full px-5 py-4 bg-slate-55 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
                           value={academyTagline}
                           onChange={(e) => setAcademyTagline(e.target.value)}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
-                          <FileText className="w-4 h-4 text-slate-500" />
+                        <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                          <FileText className="w-4 h-4 text-slate-400" />
                           Breve Descrição
                         </label>
                         <textarea
                           placeholder="Foco em conversação prática, acelerando o desenvolvimento corporativo..."
-                          className="w-full px-5 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400/25 transition-all text-sm font-semibold placeholder-slate-650 h-24 resize-none"
+                          className="w-full px-5 py-4 bg-slate-55 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400 h-24 resize-none"
                           value={academyDescription}
                           onChange={(e) => setAcademyDescription(e.target.value)}
                         />
                       </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-slate-900">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
-                      <button onClick={handleNext} className="flex-1 bg-lime-400 hover:bg-lime-500 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Avançar</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -452,11 +456,11 @@ export default function Onboarding() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
-                    className="space-y-6"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
                     <div>
-                      <h2 className="text-3xl font-black text-white tracking-tight">Qual sua personalidade de ensino?</h2>
-                      <p className="text-slate-400 text-xs mt-1.5 font-semibold">Isso influenciará a sugestão de paletas, tom do chat de IA e estilo visual.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Qual sua personalidade de ensino?</h2>
+                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Isso influenciará a sugestão de paletas, tom do chat de IA e estilo visual.</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
@@ -469,20 +473,20 @@ export default function Onboarding() {
                             onClick={() => handlePersonalitySelect(p)}
                             className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-28 relative overflow-hidden group ${
                               isSelected 
-                                ? 'border-lime-400 bg-lime-400/5 ring-1 ring-lime-400/25' 
-                                : 'border-slate-850 bg-slate-900/30 hover:border-slate-800 hover:bg-slate-900/60'
+                                ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500/10' 
+                                : 'border-slate-200 bg-white hover:border-indigo-250 hover:bg-slate-50/50'
                             }`}
                           >
                             <div className="absolute -bottom-6 -right-6 w-16 h-16 rounded-full opacity-10 transition-transform group-hover:scale-125" style={{ backgroundColor: p.color }} />
                             
                             <div className="flex justify-between items-start w-full">
-                              <span className="text-xs font-bold text-white">{p.label}</span>
+                              <span className="text-xs font-bold text-slate-800">{p.label}</span>
                               <Heart className="w-3.5 h-3.5" style={{ color: p.color }} />
                             </div>
-                            <p className="text-[10px] text-slate-400 font-medium leading-relaxed mt-2 pr-2">{p.description}</p>
+                            <p className="text-[10px] text-slate-500 font-semibold leading-relaxed mt-2 pr-2">{p.description}</p>
                             
                             {isSelected && (
-                              <span className="absolute top-2 right-2 bg-lime-400 text-slate-950 rounded-full p-0.5">
+                              <span className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-0.5">
                                 <Check className="w-2.5 h-2.5 stroke-[3]" />
                               </span>
                             )}
@@ -491,9 +495,9 @@ export default function Onboarding() {
                       })}
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-slate-900">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
-                      <button onClick={handleNext} className="flex-1 bg-lime-400 hover:bg-lime-500 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Recomendar Tema</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -507,11 +511,11 @@ export default function Onboarding() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
-                    className="space-y-6"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
                     <div>
-                      <h2 className="text-3xl font-black text-white tracking-tight">Estilo Visual Base</h2>
-                      <p className="text-slate-400 text-xs mt-1.5 font-semibold">Escolha um preset recomendado. Você poderá customizar as cores e estilos em seguida.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Estilo Visual Base</h2>
+                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Escolha um preset recomendado. Você poderá customizar as cores e estilos em seguida.</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
@@ -524,21 +528,21 @@ export default function Onboarding() {
                             onClick={() => handleSelectPreset(p.name)}
                             className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between h-20 group ${
                               isSelected 
-                                ? 'border-lime-400 bg-lime-400/5 ring-1 ring-lime-400/20' 
-                                : 'border-slate-850 hover:border-slate-800 hover:bg-slate-900/40'
+                                ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500/10' 
+                                : 'border-slate-200 bg-white hover:border-indigo-250 hover:bg-slate-50/50'
                             }`}
                           >
                             <div>
-                              <span className="text-[11px] font-bold text-slate-200">{p.label}</span>
+                              <span className="text-[11px] font-extrabold text-slate-700">{p.label}</span>
                               <div className="flex gap-1 mt-1.5">
-                                <span className="w-3.5 h-3.5 rounded-full border border-white/5 inline-block" style={{ backgroundColor: p.primary_color }} />
-                                <span className="w-3.5 h-3.5 rounded-full border border-white/5 inline-block" style={{ backgroundColor: p.accent_color }} />
-                                <span className="w-3.5 h-3.5 rounded-full border border-white/5 inline-block animate-pulse" style={{ backgroundColor: p.background_color }} />
+                                <span className="w-3.5 h-3.5 rounded-full border border-slate-200/50 inline-block shadow-sm" style={{ backgroundColor: p.primary_color }} />
+                                <span className="w-3.5 h-3.5 rounded-full border border-slate-200/50 inline-block shadow-sm" style={{ backgroundColor: p.accent_color }} />
+                                <span className="w-3.5 h-3.5 rounded-full border border-slate-200/50 inline-block shadow-sm animate-pulse" style={{ backgroundColor: p.background_color }} />
                               </div>
                             </div>
 
                             {isSelected && (
-                              <span className="absolute top-2 right-2 bg-lime-400 text-slate-950 rounded-full p-0.5">
+                              <span className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-0.5">
                                 <Check className="w-2.5 h-2.5 stroke-[3]" />
                               </span>
                             )}
@@ -547,9 +551,9 @@ export default function Onboarding() {
                       })}
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-slate-900">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
-                      <button onClick={handleNext} className="flex-1 bg-lime-400 hover:bg-lime-500 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Avançar</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -563,11 +567,11 @@ export default function Onboarding() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
-                    className="space-y-6"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
                     <div>
-                      <h2 className="text-3xl font-black text-white tracking-tight">Defina a Paleta da Academia</h2>
-                      <p className="text-slate-400 text-xs mt-1.5 font-semibold">Altere as cores principais para refletir a sua marca. Veja o resultado em tempo real no painel à direita.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Defina a Paleta da Academia</h2>
+                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Altere as cores principais para refletir a sua marca. Veja o resultado em tempo real no painel à direita.</p>
                     </div>
 
                     {/* Sugestões Rápidas */}
@@ -586,11 +590,11 @@ export default function Onboarding() {
                                 accent_color: combo.accent
                               }))
                             }}
-                            className="bg-slate-900 hover:bg-slate-800 border border-slate-850 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-[10px] font-bold text-slate-300"
+                            className="bg-white hover:bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-[10px] font-bold text-slate-600 shadow-sm"
                           >
                             <span className="flex gap-0.5">
-                              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: combo.primary }} />
-                              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: combo.accent }} />
+                              <span className="w-2.5 h-2.5 rounded-full inline-block border border-slate-150" style={{ backgroundColor: combo.primary }} />
+                              <span className="w-2.5 h-2.5 rounded-full inline-block border border-slate-150" style={{ backgroundColor: combo.accent }} />
                             </span>
                             {combo.label}
                           </button>
@@ -599,10 +603,10 @@ export default function Onboarding() {
                     </div>
 
                     {/* Color Pickers */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-900 pt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Cor Primária</label>
-                        <div className="flex items-center gap-2 bg-slate-900 border border-slate-850 p-2.5 rounded-xl">
+                        <div className="flex items-center gap-2 bg-slate-55 border border-slate-200 p-2.5 rounded-xl">
                           <input
                             type="color"
                             className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
@@ -611,7 +615,7 @@ export default function Onboarding() {
                           />
                           <input
                             type="text"
-                            className="w-full bg-transparent border-0 outline-none text-xs font-mono font-bold text-white uppercase text-center"
+                            className="w-full bg-transparent border-0 outline-none text-xs font-mono font-bold text-slate-800 uppercase text-center"
                             value={settings.primary_color}
                             onChange={(e) => handleColorChange('primary_color', e.target.value)}
                           />
@@ -620,7 +624,7 @@ export default function Onboarding() {
 
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Cor Secundária</label>
-                        <div className="flex items-center gap-2 bg-slate-900 border border-slate-850 p-2.5 rounded-xl">
+                        <div className="flex items-center gap-2 bg-slate-55 border border-slate-200 p-2.5 rounded-xl">
                           <input
                             type="color"
                             className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
@@ -629,7 +633,7 @@ export default function Onboarding() {
                           />
                           <input
                             type="text"
-                            className="w-full bg-transparent border-0 outline-none text-xs font-mono font-bold text-white uppercase text-center"
+                            className="w-full bg-transparent border-0 outline-none text-xs font-mono font-bold text-slate-800 uppercase text-center"
                             value={settings.secondary_color}
                             onChange={(e) => handleColorChange('secondary_color', e.target.value)}
                           />
@@ -638,7 +642,7 @@ export default function Onboarding() {
 
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Cor de Destaque</label>
-                        <div className="flex items-center gap-2 bg-slate-900 border border-slate-850 p-2.5 rounded-xl">
+                        <div className="flex items-center gap-2 bg-slate-55 border border-slate-200 p-2.5 rounded-xl">
                           <input
                             type="color"
                             className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
@@ -647,7 +651,7 @@ export default function Onboarding() {
                           />
                           <input
                             type="text"
-                            className="w-full bg-transparent border-0 outline-none text-xs font-mono font-bold text-white uppercase text-center"
+                            className="w-full bg-transparent border-0 outline-none text-xs font-mono font-bold text-slate-800 uppercase text-center"
                             value={settings.accent_color}
                             onChange={(e) => handleColorChange('accent_color', e.target.value)}
                           />
@@ -655,9 +659,9 @@ export default function Onboarding() {
                       </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-slate-900">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
-                      <button onClick={handleNext} className="flex-1 bg-lime-400 hover:bg-lime-500 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Avançar</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -671,70 +675,70 @@ export default function Onboarding() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
-                    className="space-y-6"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
                     <div>
-                      <h2 className="text-3xl font-black text-white tracking-tight">Identidade & Logos</h2>
-                      <p className="text-slate-400 text-xs mt-1.5 font-semibold">Faça upload da logomarca e ícone da sua academia. Suporta PNG, SVG e WEBP de até 2MB.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Identidade & Logos</h2>
+                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Faça upload da logomarca e ícone da sua academia. Suporta PNG, SVG e WEBP de até 2MB.</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Logo Upload */}
-                      <div className="border border-dashed border-slate-850 hover:border-slate-750 bg-slate-900/30 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
+                      <div className="border border-dashed border-slate-205 hover:border-indigo-300 bg-slate-50/50 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
                         {logoUploading ? (
                           <div className="flex flex-col items-center gap-1.5">
-                            <Loader2 className="w-6 h-6 animate-spin text-lime-400" />
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-650" />
                             <span className="text-[10px] font-bold text-slate-400">Enviando Logo...</span>
                           </div>
                         ) : logoPreview ? (
                           <div className="flex flex-col items-center gap-2.5">
                             <img src={logoPreview} alt="Logo Preview" className="max-h-12 object-contain" />
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded">Logo Ativo</span>
-                            <label className="text-[10px] font-bold text-lime-400 cursor-pointer hover:underline mt-1">
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded">Logo Ativo</span>
+                            <label className="text-[10px] font-bold text-indigo-600 cursor-pointer hover:underline mt-1">
                               Alterar Logo
                               <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'logo')} />
                             </label>
                           </div>
                         ) : (
                           <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
-                            <Upload className="w-6 h-6 text-slate-500 mb-2" />
-                            <span className="text-xs font-bold text-white">Upload Logomarca</span>
-                            <span className="text-[9px] text-slate-550 mt-1 font-semibold">Recomendado: Fundo transparente</span>
+                            <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                            <span className="text-xs font-bold text-slate-700">Upload Logomarca</span>
+                            <span className="text-[9px] text-slate-400 mt-1 font-semibold">Recomendado: Fundo transparente</span>
                             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'logo')} />
                           </label>
                         )}
                       </div>
 
                       {/* Favicon Upload */}
-                      <div className="border border-dashed border-slate-850 hover:border-slate-750 bg-slate-900/30 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
+                      <div className="border border-dashed border-slate-205 hover:border-indigo-300 bg-slate-50/50 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
                         {faviconUploading ? (
                           <div className="flex flex-col items-center gap-1.5">
-                            <Loader2 className="w-6 h-6 animate-spin text-lime-400" />
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-650" />
                             <span className="text-[10px] font-bold text-slate-400">Enviando Favicon...</span>
                           </div>
                         ) : faviconPreview ? (
                           <div className="flex flex-col items-center gap-2.5">
                             <img src={faviconPreview} alt="Favicon Preview" className="w-8 h-8 object-contain" />
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded">Favicon Ativo</span>
-                            <label className="text-[10px] font-bold text-lime-400 cursor-pointer hover:underline mt-1">
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded">Favicon Ativo</span>
+                            <label className="text-[10px] font-bold text-indigo-600 cursor-pointer hover:underline mt-1">
                               Alterar Favicon
                               <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'favicon')} />
                             </label>
                           </div>
                         ) : (
                           <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
-                            <Upload className="w-6 h-6 text-slate-500 mb-2" />
-                            <span className="text-xs font-bold text-white">Upload Favicon / Ícone</span>
-                            <span className="text-[9px] text-slate-550 mt-1 font-semibold">Proporção 1:1 quadrada</span>
+                            <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                            <span className="text-xs font-bold text-slate-700">Upload Favicon / Ícone</span>
+                            <span className="text-[9px] text-slate-400 mt-1 font-semibold">Proporção 1:1 quadrada</span>
                             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'favicon')} />
                           </label>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-slate-900">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
-                      <button onClick={handleNext} className="flex-1 bg-lime-400 hover:bg-lime-500 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Avançar</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -748,26 +752,26 @@ export default function Onboarding() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
-                    className="space-y-6"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
                     <div>
-                      <h2 className="text-3xl font-black text-white tracking-tight">Veja sua Criação! 😍</h2>
-                      <p className="text-slate-400 text-xs mt-1.5 font-semibold">Use os controles do painel ao lado para testar a responsividade e visualizar o Login, Dashboard e a Página de Agendamento.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Veja sua Criação! 😍</h2>
+                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Use os controls do painel ao lado para testar a responsividade e visualizar o Login, Dashboard e a Página de Agendamento.</p>
                     </div>
 
-                    <div className="bg-slate-900/50 border border-slate-850 p-5 rounded-2xl space-y-2">
-                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5 uppercase tracking-wider">
-                        <Award className="w-4 h-4 text-lime-400" />
+                    <div className="bg-slate-55 border border-slate-200 p-5 rounded-2xl space-y-2">
+                      <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
+                        <Award className="w-4 h-4 text-indigo-600 animate-bounce" />
                         Seu Portal White-label:
                       </h4>
-                      <p className="text-xs text-slate-400 leading-relaxed font-semibold">
+                      <p className="text-xs text-slate-500 leading-relaxed font-semibold">
                         Toda a experiência de aprendizagem dos seus alunos já está personalizada com as suas cores. Ao clicar em lançar, os temas serão publicados imediatamente.
                       </p>
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-slate-900">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
-                      <button onClick={handleNext} className="flex-1 bg-lime-400 hover:bg-lime-500 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Revisão Final</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -781,49 +785,49 @@ export default function Onboarding() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
-                    className="space-y-6 text-center py-6 flex flex-col items-center"
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-12 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col items-center text-center space-y-6 w-full text-slate-800"
                   >
                     <div className="relative mb-4">
                       <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ repeat: Infinity, duration: 10, ease: 'linear' }}
-                        className="absolute inset-0 bg-lime-400/20 rounded-full scale-110 blur-xl pointer-events-none"
+                        className="absolute inset-0 bg-indigo-600/10 rounded-full scale-110 blur-xl pointer-events-none"
                       />
-                      <div className="bg-lime-400 text-slate-950 w-20 h-20 rounded-[28px] flex items-center justify-center relative z-10 border border-lime-400/40">
+                      <div className="bg-indigo-50 text-indigo-650 w-20 h-20 rounded-[28px] flex items-center justify-center relative z-10 border border-indigo-150">
                         <Rocket className="w-10 h-10 animate-bounce" />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <h2 className="text-3xl font-black text-white tracking-tight">Sua academia está pronta! 🚀</h2>
-                      <p className="text-slate-400 text-sm font-semibold max-w-sm">Branding configurado com sucesso e pronto para deploy.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Sua academia está pronta! 🚀</h2>
+                      <p className="text-slate-500 text-sm font-semibold max-w-sm">Branding configurado com sucesso e pronto para deploy.</p>
                     </div>
 
-                    <div className="bg-slate-900/60 border border-slate-850 p-6 rounded-2xl w-full max-w-md text-left space-y-3">
+                    <div className="bg-slate-55 border border-slate-200 p-6 rounded-2xl w-full max-w-md text-left space-y-3">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider">Nome da Academia</span>
-                        <span className="text-white font-extrabold">{academyName}</span>
+                        <span className="text-slate-450 font-bold uppercase tracking-wider">Nome da Academia</span>
+                        <span className="text-slate-800 font-extrabold">{academyName}</span>
                       </div>
-                      <div className="h-[1px] bg-slate-850" />
+                      <div className="h-[1px] bg-slate-200" />
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider">Preset de Estilo</span>
-                        <span className="bg-slate-950 border border-slate-800 text-slate-300 px-2 py-0.5 rounded font-bold">{designPreset}</span>
+                        <span className="text-slate-450 font-bold uppercase tracking-wider">Preset de Estilo</span>
+                        <span className="bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold">{designPreset}</span>
                       </div>
-                      <div className="h-[1px] bg-slate-850" />
+                      <div className="h-[1px] bg-slate-200" />
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider">Paleta de Cores</span>
+                        <span className="text-slate-450 font-bold uppercase tracking-wider">Paleta de Cores</span>
                         <span className="flex gap-1">
-                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-white/10" style={{ backgroundColor: settings.primary_color }} />
-                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-white/10" style={{ backgroundColor: settings.accent_color }} />
+                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-slate-250" style={{ backgroundColor: settings.primary_color }} />
+                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-slate-250" style={{ backgroundColor: settings.accent_color }} />
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex gap-3 w-full max-w-md pt-4 border-t border-slate-900">
+                    <div className="flex gap-3 w-full max-w-md pt-4 border-t border-slate-100">
                       <button 
                         onClick={handlePrev} 
                         disabled={publishing}
-                        className="px-5 py-4 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold text-xs rounded-xl transition-all shrink-0"
+                        className="px-5 py-4 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0"
                       >
                         Ajustar Detalhes
                       </button>
@@ -831,7 +835,7 @@ export default function Onboarding() {
                       <button
                         onClick={handleLaunch}
                         disabled={publishing}
-                        className="flex-1 bg-lime-400 hover:bg-lime-500 text-slate-950 font-black py-4 rounded-xl text-xs transition-all shadow-xl shadow-lime-400/10 flex items-center justify-center gap-1.5 hover:-translate-y-0.5 active:scale-95"
+                        className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black py-4 rounded-xl text-xs transition-all shadow-xl shadow-indigo-600/10 flex items-center justify-center gap-1.5 hover:-translate-y-0.5 active:scale-95"
                       >
                         {publishing ? (
                           <>
@@ -854,9 +858,12 @@ export default function Onboarding() {
 
           {/* Live Preview Side (Visible in split layouts) */}
           {isSplitLayout && (
-            <div className="hidden lg:col-span-5 lg:flex bg-slate-950 p-8 items-center justify-center overflow-hidden">
-              <div className="w-full max-w-md shrink-0">
-                <div className="text-xs font-bold text-slate-450 uppercase tracking-widest mb-3 text-center">Live Preview Simulador</div>
+            <div className="hidden lg:col-span-5 lg:flex bg-[#F8FAFC] border-l border-slate-200 p-8 items-center justify-center overflow-hidden relative">
+              {/* Dotted Grid Pattern */}
+              <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+              
+              <div className="w-full max-w-md shrink-0 z-10">
+                <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Live Preview Simulador</div>
                 <BrandingPreviewPanel settings={settings} />
               </div>
             </div>

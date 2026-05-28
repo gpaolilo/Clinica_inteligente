@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { UserRole } from '../../stores/authStore'
+import { useAuthStore, UserRole } from '../../stores/authStore'
 
 interface Profile {
   id: string
@@ -19,6 +19,7 @@ interface Patient {
 }
 
 export default function UserManagement() {
+  const { session } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'ROLES' | 'LINKS'>('ROLES')
   const [users, setUsers] = useState<Profile[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
@@ -73,7 +74,10 @@ export default function UserManagement() {
     try {
       const res = await fetch('/api/delete-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({ userId })
       })
 

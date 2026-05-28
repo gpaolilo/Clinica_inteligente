@@ -21,6 +21,8 @@ import AdminLayout from './layouts/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserManagement from './pages/admin/UserManagement'
 import TeacherRequests from './pages/admin/TeacherRequests'
+import EnrollmentRequests from './pages/admin/EnrollmentRequests'
+import EmailLogs from './pages/admin/EmailLogs'
 
 // Layouts e Páginas (Client)
 import ClientLayout from './layouts/ClientLayout'
@@ -136,6 +138,8 @@ export default function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="teacher-requests" element={<TeacherRequests />} />
+          <Route path="student-requests" element={<EnrollmentRequests />} />
+          <Route path="email-logs" element={<EmailLogs />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

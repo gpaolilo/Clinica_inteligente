@@ -35,6 +35,18 @@ export default function AdminLayout() {
           >
             Solicitações de Professores
           </Link>
+          <Link 
+            to="/admin/student-requests" 
+            className={`flex items-center px-3.5 py-2.5 text-sm rounded-xl transition-colors font-semibold ${location.pathname.includes('/admin/student-requests') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
+          >
+            Solicitações de Alunos
+          </Link>
+          <Link 
+            to="/admin/email-logs" 
+            className={`flex items-center px-3.5 py-2.5 text-sm rounded-xl transition-colors font-semibold ${location.pathname.includes('/admin/email-logs') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
+          >
+            Registro de E-mails
+          </Link>
         </nav>
         
         <div className="p-3 border-t border-slate-800">

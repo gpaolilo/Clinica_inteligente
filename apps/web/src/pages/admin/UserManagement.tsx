@@ -7,11 +7,13 @@ interface Profile {
   full_name: string | null
   role: UserRole
   created_at: string
+  email?: string | null
 }
 
 interface Patient {
   id: string
   name: string
+  email: string | null
   client_type: string
   psychologist_id: string
 }
@@ -37,7 +39,7 @@ export default function UserManagement() {
   const fetchPatients = async () => {
     setLoading(true)
     // Traz todos os pacientes. Isso só vai funcionar se a migration 20260423000001_admin_rls.sql for rodada.
-    const { data } = await supabase.from('patients').select('id, name, client_type, psychologist_id').order('name')
+    const { data } = await supabase.from('patients').select('id, name, email, client_type, psychologist_id').order('name')
     if (data) setPatients(data)
     setLoading(false)
   }
@@ -140,6 +142,7 @@ export default function UserManagement() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-sm font-bold text-slate-500 uppercase tracking-wider">
                   <th className="p-4">Nome</th>
+                  <th className="p-4">E-mail</th>
                   <th className="p-4">ID do Usuário</th>
                   <th className="p-4">Papel (Role)</th>
                   <th className="p-4">Data de Criação</th>
@@ -148,13 +151,14 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Carregando usuários...</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-500">Carregando usuários...</td></tr>
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
                 ) : (
                   users.map(user => (
                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4 font-medium text-slate-800">{user.full_name || 'Usuário Sem Nome'}</td>
+                      <td className="p-4 text-sm text-slate-600 font-medium">{user.email || '—'}</td>
                       <td className="p-4 text-xs font-mono text-slate-400">{user.id}</td>
                       <td className="p-4">
                         <select 
@@ -197,19 +201,21 @@ export default function UserManagement() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-sm font-bold text-slate-500 uppercase tracking-wider">
                   <th className="p-4">Nome do Paciente/Aluno</th>
+                  <th className="p-4">E-mail</th>
                   <th className="p-4">Tipo</th>
                   <th className="p-4">Profissional Responsável (Dono)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={3} className="p-8 text-center text-slate-500">Carregando pacientes...</td></tr>
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-500">Carregando pacientes...</td></tr>
                 ) : patients.length === 0 ? (
-                  <tr><td colSpan={3} className="p-8 text-center text-slate-500">Nenhum paciente encontrado ou a migration RLS não foi executada.</td></tr>
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-500">Nenhum paciente encontrado ou a migration RLS não foi executada.</td></tr>
                 ) : (
                   patients.map(patient => (
                     <tr key={patient.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4 font-medium text-slate-800">{patient.name}</td>
+                      <td className="p-4 text-sm text-slate-650">{patient.email || '—'}</td>
                       <td className="p-4">
                         <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded ${patient.client_type === 'ALUNO' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
                           {patient.client_type}

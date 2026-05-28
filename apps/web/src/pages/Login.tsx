@@ -16,6 +16,11 @@ export default function Login() {
   const navigate = useNavigate()
   
   const { 
+    tenantId,
+    appName,
+    logoUrl,
+    primaryColor,
+    secondaryColor,
     loginMessage,
     loading: brandingLoading
   } = useTenantBranding()
@@ -39,10 +44,12 @@ export default function Login() {
     }
   }, [])
 
+  const isWhiteLabel = tenantId !== null && window.location.pathname.includes('/academy/')
+
   if (brandingLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 font-semibold text-sm">
-        Carregando Flowike...
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 font-semibold text-sm">
+        {isWhiteLabel ? 'Carregando Portal...' : 'Carregando Flowike...'}
       </div>
     )
   }
@@ -90,6 +97,173 @@ export default function Login() {
       setTimeout(() => navigate('/'), 2000)
     }
     setLoading(false)
+  }
+
+  if (isWhiteLabel) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center font-sans bg-[#F8FAFC] select-none overflow-y-auto relative py-12 px-4">
+        {/* Background dotted grid pattern */}
+        <div className="absolute inset-0 opacity-40 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
+        {/* Glow background using teacher's theme colors */}
+        <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[100px] pointer-events-none" style={{ backgroundColor: `${primaryColor}0D` }} />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px] pointer-events-none" style={{ backgroundColor: `${secondaryColor || primaryColor}0D` }} />
+
+        <div className="w-full max-w-md space-y-8 relative z-10 bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50">
+          <div className="text-center">
+            {/* Custom Teacher Logo or Initial Monogram */}
+            <div className="flex justify-center mb-6">
+              {logoUrl ? (
+                <img src={logoUrl} alt={appName} className="max-h-16 object-contain" />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-lg shadow-md"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    {appName.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="font-extrabold text-xl tracking-tight text-slate-800">{appName}</span>
+                </div>
+              )}
+            </div>
+            
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+              {view === 'LOGIN' && 'Entrar no Portal'}
+              {view === 'FORGOT_PASSWORD' && 'Recuperar Senha'}
+              {view === 'UPDATE_PASSWORD' && 'Definir Nova Senha'}
+            </h2>
+            <p className="text-slate-505 font-semibold mt-2 text-sm leading-relaxed">
+              {view === 'LOGIN' && (loginMessage || `Acesse o portal da ${appName}`)}
+              {view === 'FORGOT_PASSWORD' && 'Digite seu e-mail para receber as instruções.'}
+              {view === 'UPDATE_PASSWORD' && 'Crie uma nova senha de acesso abaixo.'}
+            </p>
+          </div>
+
+          {error && (
+            <div className="bg-rose-50 text-rose-800 border border-rose-200/60 p-4 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm animate-shake">
+              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {message && (
+            <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/60 p-4 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm">
+              <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>{message}</span>
+            </div>
+          )}
+
+          {view === 'LOGIN' && (
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2 px-1 uppercase tracking-wider">E-mail</label>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="Seu e-mail"
+                  className="w-full px-4.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 text-slate-900 font-semibold shadow-sm transition-all text-sm placeholder-slate-400"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2 px-1">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Senha</label>
+                  <button 
+                    type="button" 
+                    onClick={() => { setView('FORGOT_PASSWORD'); setError(null); setMessage(null); }}
+                    className="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+                  >
+                    Esqueceu?
+                  </button>
+                </div>
+                <input 
+                  type="password" 
+                  required
+                  placeholder="••••••••"
+                  className="w-full px-4.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 text-slate-900 font-semibold shadow-sm transition-all text-sm placeholder-slate-400"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <button 
+                disabled={loading}
+                className="w-full text-white font-extrabold py-4 px-6 rounded-2xl transition-all mt-6 shadow-lg flex justify-center items-center gap-1.5 text-sm hover:-translate-y-0.5"
+                style={{ 
+                  background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor || primaryColor})`,
+                  boxShadow: `0 10px 15px -3px ${primaryColor}33`
+                }}
+              >
+                {loading ? 'Entrando...' : 'Acessar Portal'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          )}
+
+          {view === 'FORGOT_PASSWORD' && (
+            <form onSubmit={handleForgotPassword} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2 px-1 uppercase tracking-wider">E-mail de Recuperação</label>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="Seu e-mail"
+                  className="w-full px-4.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 text-slate-900 font-semibold shadow-sm transition-all text-sm placeholder-slate-400"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <button 
+                disabled={loading}
+                className="w-full text-white font-extrabold py-4 px-6 rounded-2xl transition-all mt-6 shadow-lg flex justify-center items-center gap-1.5 text-sm hover:-translate-y-0.5"
+                style={{ 
+                  background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor || primaryColor})`,
+                  boxShadow: `0 10px 15px -3px ${primaryColor}33`
+                }}
+              >
+                {loading ? 'Enviando...' : 'Enviar Link de Recuperação'}
+              </button>
+              <button 
+                type="button"
+                onClick={() => { setView('LOGIN'); setError(null); setMessage(null); }}
+                className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold py-3.5 px-6 rounded-2xl transition-all mt-2 text-xs"
+              >
+                Voltar ao Login
+              </button>
+            </form>
+          )}
+
+          {view === 'UPDATE_PASSWORD' && (
+            <form onSubmit={handleUpdatePassword} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2 px-1 uppercase tracking-wider">Nova Senha</label>
+                <input 
+                  type="password" 
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full px-4.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 text-slate-900 font-semibold shadow-sm transition-all text-sm placeholder-slate-400"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <button 
+                disabled={loading}
+                className="w-full text-white font-extrabold py-4 px-6 rounded-2xl transition-all mt-6 shadow-lg flex justify-center items-center gap-1.5 text-sm hover:-translate-y-0.5"
+                style={{ 
+                  background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor || primaryColor})`,
+                  boxShadow: `0 10px 15px -3px ${primaryColor}33`
+                }}
+              >
+                {loading ? 'Atualizando...' : 'Definir Nova Senha'}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (

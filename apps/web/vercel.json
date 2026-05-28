@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/api/delete-user",
+      "destination": "/api/admin-action/index.ts"
+    },
+    {
+      "source": "/api/invite-user",
+      "destination": "/api/admin-action/index.ts"
+    },
+    {
+      "source": "/api/teacher-approval",
+      "destination": "/api/admin-action/index.ts"
+    },
+    {
       "source": "/api/:match*",
       "destination": "/api/:match*"
     },

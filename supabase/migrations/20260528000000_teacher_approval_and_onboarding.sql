@@ -125,8 +125,8 @@ BEGIN
     v_slug := v_slug || '-' || substring(NEW.id::text, 1, 6);
   END IF;
 
-  -- Determina papel do usuário para ajustar status do Tenant
-  SELECT role INTO v_role FROM public.profiles WHERE id = NEW.id;
+  -- Determina papel do usuário a partir dos metadados do auth.users diretamente
+  SELECT COALESCE(raw_user_meta_data->>'role', 'TEACHER') INTO v_role FROM auth.users WHERE id = NEW.id;
   IF v_role = 'TEACHER' THEN
     v_tenant_status := 'PENDING';
   END IF;
@@ -142,7 +142,7 @@ BEGIN
     theme_mode, button_style, card_style, design_preset, login_message, dashboard_message, is_published
   ) VALUES (
     v_tenant_id, NEW.full_name || ' Academy', '#22c55e', '#15803d', '#D4FF59', '#F8F9FA', '#1A1A1A',
-    'light', 'Rounded', 'Minimal', 'Minimal', 'Bem-vindo ao Portal de Ensino', 'Pronto para a aula de hoje?', (v_role != 'TEACHER')
+    'light', 'Rounded', 'Minimal', 'Minimal', 'Bem-vindo ao Portal de Ensino', 'Pronto para a aula de hoje?', (COALESCE(v_role, '') != 'TEACHER')
   );
 
   -- Insere assets vazios

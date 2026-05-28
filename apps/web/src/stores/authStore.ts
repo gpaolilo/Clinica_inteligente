@@ -31,7 +31,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     
     // Se o usuário já está logado e já temos o papel dele, apenas atualiza a sessão
-    if (currentState.user?.id === session.user.id && currentState.role) {
+    // Não retorna cedo se o papel for TEACHER para garantir que o onboarding/aprovação estejam sempre atualizados
+    if (currentState.user?.id === session.user.id && currentState.role && currentState.role !== 'TEACHER') {
        set({ session, user: session.user, loading: false })
        return
      }
@@ -59,19 +60,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (request) {
         approvalStatus = request.status as 'PENDING' | 'APPROVED' | 'REJECTED'
+        
+        // 2. Buscar progresso de onboarding
+        const { data: academyProfile } = await supabase
+          .from('academy_profiles')
+          .select('is_published')
+          .eq('teacher_id', session.user.id)
+          .maybeSingle()
+
+        onboardingCompleted = academyProfile?.is_published || false
       } else {
-        // Se for um professor criado direto sem requisição (ex: por admin), considera aprovado
+        // Se for um professor existente (sem solicitação de cadastro cadastrada),
+        // considera aprovado e com onboarding concluído (ignora onboarding para usuários antigos)
         approvalStatus = 'APPROVED'
+        onboardingCompleted = true
       }
-
-      // 2. Buscar progresso de onboarding
-      const { data: academyProfile } = await supabase
-        .from('academy_profiles')
-        .select('is_published')
-        .eq('teacher_id', session.user.id)
-        .maybeSingle()
-
-      onboardingCompleted = academyProfile?.is_published || false
     }
       
     set({ 

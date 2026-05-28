@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -76,11 +76,27 @@ function RoleGuard({ allowedRoles, children }: { allowedRoles: string[], childre
 
 // Guarda Especial para Páginas de Onboarding / Pendente
 function TeacherOnlyGuard({ children }: { children: React.ReactNode }) {
-  const { role, session, loading } = useAuthStore()
+  const { role, session, loading, approvalStatus, onboardingCompleted } = useAuthStore()
+  const location = useLocation()
   
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Autenticando...</div>
   if (!session) return <Navigate to="/login" replace />
   if (role !== 'TEACHER') return <Navigate to="/" replace />
+  
+  if (approvalStatus === 'PENDING' && location.pathname !== '/review-pending') {
+    return <Navigate to="/review-pending" replace />
+  }
+  if (approvalStatus === 'REJECTED' && location.pathname !== '/review-rejected') {
+    return <Navigate to="/review-rejected" replace />
+  }
+  if (approvalStatus === 'APPROVED') {
+    if (onboardingCompleted && (location.pathname === '/onboarding' || location.pathname === '/review-pending' || location.pathname === '/review-rejected')) {
+      return <Navigate to="/dashboard" replace />
+    }
+    if (!onboardingCompleted && location.pathname !== '/onboarding') {
+      return <Navigate to="/onboarding" replace />
+    }
+  }
   
   return <>{children}</>
 }

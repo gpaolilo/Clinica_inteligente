@@ -114,9 +114,12 @@ export default function Login() {
             {/* Custom Teacher Logo or Initial Monogram */}
             <div className="flex justify-center mb-6">
               {logoUrl ? (
-                <img src={logoUrl} alt={appName} className="max-h-16 object-contain" />
+                <div className="flex items-center gap-3">
+                  <img src={logoUrl} alt={appName} className="max-h-12 object-contain" />
+                  <span className="font-extrabold text-xl tracking-tight text-slate-800">{appName}</span>
+                </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <div 
                     className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-lg shadow-md"
                     style={{ backgroundColor: primaryColor }}

@@ -28,9 +28,9 @@ interface TenantBrandingContextType {
 }
 
 const defaultBrandSettings: BrandSettings = {
-  app_name: 'Clinica.ia',
-  primary_color: '#22c55e',
-  secondary_color: '#15803d',
+  app_name: 'Flowike',
+  primary_color: '#6366f1',
+  secondary_color: '#4f46e5',
   accent_color: '#D4FF59',
   background_color: '#F8F9FA',
   text_color: '#1A1A1A',
@@ -38,7 +38,7 @@ const defaultBrandSettings: BrandSettings = {
   button_style: 'Rounded',
   card_style: 'Minimal',
   design_preset: 'Minimal',
-  login_message: 'Bem-vindo ao Portal de Ensino',
+  login_message: 'Teaching. Organized. Effortless.',
   dashboard_message: 'Pronto para a aula de hoje?'
 }
 
@@ -323,7 +323,7 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
       }
 
-      // 3. Fallback se não encontrar nada (Plataforma Clinica.ia padrão)
+      // 3. Fallback se não encontrar nada (Plataforma Flowike padrão)
       setBranding(defaultBrandSettings)
       applyThemeToDOM(defaultBrandSettings)
       localStorage.removeItem('current-tenant-branding')

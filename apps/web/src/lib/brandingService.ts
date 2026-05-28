@@ -118,7 +118,7 @@ export const getTenantBrandingByOwnerId = async (
       tenantId: tenant.id,
       slug: tenant.slug,
       branding: branding || draft || {
-        app_name: 'Clinica.ia',
+        app_name: 'Flowike',
         primary_color: '#22c55e',
         secondary_color: '#15803d',
         accent_color: '#D4FF59',

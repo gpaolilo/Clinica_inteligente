@@ -20,7 +20,7 @@ export default function BrandStudioPage() {
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [slug, setSlug] = useState<string>('')
   const [draftSettings, setDraftSettings] = useState<BrandSettings>({
-    app_name: 'Clinica.ia',
+    app_name: 'Flowike',
     primary_color: '#22c55e',
     secondary_color: '#15803d',
     accent_color: '#D4FF59',

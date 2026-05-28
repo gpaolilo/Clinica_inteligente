@@ -20,6 +20,7 @@ import AvailabilitySettings from './pages/admin/AvailabilitySettings'
 import AdminLayout from './layouts/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserManagement from './pages/admin/UserManagement'
+import TeacherRequests from './pages/admin/TeacherRequests'
 
 // Layouts e Páginas (Client)
 import ClientLayout from './layouts/ClientLayout'
@@ -32,24 +33,54 @@ import VocabularyBank from './pages/client/VocabularyBank'
 import BookClass from './pages/client/BookClass'
 import StudentAgenda from './pages/client/StudentAgenda'
 
+// Novas Páginas de Onboarding & Aprovação
+import Onboarding from './pages/onboarding/Onboarding'
+import ReviewPending from './pages/onboarding/ReviewPending'
+import ReviewRejected from './pages/onboarding/ReviewRejected'
+
 // Router Inteligente da Raiz
 function RootRouter() {
-  const { role, loading, session } = useAuthStore()
+  const { role, loading, session, approvalStatus, onboardingCompleted } = useAuthStore()
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Carregando Plataforma...</div>
   if (!session) return <Navigate to="/login" replace />
   
   if (role === 'ADMIN') return <Navigate to="/admin" replace />
   if (role === 'STUDENT' || role === 'PATIENT') return <Navigate to="/client" replace />
+  
+  if (role === 'TEACHER') {
+    if (approvalStatus === 'PENDING') return <Navigate to="/review-pending" replace />
+    if (approvalStatus === 'REJECTED') return <Navigate to="/review-rejected" replace />
+    if (!onboardingCompleted) return <Navigate to="/onboarding" replace />
+  }
+
   return <Navigate to="/dashboard" replace />
 }
 
 // Guarda de Rota por Papel
 function RoleGuard({ allowedRoles, children }: { allowedRoles: string[], children: React.ReactNode }) {
-  const { role, loading, session } = useAuthStore()
+  const { role, loading, session, approvalStatus, onboardingCompleted } = useAuthStore()
   
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Autenticando...</div>
   if (!session) return <Navigate to="/login" replace />
+  
+  if (role === 'TEACHER') {
+    if (approvalStatus === 'PENDING') return <Navigate to="/review-pending" replace />
+    if (approvalStatus === 'REJECTED') return <Navigate to="/review-rejected" replace />
+    if (!onboardingCompleted) return <Navigate to="/onboarding" replace />
+  }
+
   if (role && !allowedRoles.includes(role)) return <Navigate to="/" replace />
+  
+  return <>{children}</>
+}
+
+// Guarda Especial para Páginas de Onboarding / Pendente
+function TeacherOnlyGuard({ children }: { children: React.ReactNode }) {
+  const { role, session, loading } = useAuthStore()
+  
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Autenticando...</div>
+  if (!session) return <Navigate to="/login" replace />
+  if (role !== 'TEACHER') return <Navigate to="/" replace />
   
   return <>{children}</>
 }
@@ -62,6 +93,11 @@ export default function App() {
         {/* Rotas Públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        
+        {/* Rota de Onboarding e Status */}
+        <Route path="/onboarding" element={<TeacherOnlyGuard><Onboarding /></TeacherOnlyGuard>} />
+        <Route path="/review-pending" element={<TeacherOnlyGuard><ReviewPending /></TeacherOnlyGuard>} />
+        <Route path="/review-rejected" element={<TeacherOnlyGuard><ReviewRejected /></TeacherOnlyGuard>} />
         
         {/* Ponto de Entrada Inteligente */}
         <Route path="/" element={<RootRouter />} />
@@ -83,6 +119,7 @@ export default function App() {
         <Route path="/admin" element={<RoleGuard allowedRoles={['ADMIN']}><AdminLayout /></RoleGuard>}>
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<UserManagement />} />
+          <Route path="teacher-requests" element={<TeacherRequests />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

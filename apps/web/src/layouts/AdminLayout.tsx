@@ -29,6 +29,12 @@ export default function AdminLayout() {
           >
             Gerenciar Usuários
           </Link>
+          <Link 
+            to="/admin/teacher-requests" 
+            className={`flex items-center px-3.5 py-2.5 text-sm rounded-xl transition-colors font-semibold ${location.pathname.includes('/admin/teacher-requests') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
+          >
+            Solicitações de Professores
+          </Link>
         </nav>
         
         <div className="p-3 border-t border-slate-800">

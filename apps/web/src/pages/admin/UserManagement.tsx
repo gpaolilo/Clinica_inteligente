@@ -16,6 +16,7 @@ interface Patient {
   email: string | null
   client_type: string
   psychologist_id: string
+  user_id?: string | null
 }
 
 export default function UserManagement() {
@@ -40,7 +41,7 @@ export default function UserManagement() {
   const fetchPatients = async () => {
     setLoading(true)
     // Traz todos os pacientes. Isso só vai funcionar se a migration 20260423000001_admin_rls.sql for rodada.
-    const { data } = await supabase.from('patients').select('id, name, email, client_type, psychologist_id').order('name')
+    const { data } = await supabase.from('patients').select('id, name, email, client_type, psychologist_id, user_id').order('name')
     if (data) setPatients(data)
     setLoading(false)
   }
@@ -114,6 +115,51 @@ export default function UserManagement() {
     } else {
       setPatients(patients.map(p => p.id === patientId ? { ...p, psychologist_id: newPsychologistId } : p))
       alert('Vínculo alterado com sucesso!')
+    }
+  }
+
+  const handleDeleteStudent = async (patient: Patient) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o aluno "${patient.name}"? Esta ação não pode ser desfeita e removerá todo o histórico de aulas, notas, progresso e conta de acesso.`)) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      // 1. Delete from patients table
+      const { error: deletePatientError } = await supabase
+        .from('patients')
+        .delete()
+        .eq('id', patient.id)
+
+      if (deletePatientError) {
+        throw new Error('Erro ao excluir registro do aluno: ' + deletePatientError.message)
+      }
+
+      // 2. If there is a user_id, delete their auth user as well
+      if (patient.user_id) {
+        const res = await fetch('/api/delete-user', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          },
+          body: JSON.stringify({ userId: patient.user_id })
+        })
+
+        if (!res.ok) {
+          const err = await res.json()
+          console.error('Erro ao excluir conta de acesso do aluno:', err)
+          alert('O aluno foi removido, mas houve um erro ao excluir sua conta de acesso: ' + (err.error || 'Erro desconhecido'))
+        }
+      }
+
+      alert('Aluno excluído com sucesso!')
+      setPatients(patients.filter(p => p.id !== patient.id))
+    } catch (error: any) {
+      console.error('Erro ao excluir aluno:', error)
+      alert(error.message || 'Erro ao excluir o aluno.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -208,39 +254,57 @@ export default function UserManagement() {
                   <th className="p-4">E-mail</th>
                   <th className="p-4">Tipo</th>
                   <th className="p-4">Profissional Responsável (Dono)</th>
+                  <th className="p-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={4} className="p-8 text-center text-slate-500">Carregando pacientes...</td></tr>
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Carregando pacientes...</td></tr>
                 ) : patients.length === 0 ? (
-                  <tr><td colSpan={4} className="p-8 text-center text-slate-500">Nenhum paciente encontrado ou a migration RLS não foi executada.</td></tr>
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum paciente encontrado ou a migration RLS não foi executada.</td></tr>
                 ) : (
-                  patients.map(patient => (
-                    <tr key={patient.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-medium text-slate-800">{patient.name}</td>
-                      <td className="p-4 text-sm text-slate-650">{patient.email || '—'}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded ${patient.client_type === 'ALUNO' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {patient.client_type}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <select 
-                          value={patient.psychologist_id} 
-                          onChange={(e) => handlePsychologistChange(patient.id, e.target.value)}
-                          className="text-sm font-bold rounded-lg px-3 py-1.5 border border-slate-200 bg-white text-slate-700 outline-none cursor-pointer hover:border-slate-300 w-full max-w-xs transition-colors"
-                        >
-                          <option value="" disabled>Selecione o profissional...</option>
-                          {professionals.map(prof => (
-                            <option key={prof.id} value={prof.id}>
-                              {prof.full_name} ({prof.role})
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))
+                  patients.map(patient => {
+                    const prof = professionals.find(p => p.id === patient.psychologist_id)
+                    const canDelete = patient.client_type === 'ALUNO' && prof?.role === 'TEACHER'
+
+                    return (
+                      <tr key={patient.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-4 font-medium text-slate-800">{patient.name}</td>
+                        <td className="p-4 text-sm text-slate-650">{patient.email || '—'}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded ${patient.client_type === 'ALUNO' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {patient.client_type}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <select 
+                            value={patient.psychologist_id} 
+                            onChange={(e) => handlePsychologistChange(patient.id, e.target.value)}
+                            className="text-sm font-bold rounded-lg px-3 py-1.5 border border-slate-200 bg-white text-slate-700 outline-none cursor-pointer hover:border-slate-300 w-full max-w-xs transition-colors"
+                          >
+                            <option value="" disabled>Selecione o profissional...</option>
+                            {professionals.map(prof => (
+                              <option key={prof.id} value={prof.id}>
+                                {prof.full_name} ({prof.role})
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-4 text-right">
+                          {canDelete ? (
+                            <button 
+                              onClick={() => handleDeleteStudent(patient)}
+                              className="text-rose-600 hover:text-rose-800 font-medium text-sm transition-colors px-3 py-1.5 rounded-lg hover:bg-rose-50"
+                            >
+                              Excluir
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-medium italic select-none">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

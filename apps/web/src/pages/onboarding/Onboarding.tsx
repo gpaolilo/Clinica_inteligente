@@ -32,6 +32,17 @@ const STEPS_ORDER: OnboardingStep[] = [
   'launch'
 ]
 
+const STEPS_META = [
+  { id: 'welcome', label: 'Início' },
+  { id: 'identity', label: 'Nome' },
+  { id: 'personality', label: 'Estilo' },
+  { id: 'preset', label: 'Preset' },
+  { id: 'colors', label: 'Cores' },
+  { id: 'logo', label: 'Logos' },
+  { id: 'preview', label: 'Preview' },
+  { id: 'launch', label: 'Lançar' }
+]
+
 const TEACHING_PERSONALITIES = [
   { value: 'Friendly & Casual', label: 'Amigável & Casual', description: 'Mais próximo e informal, ideal para tutoria e línguas.', color: '#ec4899', preset: 'Modern' },
   { value: 'Professional & Structured', label: 'Profissional & Estruturado', description: 'Foco corporativo, seriedade e cronogramas claros.', color: '#1e3a8a', preset: 'Corporate' },
@@ -135,7 +146,7 @@ export default function Onboarding() {
     if (!user) return
     
     // Save state temporarily in the database
-    await supabase.from('academy_profiles').upsert({
+    const { error: profileError } = await supabase.from('academy_profiles').upsert({
       teacher_id: user.id,
       academy_name: academyName || 'Minha Academia',
       academy_tagline: academyTagline || null,
@@ -150,11 +161,23 @@ export default function Onboarding() {
       is_published: false
     }, { onConflict: 'teacher_id' })
 
-    await supabase.from('onboarding_progress').upsert({
+    if (profileError) {
+      console.error('Error saving academy profile:', profileError)
+      alert('Erro ao salvar rascunho do perfil: ' + profileError.message)
+      return
+    }
+
+    const { error: progressError } = await supabase.from('onboarding_progress').upsert({
       teacher_id: user.id,
       step: nextIdx + 1,
       completed: false
     }, { onConflict: 'teacher_id' })
+
+    if (progressError) {
+      console.error('Error saving onboarding progress:', progressError)
+      alert('Erro ao salvar progresso: ' + progressError.message)
+      return
+    }
 
     setCurrentStepIndex(nextIdx)
   }
@@ -266,7 +289,7 @@ export default function Onboarding() {
 
     try {
       // 1. Salvar perfil como publicado
-      await supabase.from('academy_profiles').upsert({
+      const { error: profileError } = await supabase.from('academy_profiles').upsert({
         teacher_id: user.id,
         academy_name: academyName,
         academy_tagline: academyTagline || null,
@@ -281,12 +304,20 @@ export default function Onboarding() {
         is_published: true
       }, { onConflict: 'teacher_id' })
 
+      if (profileError) {
+        throw new Error('Erro ao salvar perfil: ' + profileError.message)
+      }
+
       // 2. Marcar progresso concluído
-      await supabase.from('onboarding_progress').upsert({
+      const { error: progressError } = await supabase.from('onboarding_progress').upsert({
         teacher_id: user.id,
         step: 8,
         completed: true
       }, { onConflict: 'teacher_id' })
+
+      if (progressError) {
+        throw new Error('Erro ao salvar progresso de onboarding: ' + progressError.message)
+      }
 
       // 3. Atualizar context global de branding
       await refreshBranding()
@@ -315,13 +346,13 @@ export default function Onboarding() {
   const isSplitLayout = ['preset', 'colors', 'logo', 'preview'].includes(currentStep)
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans select-none overflow-x-hidden relative">
+    <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#F5F3FF] text-slate-800 flex flex-col font-sans select-none overflow-x-hidden relative">
       {/* Background dotted grid pattern */}
       <div className="absolute inset-0 opacity-40 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
       {/* Background blobs */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-650/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-600/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Onboarding Header / Progress */}
       <header className="bg-white/80 border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-20 backdrop-blur-md">
@@ -330,8 +361,46 @@ export default function Onboarding() {
           <img src="/Flowike_logo_name_only.png" alt="Flowike Logo Name" className="h-5.5 object-contain" />
           <span className="bg-indigo-50 text-indigo-600 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-100/60 ml-1">Onboarding</span>
         </div>
-        <div className="w-48 bg-slate-200 h-1.5 rounded-full overflow-hidden shrink-0">
-          <div className="bg-gradient-to-r from-indigo-600 to-violet-600 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+
+        {/* Desktop Stepper */}
+        <div className="hidden md:flex items-center gap-2 lg:gap-4">
+          {STEPS_META.map((step, idx) => {
+            const isCompleted = idx < currentStepIndex
+            const isActive = idx === currentStepIndex
+            return (
+              <React.Fragment key={step.id}>
+                {idx > 0 && (
+                  <div className={`h-0.5 w-4 lg:w-8 transition-colors duration-300 ${isCompleted ? 'bg-indigo-600' : 'bg-slate-200'}`} />
+                )}
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+                    isActive 
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-500/20' 
+                      : isCompleted 
+                        ? 'bg-indigo-50 text-indigo-600 border border-indigo-200' 
+                        : 'bg-slate-100 text-slate-450 border border-slate-200'
+                  }`}>
+                    {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : idx + 1}
+                  </div>
+                  <span className={`text-[10px] font-bold tracking-tight transition-colors ${
+                    isActive ? 'text-indigo-600 font-extrabold' : 'text-slate-400'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+              </React.Fragment>
+            )
+          })}
+        </div>
+
+        {/* Mobile progress fallback */}
+        <div className="md:hidden flex flex-col items-end gap-1">
+          <span className="text-[10px] font-bold text-slate-450">
+            Passo {currentStepIndex + 1} de {STEPS_ORDER.length}
+          </span>
+          <div className="w-24 bg-slate-200 h-1.5 rounded-full overflow-hidden shrink-0">
+            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+          </div>
         </div>
       </header>
 
@@ -366,11 +435,11 @@ export default function Onboarding() {
                         <Compass className="w-3.5 h-3.5 text-indigo-600" />
                         O que faremos juntos:
                       </h4>
-                      <ul className="space-y-2.5 text-xs text-slate-650 font-semibold">
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Definir a personalidade da academia</li>
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Configurar tema de cores personalizado</li>
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Fazer upload de logos e assets</li>
-                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-650 shrink-0" /> Visualizar e testar antes de lançar</li>
+                      <ul className="space-y-2.5 text-xs text-slate-600 font-semibold">
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-600 shrink-0" /> Definir a personalidade da academia</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-600 shrink-0" /> Configurar tema de cores personalizado</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-600 shrink-0" /> Fazer upload de logos e assets</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-600 shrink-0" /> Visualizar e testar antes de lançar</li>
                       </ul>
                     </div>
 
@@ -406,7 +475,7 @@ export default function Onboarding() {
                         <input
                           type="text"
                           placeholder="Sarah AI English Academy"
-                          className="w-full px-5 py-4 bg-slate-55 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
                           value={academyName}
                           onChange={(e) => setAcademyName(e.target.value)}
                         />
@@ -420,7 +489,7 @@ export default function Onboarding() {
                         <input
                           type="text"
                           placeholder="Business English para profissionais modernos"
-                          className="w-full px-5 py-4 bg-slate-55 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
                           value={academyTagline}
                           onChange={(e) => setAcademyTagline(e.target.value)}
                         />
@@ -433,7 +502,7 @@ export default function Onboarding() {
                         </label>
                         <textarea
                           placeholder="Foco em conversação prática, acelerando o desenvolvimento corporativo..."
-                          className="w-full px-5 py-4 bg-slate-55 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400 h-24 resize-none"
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400 h-24 resize-none"
                           value={academyDescription}
                           onChange={(e) => setAcademyDescription(e.target.value)}
                         />
@@ -441,7 +510,7 @@ export default function Onboarding() {
                     </div>
 
                     <div className="flex gap-3 pt-4 border-t border-slate-100">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
                       <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Avançar</span>
                         <ArrowRight className="w-4 h-4" />
@@ -460,7 +529,7 @@ export default function Onboarding() {
                   >
                     <div>
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Qual sua personalidade de ensino?</h2>
-                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Isso influenciará a sugestão de paletas, tom do chat de IA e estilo visual.</p>
+                      <p className="text-slate-500 text-xs mt-1.5 font-semibold">Isso influenciará a sugestão de paletas, tom do chat de IA e estilo visual.</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
@@ -474,7 +543,7 @@ export default function Onboarding() {
                             className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-28 relative overflow-hidden group ${
                               isSelected 
                                 ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500/10' 
-                                : 'border-slate-200 bg-white hover:border-indigo-250 hover:bg-slate-50/50'
+                                : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50/50'
                             }`}
                           >
                             <div className="absolute -bottom-6 -right-6 w-16 h-16 rounded-full opacity-10 transition-transform group-hover:scale-125" style={{ backgroundColor: p.color }} />
@@ -496,7 +565,7 @@ export default function Onboarding() {
                     </div>
 
                     <div className="flex gap-3 pt-4 border-t border-slate-100">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
                       <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Recomendar Tema</span>
                         <ArrowRight className="w-4 h-4" />
@@ -529,7 +598,7 @@ export default function Onboarding() {
                             className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between h-20 group ${
                               isSelected 
                                 ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500/10' 
-                                : 'border-slate-200 bg-white hover:border-indigo-250 hover:bg-slate-50/50'
+                                : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50/50'
                             }`}
                           >
                             <div>
@@ -552,7 +621,7 @@ export default function Onboarding() {
                     </div>
 
                     <div className="flex gap-3 pt-4 border-t border-slate-100">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
                       <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Avançar</span>
                         <ArrowRight className="w-4 h-4" />
@@ -571,7 +640,7 @@ export default function Onboarding() {
                   >
                     <div>
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Defina a Paleta da Academia</h2>
-                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Altere as cores principais para refletir a sua marca. Veja o resultado em tempo real no painel à direita.</p>
+                      <p className="text-slate-500 text-xs mt-1.5 font-semibold">Altere as cores principais para refletir a sua marca. Veja o resultado em tempo real no painel à direita.</p>
                     </div>
 
                     {/* Sugestões Rápidas */}
@@ -593,8 +662,8 @@ export default function Onboarding() {
                             className="bg-white hover:bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-[10px] font-bold text-slate-600 shadow-sm"
                           >
                             <span className="flex gap-0.5">
-                              <span className="w-2.5 h-2.5 rounded-full inline-block border border-slate-150" style={{ backgroundColor: combo.primary }} />
-                              <span className="w-2.5 h-2.5 rounded-full inline-block border border-slate-150" style={{ backgroundColor: combo.accent }} />
+                              <span className="w-2.5 h-2.5 rounded-full inline-block border border-slate-200" style={{ backgroundColor: combo.primary }} />
+                              <span className="w-2.5 h-2.5 rounded-full inline-block border border-slate-200" style={{ backgroundColor: combo.accent }} />
                             </span>
                             {combo.label}
                           </button>
@@ -606,7 +675,7 @@ export default function Onboarding() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Cor Primária</label>
-                        <div className="flex items-center gap-2 bg-slate-55 border border-slate-200 p-2.5 rounded-xl">
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
                           <input
                             type="color"
                             className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
@@ -624,7 +693,7 @@ export default function Onboarding() {
 
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Cor Secundária</label>
-                        <div className="flex items-center gap-2 bg-slate-55 border border-slate-200 p-2.5 rounded-xl">
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
                           <input
                             type="color"
                             className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
@@ -642,7 +711,7 @@ export default function Onboarding() {
 
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Cor de Destaque</label>
-                        <div className="flex items-center gap-2 bg-slate-55 border border-slate-200 p-2.5 rounded-xl">
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
                           <input
                             type="color"
                             className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
@@ -679,21 +748,21 @@ export default function Onboarding() {
                   >
                     <div>
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Identidade & Logos</h2>
-                      <p className="text-slate-550 text-xs mt-1.5 font-semibold">Faça upload da logomarca e ícone da sua academia. Suporta PNG, SVG e WEBP de até 2MB.</p>
+                      <p className="text-slate-500 text-xs mt-1.5 font-semibold">Faça upload da logomarca e ícone da sua academia. Suporta PNG, SVG e WEBP de até 2MB.</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Logo Upload */}
-                      <div className="border border-dashed border-slate-205 hover:border-indigo-300 bg-slate-50/50 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
+                      <div className="border border-dashed border-slate-200 hover:border-indigo-300 bg-slate-50/50 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
                         {logoUploading ? (
                           <div className="flex flex-col items-center gap-1.5">
-                            <Loader2 className="w-6 h-6 animate-spin text-indigo-650" />
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
                             <span className="text-[10px] font-bold text-slate-400">Enviando Logo...</span>
                           </div>
                         ) : logoPreview ? (
                           <div className="flex flex-col items-center gap-2.5">
                             <img src={logoPreview} alt="Logo Preview" className="max-h-12 object-contain" />
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded">Logo Ativo</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">Logo Ativo</span>
                             <label className="text-[10px] font-bold text-indigo-600 cursor-pointer hover:underline mt-1">
                               Alterar Logo
                               <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'logo')} />
@@ -710,16 +779,16 @@ export default function Onboarding() {
                       </div>
 
                       {/* Favicon Upload */}
-                      <div className="border border-dashed border-slate-205 hover:border-indigo-300 bg-slate-50/50 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
+                      <div className="border border-dashed border-slate-200 hover:border-indigo-300 bg-slate-50/50 p-5 rounded-2xl flex flex-col items-center justify-center text-center relative min-h-[160px] overflow-hidden">
                         {faviconUploading ? (
                           <div className="flex flex-col items-center gap-1.5">
-                            <Loader2 className="w-6 h-6 animate-spin text-indigo-650" />
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
                             <span className="text-[10px] font-bold text-slate-400">Enviando Favicon...</span>
                           </div>
                         ) : faviconPreview ? (
                           <div className="flex flex-col items-center gap-2.5">
                             <img src={faviconPreview} alt="Favicon Preview" className="w-8 h-8 object-contain" />
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded">Favicon Ativo</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">Favicon Ativo</span>
                             <label className="text-[10px] font-bold text-indigo-600 cursor-pointer hover:underline mt-1">
                               Alterar Favicon
                               <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'favicon')} />
@@ -737,7 +806,7 @@ export default function Onboarding() {
                     </div>
 
                     <div className="flex gap-3 pt-4 border-t border-slate-100">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
                       <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Avançar</span>
                         <ArrowRight className="w-4 h-4" />
@@ -759,18 +828,18 @@ export default function Onboarding() {
                       <p className="text-slate-550 text-xs mt-1.5 font-semibold">Use os controls do painel ao lado para testar a responsividade e visualizar o Login, Dashboard e a Página de Agendamento.</p>
                     </div>
 
-                    <div className="bg-slate-55 border border-slate-200 p-5 rounded-2xl space-y-2">
+                    <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-2">
                       <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
                         <Award className="w-4 h-4 text-indigo-600 animate-bounce" />
                         Seu Portal White-label:
                       </h4>
-                      <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+                      <p className="text-xs text-slate-550 leading-relaxed font-semibold">
                         Toda a experiência de aprendizagem dos seus alunos já está personalizada com as suas cores. Ao clicar em lançar, os temas serão publicados imediatamente.
                       </p>
                     </div>
 
                     <div className="flex gap-3 pt-4 border-t border-slate-100">
-                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handlePrev} className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
                       <button onClick={handleNext} className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                         <span>Revisão Final</span>
                         <ArrowRight className="w-4 h-4" />
@@ -793,32 +862,32 @@ export default function Onboarding() {
                         transition={{ repeat: Infinity, duration: 10, ease: 'linear' }}
                         className="absolute inset-0 bg-indigo-600/10 rounded-full scale-110 blur-xl pointer-events-none"
                       />
-                      <div className="bg-indigo-50 text-indigo-650 w-20 h-20 rounded-[28px] flex items-center justify-center relative z-10 border border-indigo-150">
+                      <div className="bg-indigo-50 text-indigo-600 w-20 h-20 rounded-[28px] flex items-center justify-center relative z-10 border border-indigo-150">
                         <Rocket className="w-10 h-10 animate-bounce" />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Sua academia está pronta! 🚀</h2>
-                      <p className="text-slate-500 text-sm font-semibold max-w-sm">Branding configurado com sucesso e pronto para deploy.</p>
+                      <p className="text-slate-550 text-xs mt-1.5 font-semibold max-w-sm">Branding configurado com sucesso e pronto para deploy.</p>
                     </div>
 
-                    <div className="bg-slate-55 border border-slate-200 p-6 rounded-2xl w-full max-w-md text-left space-y-3">
+                    <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl w-full max-w-md text-left space-y-3">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-450 font-bold uppercase tracking-wider">Nome da Academia</span>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider">Nome da Academia</span>
                         <span className="text-slate-800 font-extrabold">{academyName}</span>
                       </div>
                       <div className="h-[1px] bg-slate-200" />
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-450 font-bold uppercase tracking-wider">Preset de Estilo</span>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider">Preset de Estilo</span>
                         <span className="bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold">{designPreset}</span>
                       </div>
                       <div className="h-[1px] bg-slate-200" />
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-450 font-bold uppercase tracking-wider">Paleta de Cores</span>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider">Paleta de Cores</span>
                         <span className="flex gap-1">
-                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-slate-250" style={{ backgroundColor: settings.primary_color }} />
-                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-slate-250" style={{ backgroundColor: settings.accent_color }} />
+                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-slate-200" style={{ backgroundColor: settings.primary_color }} />
+                          <span className="w-3.5 h-3.5 rounded-full inline-block border border-slate-200" style={{ backgroundColor: settings.accent_color }} />
                         </span>
                       </div>
                     </div>
@@ -827,7 +896,7 @@ export default function Onboarding() {
                       <button 
                         onClick={handlePrev} 
                         disabled={publishing}
-                        className="px-5 py-4 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0"
+                        className="px-5 py-4 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shrink-0"
                       >
                         Ajustar Detalhes
                       </button>

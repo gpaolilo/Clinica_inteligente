@@ -136,7 +136,7 @@ export default function Login() {
               {view === 'FORGOT_PASSWORD' && 'Recuperar Senha'}
               {view === 'UPDATE_PASSWORD' && 'Definir Nova Senha'}
             </h2>
-            <p className="text-slate-505 font-semibold mt-2 text-sm leading-relaxed">
+            <p className="text-slate-500 font-semibold mt-2 text-sm leading-relaxed">
               {view === 'LOGIN' && (loginMessage || `Acesse o portal da ${appName}`)}
               {view === 'FORGOT_PASSWORD' && 'Digite seu e-mail para receber as instruções.'}
               {view === 'UPDATE_PASSWORD' && 'Crie uma nova senha de acesso abaixo.'}

@@ -180,3 +180,72 @@ CREATE TRIGGER trigger_log_student_enrollment_request_email
   AFTER INSERT ON public.student_enrollment_requests
   FOR EACH ROW EXECUTE PROCEDURE public.log_student_enrollment_request_email();
 
+-- 9. Redefine sync_academy_profile_to_branding to fix card_style exception
+CREATE OR REPLACE FUNCTION public.sync_academy_profile_to_branding()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_tenant_id UUID;
+BEGIN
+  -- Obter o ID do tenant
+  SELECT id INTO v_tenant_id FROM public.tenants WHERE owner_user_id = NEW.teacher_id;
+
+  IF v_tenant_id IS NOT NULL THEN
+    -- 1. Sincronizar tenant_brand_settings (usando 'Minimal' como card_style padrão)
+    INSERT INTO public.tenant_brand_settings (
+      tenant_id, app_name, primary_color, secondary_color, accent_color, background_color, text_color, 
+      theme_mode, button_style, card_style, design_preset, login_message, dashboard_message, is_published
+    ) VALUES (
+      v_tenant_id, NEW.academy_name, NEW.primary_color, NEW.secondary_color, NEW.accent_color, '#F8F9FA', '#1A1A1A',
+      'light', 'Rounded', 'Minimal', NEW.design_preset, COALESCE(NEW.academy_tagline, 'Bem-vindo ao Portal de Ensino'), 'Pronto para a aula de hoje?', NEW.is_published
+    )
+    ON CONFLICT (tenant_id) DO UPDATE
+    SET
+      app_name = EXCLUDED.app_name,
+      primary_color = EXCLUDED.primary_color,
+      secondary_color = EXCLUDED.secondary_color,
+      accent_color = EXCLUDED.accent_color,
+      card_style = EXCLUDED.card_style,
+      design_preset = EXCLUDED.design_preset,
+      login_message = EXCLUDED.login_message,
+      is_published = EXCLUDED.is_published,
+      updated_at = now();
+
+    -- 2. Sincronizar tenant_assets
+    UPDATE public.tenant_assets
+    SET
+      logo_url = NEW.logo_url,
+      favicon_url = NEW.favicon_url,
+      banner_url = NEW.banner_url,
+      updated_at = now()
+    WHERE tenant_id = v_tenant_id;
+
+    -- 3. Sincronizar tenant_brand_drafts
+    INSERT INTO public.tenant_brand_drafts (tenant_id, draft_json)
+    VALUES (
+      v_tenant_id, 
+      json_build_object(
+        'app_name', NEW.academy_name,
+        'primary_color', NEW.primary_color,
+        'secondary_color', NEW.secondary_color,
+        'accent_color', NEW.accent_color,
+        'background_color', '#F8F9FA',
+        'text_color', '#1A1A1A',
+        'theme_mode', 'light',
+        'button_style', 'Rounded',
+        'card_style', 'Minimal',
+        'design_preset', NEW.design_preset,
+        'login_message', COALESCE(NEW.academy_tagline, 'Bem-vindo ao Portal de Ensino'),
+        'dashboard_message', 'Pronto para a aula de hoje?'
+      )
+    )
+    ON CONFLICT (tenant_id) DO UPDATE
+    SET
+      draft_json = EXCLUDED.draft_json,
+      updated_at = now();
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+

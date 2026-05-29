@@ -175,7 +175,7 @@ export default function Register() {
                 </h4>
                 <p className="text-[9px] text-slate-400 font-semibold">Let's continue your learning journey today.</p>
               </div>
-              <span className="text-[9px] bg-purple-55 text-purple-600 border border-purple-100 px-2 py-0.5 rounded font-extrabold">Student Portal</span>
+              <span className="text-[9px] bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded font-extrabold">Student Portal</span>
             </div>
 
             {/* Daily Streak and Level Progress */}

@@ -118,3 +118,65 @@ CREATE POLICY "Professores leem solicitações atreladas a eles" ON public.stude
   FOR SELECT USING (
     teacher_id = auth.uid()
   );
+
+-- 6. Correct teacher_signup_requests RLS Select policy to avoid permission denied on auth.users table
+DROP POLICY IF EXISTS "Usuários leem suas próprias solicitações" ON public.teacher_signup_requests;
+CREATE POLICY "Usuários leem suas próprias solicitações" ON public.teacher_signup_requests
+  FOR SELECT USING (
+    email = (auth.jwt() ->> 'email')
+  );
+
+-- 7. Trigger to automatically log teacher signup receipt email
+CREATE OR REPLACE FUNCTION public.log_teacher_signup_request_email()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.system_email_logs (recipient, subject, body, status)
+  VALUES (
+    NEW.email,
+    'Recebemos sua solicitação de acesso ao Flowike! 🚀',
+    'Olá ' || NEW.full_name || ',' || chr(10) || chr(10) ||
+    'Obrigado pelo seu interesse no Flowike. Recebemos sua solicitação de acesso para a academia "' || NEW.academy_name || '".' || chr(10) || chr(10) ||
+    'Nossa equipe está revisando suas informações e você receberá uma atualização por e-mail assim que for aprovado.' || chr(10) || chr(10) ||
+    'Acesse o portal para acompanhar o status:' || chr(10) ||
+    'https://clinica-inteligente-web-chi.vercel.app/login' || chr(10) || chr(10) ||
+    'Atenciosamente,' || chr(10) ||
+    'Equipe Flowike',
+    'SENT'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_log_teacher_signup_request_email ON public.teacher_signup_requests;
+CREATE TRIGGER trigger_log_teacher_signup_request_email
+  AFTER INSERT ON public.teacher_signup_requests
+  FOR EACH ROW EXECUTE PROCEDURE public.log_teacher_signup_request_email();
+
+-- 8. Trigger to automatically log student enrollment receipt email
+CREATE OR REPLACE FUNCTION public.log_student_enrollment_request_email()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_teacher_name TEXT;
+BEGIN
+  SELECT full_name INTO v_teacher_name FROM public.psychologists WHERE id = NEW.teacher_id;
+  
+  INSERT INTO public.system_email_logs (recipient, subject, body, status)
+  VALUES (
+    NEW.student_email,
+    'Sua solicitação de matrícula foi recebida! 🎓',
+    'Olá ' || NEW.student_name || ',' || chr(10) || chr(10) ||
+    'Sua solicitação de matrícula para a academia do professor ' || COALESCE(v_teacher_name, 'parceiro') || ' foi recebida com sucesso.' || chr(10) || chr(10) ||
+    'A solicitação está aguardando revisão e confirmação da nossa equipe e do professor. Você receberá uma atualização assim que a matrícula for confirmada.' || chr(10) || chr(10) ||
+    'Atenciosamente,' || chr(10) ||
+    'Equipe Flowike',
+    'SENT'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_log_student_enrollment_request_email ON public.student_enrollment_requests;
+CREATE TRIGGER trigger_log_student_enrollment_request_email
+  AFTER INSERT ON public.student_enrollment_requests
+  FOR EACH ROW EXECUTE PROCEDURE public.log_student_enrollment_request_email();
+

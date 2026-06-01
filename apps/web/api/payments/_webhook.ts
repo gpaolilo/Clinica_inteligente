@@ -77,43 +77,82 @@ export default async function handler(req: any, res: any) {
           const classesIncluded = parseInt(metadata.classes_included || '1', 10)
           const priceAmount = parseFloat(metadata.price_amount || '0')
 
-          // Find student (patient) in local database to update class balance
+          // Find student (patient) in local database to update status and activate
           const { data: student } = await supabaseAdmin
             .from('patients')
-            .select('id, class_balance')
+            .select('id, status, class_balance')
             .eq('user_id', payerId)
             .eq('psychologist_id', payeeId)
             .maybeSingle()
 
           if (student) {
             const newBalance = (student.class_balance || 0) + classesIncluded
-            await supabaseAdmin
+            // Update student status to active (enforces seat limit via trigger)
+            const { error: patientErr } = await supabaseAdmin
               .from('patients')
-              .update({ class_balance: newBalance })
+              .update({ 
+                status: 'ACTIVE',
+                class_balance: newBalance 
+              })
               .eq('id', student.id)
-            console.log(`Granted ${classesIncluded} classes to student ${student.id}. New Balance = ${newBalance}`)
+
+            if (patientErr) {
+              console.error('Error activating student / applying seat limit:', patientErr)
+              // Log the seat limit failure to admin alerts if triggered
+              if (patientErr.message.includes('limit')) {
+                await supabaseAdmin
+                  .from('admin_alerts')
+                  .insert([{
+                    type: 'failed_payment',
+                    title: 'Limite de Assentos Excedido no Webhook',
+                    description: `Erro ao ativar o aluno ${student.id} para o professor ${payeeId}. Motivo: ${patientErr.message}`,
+                    status: 'active'
+                  }])
+              }
+            } else {
+              // Record seat mapping in student_seats
+              await supabaseAdmin
+                .from('student_seats')
+                .insert([{
+                  teacher_id: payeeId,
+                  student_id: student.id,
+                  active: true
+                }])
+                .onConflictDoUpdate({
+                  constraint: 'student_seats_teacher_id_student_id_key',
+                  set: { active: true, assigned_at: new Date().toISOString() }
+                })
+            }
           }
 
-          // Fetch teacher plan for revenue share recording
-          const { data: teacher } = await supabaseAdmin
-            .from('psychologists')
-            .select('plan_type')
-            .eq('id', payeeId)
-            .single()
-
-          const plan = (teacher?.plan_type || 'STARTER').toUpperCase()
-          const { data: rule } = await supabaseAdmin
-            .from('revenue_share_rules')
-            .select('percentage')
-            .eq('plan_type', plan)
+          // Fetch product type from product
+          const { data: prod } = await supabaseAdmin
+            .from('teacher_products')
+            .select('product_type')
+            .eq('id', productId)
             .maybeSingle()
 
-          const percentage = rule ? Number(rule.percentage) : 10.0
-          const platformFee = (priceAmount * percentage) / 100.0
-          const stripeFee = (priceAmount * 0.039) + 0.30; // Estimated Stripe Fee (3.9% + $0.30)
-          const netAmount = priceAmount - platformFee - stripeFee
+          if (prod && prod.product_type === 'MONTHLY_SUBSCRIPTION') {
+            // Save to student_subscriptions
+            await supabaseAdmin
+              .from('student_subscriptions')
+              .insert([{
+                student_id: payerId,
+                teacher_id: payeeId,
+                stripe_subscription_id: session.subscription as string || ('sub_' + Math.random().toString(36).substring(2, 10)),
+                status: 'ACTIVE',
+                current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              }])
+              .onConflictDoUpdate({
+                constraint: 'student_subscriptions_stripe_subscription_id_key',
+                set: { status: 'ACTIVE', current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() }
+              })
+          }
 
-          // Log split calculations in payment_transactions
+          // Log split calculations in payment_transactions with 0% platform fee
+          const stripeFee = (priceAmount * 0.039) + 0.30; // Estimated Stripe Fee (3.9% + $0.30)
+          const netAmount = priceAmount - stripeFee
+
           const { data: payment } = await supabaseAdmin
             .from('payments')
             .select('id')
@@ -127,76 +166,91 @@ export default async function handler(req: any, res: any) {
                 payment_id: payment.id,
                 gross_amount: priceAmount,
                 net_amount: netAmount,
-                platform_fee: platformFee,
+                platform_fee: 0.00,
                 stripe_fee: stripeFee,
                 status: 'SUCCEEDED'
               }])
           }
-
-          // Record platform revenue share income
-          await supabaseAdmin
-            .from('platform_revenue')
-            .insert([{
-              source_type: 'REVSHARE',
-              amount: platformFee,
-              stripe_payment_id: session.id
-            }])
         }
 
         // Case B: Teacher subscribes to SaaS Plan
         if (type === 'SAAS') {
           const teacherId = metadata.teacher_id
-          const plan = metadata.plan_type as string
+          const planName = metadata.plan_type as string
           const priceAmount = parseFloat(metadata.price_amount || '0')
           const currentPeriodEnd = new Date()
           currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1) // 1 month cycle
 
-          // Update plan in psychologists table
+          // Fetch plan details from plans table
+          const { data: dbPlan } = await supabaseAdmin
+            .from('plans')
+            .select('id, included_credits')
+            .eq('name', planName.toUpperCase())
+            .maybeSingle()
+
+          const planId = dbPlan?.id
+          const creditsToGrant = dbPlan?.included_credits || 8000
+
+          // Update plan in psychologists table (trigger will sync plan_type/plan_id and wallets)
           await supabaseAdmin
             .from('psychologists')
-            .update({ plan_type: plan })
+            .update({ 
+              plan_type: planName,
+              plan_id: planId 
+            })
             .eq('id', teacherId)
 
-          // Log platform subscription
-          await supabaseAdmin
-            .from('platform_subscriptions')
-            .insert([{
-              teacher_id: teacherId,
-              plan_type: plan,
-              status: 'ACTIVE',
-              current_period_end: currentPeriodEnd.toISOString()
-            }])
+          // Log teacher subscription
+          if (planId) {
+            await supabaseAdmin
+              .from('teacher_subscriptions')
+              .insert([{
+                teacher_id: teacherId,
+                plan_id: planId,
+                stripe_subscription_id: session.subscription as string || ('sub_saas_' + Math.random().toString(36).substring(2, 10)),
+                status: 'ACTIVE',
+                current_period_end: currentPeriodEnd.toISOString()
+              }])
+              .onConflictDoUpdate({
+                constraint: 'teacher_subscriptions_teacher_id_key',
+                set: {
+                  plan_id: planId,
+                  status: 'ACTIVE',
+                  current_period_end: currentPeriodEnd.toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+              })
+          }
 
-          // Grant Plan AI credits
-          let creditsToGrant = 50
-          if (plan === 'PRO') creditsToGrant = 500
-          else if (plan === 'ACADEMY') creditsToGrant = 2000
-
+          // Let's also update the teacher_wallets balance with allocation
           const { data: wallet } = await supabaseAdmin
-            .from('ai_wallets')
-            .select('balance')
+            .from('teacher_wallets')
+            .select('current_balance')
             .eq('teacher_id', teacherId)
             .maybeSingle()
 
           if (wallet) {
             await supabaseAdmin
-              .from('ai_wallets')
-              .update({ balance: wallet.balance + creditsToGrant })
+              .from('teacher_wallets')
+              .update({ 
+                current_balance: wallet.current_balance + creditsToGrant,
+                monthly_allocation: creditsToGrant,
+                updated_at: new Date().toISOString()
+              })
               .eq('teacher_id', teacherId)
-          } else {
-            await supabaseAdmin
-              .from('ai_wallets')
-              .insert([{ teacher_id: teacherId, balance: creditsToGrant }])
-          }
 
-          // Log AI transaction credit addition (use negative credits_used to represent addition)
-          await supabaseAdmin
-            .from('ai_transactions')
-            .insert([{
-              teacher_id: teacherId,
-              action: 'PURCHASE',
-              credits_used: -creditsToGrant
-            }])
+            // Log AI transaction credit addition
+            await supabaseAdmin
+              .from('credit_transactions')
+              .insert([{
+                teacher_id: teacherId,
+                type: 'allocation',
+                amount: creditsToGrant,
+                source: 'saas_plan_grant',
+                reference_id: session.id,
+                description: `Alocação mensal de créditos do plano ${planName}`
+              }])
+          }
 
           // Record platform SaaS revenue
           await supabaseAdmin
@@ -206,39 +260,62 @@ export default async function handler(req: any, res: any) {
               amount: priceAmount,
               stripe_payment_id: session.id
             }])
+
+          // Create invoice
+          await supabaseAdmin
+            .from('platform_invoices')
+            .insert([{
+              teacher_id: teacherId,
+              amount: priceAmount,
+              status: 'PAID',
+              invoice_number: 'INV-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+              pdf_url: session.hosted_invoice_url || ''
+            }])
         }
 
         // Case C: Teacher purchases AI Credits
         if (type === 'CREDITS') {
           const teacherId = metadata.teacher_id
-          const creditsAdded = parseInt(metadata.credits_added || '500', 10)
+          const creditsAdded = parseInt(metadata.credits_added || '5000', 10)
           const priceAmount = parseFloat(metadata.price_amount || '0')
 
-          // Update AI wallet
+          // Update teacher wallet
           const { data: wallet } = await supabaseAdmin
-            .from('ai_wallets')
-            .select('balance')
+            .from('teacher_wallets')
+            .select('current_balance')
             .eq('teacher_id', teacherId)
             .maybeSingle()
 
           if (wallet) {
             await supabaseAdmin
-              .from('ai_wallets')
-              .update({ balance: wallet.balance + creditsAdded })
+              .from('teacher_wallets')
+              .update({ 
+                current_balance: wallet.current_balance + creditsAdded,
+                credits_purchased: wallet.credits_purchased + creditsAdded,
+                updated_at: new Date().toISOString()
+              })
               .eq('teacher_id', teacherId)
           } else {
             await supabaseAdmin
-              .from('ai_wallets')
-              .insert([{ teacher_id: teacherId, balance: creditsAdded }])
+              .from('teacher_wallets')
+              .insert([{ 
+                teacher_id: teacherId, 
+                current_balance: creditsAdded,
+                credits_purchased: creditsAdded,
+                monthly_allocation: 0
+              }])
           }
 
-          // Log AI transaction credit addition
+          // Log transaction
           await supabaseAdmin
-            .from('ai_transactions')
+            .from('credit_transactions')
             .insert([{
               teacher_id: teacherId,
-              action: 'PURCHASE',
-              credits_used: -creditsAdded
+              type: 'purchase',
+              amount: creditsAdded,
+              source: 'credit_store_purchase',
+              reference_id: session.id,
+              description: `Compra de pacote de ${creditsAdded} créditos de IA`
             }])
 
           // Record platform AI sales revenue

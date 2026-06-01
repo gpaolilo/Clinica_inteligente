@@ -16,6 +16,8 @@ export default function EmailLogs() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLog, setSelectedLog] = useState<EmailLog | null>(null)
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [dateFilter, setDateFilter] = useState('ALL')
 
   const fetchLogs = async () => {
     setLoading(true)
@@ -36,12 +38,32 @@ export default function EmailLogs() {
     fetchLogs()
   }, [])
 
-  const filteredLogs = logs.filter(
-    (log) =>
+  const filteredLogs = logs.filter((log) => {
+    const matchesSearch =
       log.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.body.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+
+    const matchesStatus =
+      statusFilter === 'ALL' || log.status.toUpperCase() === statusFilter.toUpperCase()
+
+    let matchesDate = true
+    if (dateFilter !== 'ALL') {
+      const logDate = new Date(log.sent_at)
+      const now = new Date()
+      if (dateFilter === 'TODAY') {
+        matchesDate = logDate.toDateString() === now.toDateString()
+      } else if (dateFilter === 'WEEK') {
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        matchesDate = logDate >= sevenDaysAgo
+      } else if (dateFilter === 'MONTH') {
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        matchesDate = logDate >= thirtyDaysAgo
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesDate
+  })
 
   return (
     <div className="p-8 relative min-h-screen">
@@ -61,16 +83,42 @@ export default function EmailLogs() {
         </button>
       </div>
 
-      {/* Busca */}
-      <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm mb-6 max-w-xl">
-        <Search className="w-4 h-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Filtrar por destinatário, assunto ou conteúdo..."
-          className="w-full bg-transparent outline-none text-slate-700 text-sm placeholder-slate-400 font-medium"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Busca e Filtros */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm mb-6">
+        <div className="relative flex-1 w-full flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2.5">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            placeholder="Filtrar por destinatário, assunto ou conteúdo..."
+            className="w-full bg-transparent outline-none text-slate-700 text-xs placeholder-slate-450 font-semibold"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-colors w-full sm:w-44"
+          >
+            <option value="ALL">Todos os Status</option>
+            <option value="SUCCESS">Sucesso (SUCCESS)</option>
+            <option value="FAILED">Falha (FAILED)</option>
+            <option value="SENT">Enviado (SENT)</option>
+          </select>
+
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-colors w-full sm:w-48"
+          >
+            <option value="ALL">Todo o Período</option>
+            <option value="TODAY">Hoje</option>
+            <option value="WEEK">Últimos 7 dias</option>
+            <option value="MONTH">Últimos 30 dias</option>
+          </select>
+        </div>
       </div>
 
       {/* Tabela de logs */}

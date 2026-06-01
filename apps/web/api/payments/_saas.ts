@@ -61,14 +61,24 @@ export default async function handler(req: any, res: any) {
 
     // --- Action 1: SaaS Subscription ---
     if (action === 'saas_subscribe') {
-      if (!planType || !['STARTER', 'PRO', 'ACADEMY'].includes(planType.toUpperCase())) {
-        return res.status(400).json({ error: 'Invalid plan type' })
+      if (!planType) {
+        return res.status(400).json({ error: 'Plan type is required' })
       }
 
-      const plan = planType.toUpperCase()
-      let planPrice = 19
-      if (plan === 'PRO') planPrice = 49
-      else if (plan === 'ACADEMY') planPrice = 99
+      // Fetch plan from database dynamically
+      const { data: dbPlan, error: planErr } = await supabaseAdmin
+        .from('plans')
+        .select('*')
+        .eq('name', planType.toUpperCase())
+        .eq('active', true)
+        .maybeSingle()
+
+      if (planErr || !dbPlan) {
+        return res.status(400).json({ error: 'Invalid or inactive plan type' })
+      }
+
+      const plan = dbPlan.name
+      const planPrice = Number(dbPlan.price)
 
       const sessionConfig: Stripe.Checkout.SessionCreateParams = {
         customer: stripeCustomerId,
@@ -134,20 +144,24 @@ export default async function handler(req: any, res: any) {
 
     // --- Action 2: Purchase AI Credits ---
     if (action === 'purchase_credits') {
-      if (!creditPack || !['500', '1500', '5000'].includes(creditPack)) {
-        return res.status(400).json({ error: 'Invalid credit package' })
+      if (!creditPack) {
+        return res.status(400).json({ error: 'Credit pack size is required' })
       }
 
-      let packPrice = 10
-      let creditsAdded = 500
+      // Fetch credit pack from database dynamically
+      const { data: dbPack, error: packErr } = await supabaseAdmin
+        .from('credit_packages')
+        .select('*')
+        .eq('credits', parseInt(creditPack, 10))
+        .eq('active', true)
+        .maybeSingle()
 
-      if (creditPack === '1500') {
-        packPrice = 25
-        creditsAdded = 1500
-      } else if (creditPack === '5000') {
-        packPrice = 75
-        creditsAdded = 5000
+      if (packErr || !dbPack) {
+        return res.status(400).json({ error: 'Invalid or inactive credit package' })
       }
+
+      const packPrice = Number(dbPack.price)
+      const creditsAdded = dbPack.credits
 
       const sessionConfig: Stripe.Checkout.SessionCreateParams = {
         customer: stripeCustomerId,

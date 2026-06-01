@@ -36,10 +36,12 @@ export default function DashboardLayout() {
 
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-    { to: '/dashboard/patients', label: 'Clientes', icon: Users },
+    { to: '/dashboard/patients', label: 'Alunos', icon: Users },
     { to: '/dashboard/agenda', label: 'Agenda', icon: CalendarDays },
     { to: '/dashboard/finance', label: 'Financeiro', icon: DollarSign },
-    { to: '/dashboard/ai-credits', label: 'Créditos IA', icon: Brain },
+    { to: '/dashboard/revenue', label: 'Centro de Receita', icon: DollarSign },
+    { to: '/dashboard/ai-credits', label: 'Carteira IA', icon: Brain },
+    { to: '/dashboard/ai-analytics', label: 'Análise de IA', icon: Brain },
     { to: '/dashboard/availability', label: 'Disponibilidade', icon: Clock },
     { to: '/dashboard/brand-studio', label: 'Estúdio de Marca', icon: Palette }
   ]

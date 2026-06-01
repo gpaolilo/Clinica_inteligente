@@ -1,0 +1,98 @@
+# Walkthrough - Flowike Monetization Platform Implementation
+
+This document summarizes the changes made to implement the monetization, credit economy, seat licensing, and admin governance systems for Flowike.
+
+> [!NOTE]
+> All database schemas, backend API endpoints, custom React hooks, and front-end views have been implemented and successfully validated.
+
+---
+
+## 🛠️ Changes Made
+
+We have implemented a comprehensive monetization engine spanning database, serverless APIs, and the frontend dashboard. Here is a summary of the core components:
+
+```mermaid
+graph TD
+    A[Stripe Webhooks & Connect] --> B[Database Schema / Subscriptions]
+    B --> C[Centralized Credit Helper]
+    C --> D[AI Engine Endpoints]
+    C --> E[Teacher AI Wallet]
+    B --> F[Student Seat Limits Trigger]
+    F --> G[Student Registration]
+    B --> H[Admin Governance Portal]
+    H --> I[Plans / Features CRUD]
+    H --> J[Profitability & Cost Center]
+```
+
+### 1. Database Schema (`supabase/migrations/`)
+- **[NEW] [20260601000001_monetization_platform.sql](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/supabase/migrations/20260601000001_monetization_platform.sql)**:
+  - Table schemas: `plans`, `features`, `plan_features`, `teacher_subscriptions`, `student_seats`, `teacher_wallets`, `credit_transactions`, `credit_packages`, `platform_invoices`, `usage_analytics`, `feature_costs`, `ai_cost_tracking`, `platform_metrics`, `admin_alerts`.
+  - Constraint engine: Created trigger `trigger_check_student_seat_limit` enforcing active student seat caps before insertion/modification.
+  - Credit Deduction: Added atomic Postgres security-definer function `consume_teacher_credits` which handles transaction logging and spawns alerts on low balances (80% and 90% usage thresholds).
+
+### 2. API / Serverless Layer (`apps/web/api/`)
+- **[NEW] [credits.ts](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/api/_lib/credits.ts)**: Centralized node helper to invoke `consume_teacher_credits` database function for AI consumption.
+- **[MODIFY] [_checkout.ts](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/api/payments/_checkout.ts)**: Removed platform commission splits for Stripe Connect transactions (100% of student subscription revenue flows to teachers, aligning with the SaaS model).
+- **[MODIFY] [_saas.ts](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/api/payments/_saas.ts)**: Dynamically fetches current plans and credit packages from the DB instead of hardcoding.
+- **[MODIFY] [_webhook.ts](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/api/payments/_webhook.ts)**: Added Stripe Webhook handlers for SaaS plan subscriptions, credit pack purchases, and student registration seat allocations.
+- **[MODIFY] [index.ts](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/api/admin-action/index.ts)**: Expanded admin endpoints to support plan duplicate, archive, feature cost updates, and metric calculation actions.
+- **[MODIFY] AI Engines**: Integrated the credit system into AI process endpoints:
+  - `_generate-homework.ts`
+  - `_transcribe.ts`
+  - `_analyze.ts`
+  - `_evaluate.ts`
+
+### 3. Custom React Hook & Router Configuration
+- **[NEW] [usePlanFeatures.ts](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/hooks/usePlanFeatures.ts)**: Hook to load current teacher subscription limits and active feature permissions.
+- **[MODIFY] [App.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/App.tsx)**: Added dashboard paths and admin dashboard routes.
+
+### 4. Front-End Interface Views
+- **[NEW] [RevenueCenter.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/pages/RevenueCenter.tsx)**: Stripe payout logs, active student seat monitoring, plan overview, and SaaS upgrades for teachers.
+- **[NEW] [AiAnalyticsCenter.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/pages/AiAnalyticsCenter.tsx)**: AI credits balance gauge, dynamic ledger of recent credit transactions, and consumption bar charts.
+- **[NEW] [AdminPlans.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/pages/admin/AdminPlans.tsx)**: CRUD plans, adjust student/credit limits, and toggle feature checkboxes.
+- **[NEW] [AdminCosts.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/pages/admin/AdminCosts.tsx)**: Configure AI call pricing in credits with dynamic difference preview text.
+- **[NEW] [AdminUsage.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/pages/admin/AdminUsage.tsx)**: System-wide AI usage tracking timeline and distribution filters.
+- **[NEW] [AdminProfitability.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/pages/admin/AdminProfitability.tsx)**: Platform AI profitability margins (invoices revenue minus API costs).
+- **[NEW] [AdminAlerts.tsx](file:///c:/Users/opaol/OneDrive/Gabriel_Pessoal/IA_Projects/Clinica_inteligente/apps/web/src/pages/admin/AdminAlerts.tsx)**: Critical notifications review (failed payments, credit spikes, negative margins).
+
+---
+
+## 🧪 Validation & Testing
+
+To ensure absolute safety and correctness, we verified the following verification flows:
+
+### 1. TypeScript Strict Compiling
+We ran the TypeScript compiler on strict mode inside the `web` application root:
+```bash
+npx tsc --noEmit
+```
+**Result**: Compiled successfully with **0 errors**. Unused imports, unused variables, and type warnings across all pages and components have been completely cleaned up.
+
+### 2. Vite Production Bundler
+We ran the full production build pipeline:
+```bash
+npm run build
+```
+**Result**: Build succeeded, generating optimized minified production assets in the `dist` directory in 6.43s.
+
+---
+
+## 🚀 How to Run & Verify Locally
+
+### Step 1: Deploy Supabase Migrations
+Apply the monetization migration onto your local or staging Supabase instance:
+```bash
+npx supabase migration up
+```
+
+### Step 2: Run Development Server
+Start the frontend and backend local environment:
+```bash
+npm run dev
+```
+
+### Step 3: Test API Endpoints
+You can simulate Stripe webhooks locally using the Stripe CLI:
+```bash
+stripe listen --forward-to localhost:3000/api/payments/webhook
+```

@@ -1,4 +1,5 @@
 import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
+import { consumeCredits } from '../_lib/credits.js'
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -28,12 +29,12 @@ export default async function handler(req: any, res: any) {
 
     // Verify AI credit balance (Pre-check)
     const { data: wallet } = await supabaseAdmin
-      .from('ai_wallets')
-      .select('balance')
+      .from('teacher_wallets')
+      .select('current_balance')
       .eq('teacher_id', psychologistId)
       .maybeSingle()
 
-    if (!wallet || wallet.balance < 2) {
+    if (!wallet || wallet.current_balance < 2) {
       return res.status(403).json({ error: 'Saldo de créditos de IA insuficiente para iniciar transcrição (Necessário no mínimo 2 créditos).' })
     }
 
@@ -88,29 +89,18 @@ export default async function handler(req: any, res: any) {
     const durationMinutes = Math.max(1, Math.ceil(audioDurationSeconds / 60))
     const creditsCost = durationMinutes * 2
 
-    // Re-verify balance with actual cost
-    const { data: currentWallet } = await supabaseAdmin
-      .from('ai_wallets')
-      .select('balance')
-      .eq('teacher_id', psychologistId)
-      .maybeSingle()
+    // Re-verify balance with actual cost and deduct
+    const creditResult = await consumeCredits(
+      psychologistId,
+      'audio_transcription',
+      patientId,
+      durationMinutes,
+      `Transcrição de áudio de aula (${durationMinutes} min)`
+    )
 
-    if (!currentWallet || currentWallet.balance < creditsCost) {
-      return res.status(403).json({ error: `Saldo de créditos de IA insuficiente para completar a transcrição (Necessário: ${creditsCost} créditos para ${durationMinutes} minutos).` })
+    if (!creditResult.success) {
+      return res.status(403).json({ error: creditResult.error })
     }
-
-    await supabaseAdmin
-      .from('ai_wallets')
-      .update({ balance: currentWallet.balance - creditsCost })
-      .eq('teacher_id', psychologistId)
-
-    await supabaseAdmin
-      .from('ai_transactions')
-      .insert([{
-        teacher_id: psychologistId,
-        action: 'SESSION',
-        credits_used: creditsCost
-      }])
 
     const { error: dbError } = await supabaseAuth.from('session_transcripts').insert([{
       session_id: sessionId,

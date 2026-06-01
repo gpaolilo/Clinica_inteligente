@@ -1,4 +1,5 @@
 import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
+import { consumeCredits } from '../_lib/credits.js'
 
 const SYSTEM_PROMPT = `You are an expert language evaluator and conversational partner.
 The user is practicing a specific scenario. Evaluate their final performance based on the conversation transcript.
@@ -38,30 +39,18 @@ export default async function handler(req: any, res: any) {
     }
     const psychologistId = patientData.psychologist_id
 
-    // Verify and deduct AI credits (Cost: 15 credits)
-    const { data: wallet } = await supabaseAdmin
-      .from('ai_wallets')
-      .select('balance')
-      .eq('teacher_id', psychologistId)
-      .maybeSingle()
+    // Verify and deduct AI credits
+    const creditResult = await consumeCredits(
+      psychologistId,
+      'writing_evaluation',
+      patientId,
+      1,
+      'Avaliação de prática de cenário por IA'
+    )
 
-    const creditsCost = 15
-    if (!wallet || wallet.balance < creditsCost) {
-      return res.status(403).json({ error: 'Saldo de créditos de IA insuficiente para realizar a avaliação do cenário (Necessário: 15 créditos).' })
+    if (!creditResult.success) {
+      return res.status(403).json({ error: creditResult.error })
     }
-
-    await supabaseAdmin
-      .from('ai_wallets')
-      .update({ balance: wallet.balance - creditsCost })
-      .eq('teacher_id', psychologistId)
-
-    await supabaseAdmin
-      .from('ai_transactions')
-      .insert([{
-        teacher_id: psychologistId,
-        action: 'SCENARIO',
-        credits_used: creditsCost
-      }])
 
 
     const groqKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY

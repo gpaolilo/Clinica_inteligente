@@ -42,18 +42,9 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Este professor ainda não configurou as cobranças na conta Stripe.' })
     }
 
-    // 3. Determine revenue share percentage based on teacher plan
-    const teacherPlan = (teacher.plan_type || 'STARTER').toUpperCase()
-    
-    // Fetch rules
-    const { data: rule } = await supabaseAdmin
-      .from('revenue_share_rules')
-      .select('percentage')
-      .eq('plan_type', teacherPlan)
-      .maybeSingle()
-
-    const revSharePercent = rule ? Number(rule.percentage) : 10.0 // Default 10%
-    const flowikeFee = (product.price * revSharePercent) / 100.0
+    // 3. Determine revenue share percentage based on teacher plan (No revenue share model - 0% fee)
+    const revSharePercent = 0.0
+    const flowikeFee = 0.0
 
     // 4. Retrieve or create Stripe Customer for the student
     let { data: stripeCustomer } = await supabaseAdmin
@@ -131,17 +122,15 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // Connect Split setup: Destination Charge split
+    // Connect Split setup: Destination Charge split (0% fee - student payments belong 100% to teachers)
     if (isSubscription) {
       sessionConfig.subscription_data = {
-        application_fee_percent: revSharePercent,
         transfer_data: {
           destination: teacher.stripe_account_id,
         },
       }
     } else {
       sessionConfig.payment_intent_data = {
-        application_fee_amount: Math.round(flowikeFee * 100),
         transfer_data: {
           destination: teacher.stripe_account_id,
         },

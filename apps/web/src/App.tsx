@@ -43,6 +43,15 @@ import Onboarding from './pages/onboarding/Onboarding'
 import ReviewPending from './pages/onboarding/ReviewPending'
 import ReviewRejected from './pages/onboarding/ReviewRejected'
 
+// Páginas de Monetização e Analytics
+import RevenueCenter from './pages/RevenueCenter'
+import AiAnalyticsCenter from './pages/AiAnalyticsCenter'
+import AdminPlans from './pages/admin/AdminPlans'
+import AdminCosts from './pages/admin/AdminCosts'
+import AdminUsage from './pages/admin/AdminUsage'
+import AdminProfitability from './pages/admin/AdminProfitability'
+import AdminAlerts from './pages/admin/AdminAlerts'
+
 // Router Inteligente da Raiz
 function RootRouter() {
   const { role, loading, session, approvalStatus, onboardingCompleted } = useAuthStore()
@@ -133,6 +142,8 @@ export default function App() {
           <Route path="availability" element={<AvailabilitySettings />} />
           <Route path="finance" element={<Finance />} />
           <Route path="ai-credits" element={<AiCreditsStore />} />
+          <Route path="ai-analytics" element={<AiAnalyticsCenter />} />
+          <Route path="revenue" element={<RevenueCenter />} />
           <Route path="profile" element={<Profile />} />
           <Route path="brand-studio" element={<BrandStudioPage />} />
         </Route>
@@ -145,6 +156,11 @@ export default function App() {
           <Route path="student-requests" element={<EnrollmentRequests />} />
           <Route path="email-logs" element={<EmailLogs />} />
           <Route path="payments" element={<AdminPayments />} />
+          <Route path="plans" element={<AdminPlans />} />
+          <Route path="features" element={<AdminCosts />} />
+          <Route path="usage" element={<AdminUsage />} />
+          <Route path="profitability" element={<AdminProfitability />} />
+          <Route path="alerts" element={<AdminAlerts />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

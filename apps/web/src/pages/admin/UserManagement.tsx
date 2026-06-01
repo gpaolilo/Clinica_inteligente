@@ -27,6 +27,32 @@ export default function UserManagement() {
   const [professionals, setProfessionals] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Filter states
+  const [roleSearchQuery, setRoleSearchQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('ALL')
+  const [linkSearchQuery, setLinkSearchQuery] = useState('')
+  const [clientTypeFilter, setClientTypeFilter] = useState<string>('ALL')
+  const [professionalFilter, setProfessionalFilter] = useState<string>('ALL')
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      (user.full_name || '').toLowerCase().includes(roleSearchQuery.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(roleSearchQuery.toLowerCase()) ||
+      user.id.toLowerCase().includes(roleSearchQuery.toLowerCase())
+    const matchesRole = roleFilter === 'ALL' || user.role === roleFilter
+    return matchesSearch && matchesRole
+  })
+
+  const filteredPatients = patients.filter(patient => {
+    const matchesSearch = 
+      (patient.name || '').toLowerCase().includes(linkSearchQuery.toLowerCase()) ||
+      (patient.email || '').toLowerCase().includes(linkSearchQuery.toLowerCase()) ||
+      patient.id.toLowerCase().includes(linkSearchQuery.toLowerCase())
+    const matchesType = clientTypeFilter === 'ALL' || patient.client_type === clientTypeFilter
+    const matchesProfessional = professionalFilter === 'ALL' || patient.psychologist_id === professionalFilter
+    return matchesSearch && matchesType && matchesProfessional
+  })
+
   const fetchUsers = async () => {
     setLoading(true)
     const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
@@ -186,6 +212,73 @@ export default function UserManagement() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Advanced Filters */}
+        <div className="p-5 border-b border-slate-150 bg-slate-50/50 flex flex-col md:flex-row gap-4 items-center justify-between">
+          {activeTab === 'ROLES' ? (
+            <>
+              <div className="relative flex-1 w-full">
+                <input
+                  type="text"
+                  placeholder="Buscar usuário por nome, e-mail ou ID..."
+                  value={roleSearchQuery}
+                  onChange={(e) => setRoleSearchQuery(e.target.value)}
+                  className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-indigo-400 transition-all text-slate-800"
+                />
+              </div>
+              <div className="flex gap-2 w-full md:w-auto shrink-0">
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-colors w-full md:w-48"
+                >
+                  <option value="ALL">Todos os Papéis</option>
+                  <option value="ADMIN">ADMINISTRADOR</option>
+                  <option value="TEACHER">PROFESSOR</option>
+                  <option value="PSYCHOLOGIST">PSICÓLOGO</option>
+                  <option value="STUDENT">ALUNO</option>
+                  <option value="PATIENT">PACIENTE</option>
+                </select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="relative flex-1 w-full">
+                <input
+                  type="text"
+                  placeholder="Buscar aluno/paciente por nome, e-mail..."
+                  value={linkSearchQuery}
+                  onChange={(e) => setLinkSearchQuery(e.target.value)}
+                  className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-indigo-400 transition-all text-slate-800"
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+                <select
+                  value={clientTypeFilter}
+                  onChange={(e) => setClientTypeFilter(e.target.value)}
+                  className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-colors w-full sm:w-40"
+                >
+                  <option value="ALL">Todos os Tipos</option>
+                  <option value="ALUNO">ALUNO</option>
+                  <option value="PACIENTE">PACIENTE</option>
+                </select>
+
+                <select
+                  value={professionalFilter}
+                  onChange={(e) => setProfessionalFilter(e.target.value)}
+                  className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-colors w-full sm:w-56"
+                >
+                  <option value="ALL">Todos os Profissionais</option>
+                  {professionals.map(prof => (
+                    <option key={prof.id} value={prof.id}>
+                      {prof.full_name} ({prof.role === 'TEACHER' ? 'Prof.' : 'Psi.'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+        </div>
+
         {activeTab === 'ROLES' ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -201,11 +294,11 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-slate-500">Carregando usuários...</td></tr>
-                ) : users.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-500 font-semibold">Carregando usuários...</td></tr>
+                ) : filteredUsers.length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-500 font-semibold">Nenhum usuário encontrado.</td></tr>
                 ) : (
-                  users.map(user => (
+                  filteredUsers.map(user => (
                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4 font-medium text-slate-800">{user.full_name || 'Usuário Sem Nome'}</td>
                       <td className="p-4 text-sm text-slate-600 font-medium">{user.email || '—'}</td>
@@ -259,11 +352,11 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Carregando pacientes...</td></tr>
-                ) : patients.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum paciente encontrado ou a migration RLS não foi executada.</td></tr>
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500 font-semibold">Carregando pacientes...</td></tr>
+                ) : filteredPatients.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500 font-semibold">Nenhum paciente ou aluno encontrado.</td></tr>
                 ) : (
-                  patients.map(patient => {
+                  filteredPatients.map(patient => {
                     const prof = professionals.find(p => p.id === patient.psychologist_id)
                     const canDelete = patient.client_type === 'ALUNO' && prof?.role === 'TEACHER'
 
@@ -280,7 +373,7 @@ export default function UserManagement() {
                           <select 
                             value={patient.psychologist_id} 
                             onChange={(e) => handlePsychologistChange(patient.id, e.target.value)}
-                            className="text-sm font-bold rounded-lg px-3 py-1.5 border border-slate-200 bg-white text-slate-700 outline-none cursor-pointer hover:border-slate-300 w-full max-w-xs transition-colors"
+                            className="text-sm font-bold rounded-lg px-3 py-1.5 border border-slate-200 bg-white text-slate-700 outline-none cursor-pointer hover:border-slate-350 w-full max-w-xs transition-colors"
                           >
                             <option value="" disabled>Selecione o profissional...</option>
                             {professionals.map(prof => (
@@ -304,8 +397,8 @@ export default function UserManagement() {
                         </td>
                       </tr>
                     )
-                  })
-                )}
+                  }))
+                }
               </tbody>
             </table>
           </div>

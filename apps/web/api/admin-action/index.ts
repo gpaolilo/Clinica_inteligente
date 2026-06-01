@@ -346,6 +346,157 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true, request: data })
     }
 
+    // --- Action F: CREATE PLAN ---
+    if (body.action === 'create_plan') {
+      const { name, price, studentLimit, includedCredits, billingCycle = 'monthly', featureIds = [] } = body
+      
+      const { data: plan, error: planErr } = await supabaseAdmin
+        .from('plans')
+        .insert([{
+          name: name.toUpperCase(),
+          price: parseFloat(price),
+          student_limit: parseInt(studentLimit, 10),
+          included_credits: parseInt(includedCredits, 10),
+          billing_cycle: billingCycle,
+          active: true
+        }])
+        .select('*')
+        .single()
+
+      if (planErr) throw planErr
+
+      if (featureIds.length > 0) {
+        const mappings = featureIds.map((fid: string) => ({
+          plan_id: plan.id,
+          feature_id: fid
+        }))
+        const { error: featErr } = await supabaseAdmin
+          .from('plan_features')
+          .insert(mappings)
+        if (featErr) throw featErr
+      }
+
+      return res.status(200).json({ success: true, plan })
+    }
+
+    // --- Action G: EDIT PLAN ---
+    if (body.action === 'edit_plan') {
+      const { planId, name, price, studentLimit, includedCredits, billingCycle, featureIds = [] } = body
+      
+      const { data: plan, error: planErr } = await supabaseAdmin
+        .from('plans')
+        .update({
+          name: name.toUpperCase(),
+          price: parseFloat(price),
+          student_limit: parseInt(studentLimit, 10),
+          included_credits: parseInt(includedCredits, 10),
+          billing_cycle: billingCycle,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', planId)
+        .select('*')
+        .single()
+
+      if (planErr) throw planErr
+
+      // Sync features: delete old mappings, insert new ones
+      const { error: delErr } = await supabaseAdmin
+        .from('plan_features')
+        .delete()
+        .eq('plan_id', planId)
+      if (delErr) throw delErr
+
+      if (featureIds.length > 0) {
+        const mappings = featureIds.map((fid: string) => ({
+          plan_id: planId,
+          feature_id: fid
+        }))
+        const { error: featErr } = await supabaseAdmin
+          .from('plan_features')
+          .insert(mappings)
+        if (featErr) throw featErr
+      }
+
+      return res.status(200).json({ success: true, plan })
+    }
+
+    // --- Action H: ARCHIVE PLAN ---
+    if (body.action === 'archive_plan') {
+      const { planId } = body
+      const { data: plan, error: planErr } = await supabaseAdmin
+        .from('plans')
+        .update({ active: false, updated_at: new Date().toISOString() })
+        .eq('id', planId)
+        .select('*')
+        .single()
+
+      if (planErr) throw planErr
+      return res.status(200).json({ success: true, plan })
+    }
+
+    // --- Action I: DUPLICATE PLAN ---
+    if (body.action === 'duplicate_plan') {
+      const { planId } = body
+      
+      // Fetch plan to duplicate
+      const { data: srcPlan, error: fetchErr } = await supabaseAdmin
+        .from('plans')
+        .select('*')
+        .eq('id', planId)
+        .single()
+
+      if (fetchErr) throw fetchErr
+
+      // Fetch features associated with source plan
+      const { data: srcFeats } = await supabaseAdmin
+        .from('plan_features')
+        .select('feature_id')
+        .eq('plan_id', planId)
+
+      const dupName = `${srcPlan.name} COPY`
+      
+      const { data: dupPlan, error: insertErr } = await supabaseAdmin
+        .from('plans')
+        .insert([{
+          name: dupName.toUpperCase(),
+          price: srcPlan.price,
+          student_limit: srcPlan.student_limit,
+          included_credits: srcPlan.included_credits,
+          billing_cycle: srcPlan.billing_cycle,
+          active: true
+        }])
+        .select('*')
+        .single()
+
+      if (insertErr) throw insertErr
+
+      if (srcFeats && srcFeats.length > 0) {
+        const mappings = srcFeats.map((f: any) => ({
+          plan_id: dupPlan.id,
+          feature_id: f.feature_id
+        }))
+        const { error: featErr } = await supabaseAdmin
+          .from('plan_features')
+          .insert(mappings)
+        if (featErr) throw featErr
+      }
+
+      return res.status(200).json({ success: true, plan: dupPlan })
+    }
+
+    // --- Action J: UPDATE FEATURE COSTS ---
+    if (body.action === 'update_feature_costs') {
+      const { costs } = body // Array of { id, cost }
+      for (const item of costs) {
+        const { error } = await supabaseAdmin
+          .from('feature_costs')
+          .update({ cost: parseInt(item.cost, 10), updated_at: new Date().toISOString() })
+          .eq('id', item.id)
+        if (error) throw error
+      }
+      return res.status(200).json({ success: true })
+    }
+
     return res.status(400).json({ error: 'Invalid admin action request' })
 
   } catch (err: any) {

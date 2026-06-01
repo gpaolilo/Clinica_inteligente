@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { 
-  RefreshCw, Loader2, BarChart3, Plus, Settings, ShieldAlert, Award, Coins, Check, X, ArrowLeftRight, TrendingUp, Users, Brain
+  RefreshCw, Loader2, BarChart3, Plus, Settings, ShieldAlert, Award, Coins, Check, X, ArrowLeftRight, TrendingUp, Users, Brain, Cpu, Sparkles, Activity
 } from 'lucide-react'
 
 export default function AdminPayments() {
@@ -46,7 +46,7 @@ export default function AdminPayments() {
   const [editingCredits, setEditingCredits] = useState('')
   const [selectedTeacherId, setSelectedTeacherId] = useState('')
   const [payoutAmountInput, setPayoutAmountInput] = useState('')
-  const [creditsLogTab, setCreditsLogTab] = useState<'sales' | 'usage'>('sales')
+  const [creditsLogTab, setCreditsLogTab] = useState<'sales' | 'usage' | 'ranking'>('sales')
 
   const fetchAdminData = async () => {
     setLoading(true)
@@ -431,6 +431,67 @@ export default function AdminPayments() {
   // Filter disputed payments
   const disputedPayments = allPayments.filter(p => p.status === 'DISPUTED')
   const successfulPayments = allPayments.filter(p => p.status === 'SUCCEEDED')
+
+  // Compute AI Usage KPIs
+  const totalCreditsAvailable = psychologists.reduce((acc, p) => {
+    const bal = Array.isArray(p.ai_wallets)
+      ? (p.ai_wallets[0]?.balance ?? 0)
+      : (p.ai_wallets?.balance ?? 0)
+    return acc + bal
+  }, 0)
+
+  const totalCreditsConsumed = aiTransactions
+    .filter(tx => tx.credits_used > 0)
+    .reduce((acc, tx) => acc + tx.credits_used, 0)
+
+  const assemblyAiCreditsConsumed = aiTransactions
+    .filter(tx => tx.credits_used > 0 && tx.action === 'SESSION')
+    .reduce((acc, tx) => acc + tx.credits_used, 0)
+
+  const transcriptionCredits = assemblyAiCreditsConsumed
+
+  const groqOpenAiCreditsConsumed = aiTransactions
+    .filter(tx => tx.credits_used > 0 && ['HOMEWORK', 'INSIGHTS', 'SCENARIO'].includes(tx.action))
+    .reduce((acc, tx) => acc + tx.credits_used, 0)
+
+  const homeworkCredits = aiTransactions
+    .filter(tx => tx.credits_used > 0 && tx.action === 'HOMEWORK')
+    .reduce((acc, tx) => acc + tx.credits_used, 0)
+
+  const insightsCredits = aiTransactions
+    .filter(tx => tx.credits_used > 0 && tx.action === 'INSIGHTS')
+    .reduce((acc, tx) => acc + tx.credits_used, 0)
+
+  const scenarioCredits = aiTransactions
+    .filter(tx => tx.credits_used > 0 && tx.action === 'SCENARIO')
+    .reduce((acc, tx) => acc + tx.credits_used, 0)
+
+  const userUsageStats = psychologists.map(p => {
+    const walletBal = Array.isArray(p.ai_wallets)
+      ? (p.ai_wallets[0]?.balance ?? 0)
+      : (p.ai_wallets?.balance ?? 0)
+    
+    const consumed = aiTransactions
+      .filter(tx => tx.teacher_id === p.id && tx.credits_used > 0)
+      .reduce((acc, tx) => acc + tx.credits_used, 0)
+    
+    const refilled = aiTransactions
+      .filter(tx => tx.teacher_id === p.id && tx.credits_used < 0)
+      .reduce((acc, tx) => acc + Math.abs(tx.credits_used), 0)
+
+    return {
+      id: p.id,
+      name: p.full_name,
+      email: p.email,
+      balance: walletBal,
+      consumed,
+      refilled
+    }
+  })
+
+  const topUsers = [...userUsageStats]
+    .sort((a, b) => b.consumed - a.consumed)
+    .slice(0, 5)
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-slate-800 font-sans select-none">
@@ -1077,111 +1138,324 @@ export default function AdminPayments() {
 
       {/* TAB: IA CREDITS (Vendas e Logs de Uso de IA) */}
       {activeTab === 'credits' && (
-        <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-          {/* Header & toggle */}
-          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider">Histórico de Uso e Venda de Créditos IA</h3>
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {/* AI Dashboard Metrics */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {/* Metric 1: Circulating Balance */}
+            <div className="bg-gradient-to-br from-indigo-50 to-white p-5 rounded-2xl border border-indigo-150 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+              <div>
+                <span className="block text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-1">Créditos em Circulação</span>
+                <span className="text-xl sm:text-2xl font-black text-indigo-950">{totalCreditsAvailable}</span>
+              </div>
+              <div className="flex justify-between items-center mt-2.5">
+                <span className="text-[10px] text-slate-400 font-bold">Total disponível em carteiras</span>
+                <Brain className="w-5 h-5 text-indigo-500" />
+              </div>
             </div>
-            
-            <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-slate-50 text-[10px] font-bold uppercase tracking-wider">
-              <button
-                onClick={() => setCreditsLogTab('sales')}
-                className={`py-1.5 px-3.5 transition-colors ${
-                  creditsLogTab === 'sales' ? 'bg-slate-950 text-white font-black' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Recargas de Créditos
-              </button>
-              <button
-                onClick={() => setCreditsLogTab('usage')}
-                className={`py-1.5 px-3.5 transition-colors ${
-                  creditsLogTab === 'usage' ? 'bg-slate-950 text-white font-black' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Logs de Consumo
-              </button>
+
+            {/* Metric 2: Total Credits Consumed */}
+            <div className="bg-gradient-to-br from-rose-50 to-white p-5 rounded-2xl border border-rose-150 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+              <div>
+                <span className="block text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1">Créditos Consumidos (Total)</span>
+                <span className="text-xl sm:text-2xl font-black text-rose-950">{totalCreditsConsumed}</span>
+              </div>
+              <div className="flex justify-between items-center mt-2.5">
+                <span className="text-[10px] text-slate-400 font-bold">Uso total acumulado</span>
+                <Activity className="w-5 h-5 text-rose-500 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Metric 3: AssemblyAI transcription usage */}
+            <div className="bg-gradient-to-br from-amber-50 to-white p-5 rounded-2xl border border-amber-150 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+              <div>
+                <span className="block text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">AssemblyAI (Transcrição)</span>
+                <span className="text-xl sm:text-2xl font-black text-amber-950">{assemblyAiCreditsConsumed}</span>
+              </div>
+              <div className="flex justify-between items-center mt-2.5">
+                <span className="text-[10px] text-slate-400 font-bold">{totalCreditsConsumed > 0 ? ((assemblyAiCreditsConsumed/totalCreditsConsumed)*100).toFixed(0) : 0}% do consumo total</span>
+                <Cpu className="w-5 h-5 text-amber-600" />
+              </div>
+            </div>
+
+            {/* Metric 4: Groq/OpenAI LLM usage */}
+            <div className="bg-gradient-to-br from-purple-50 to-white p-5 rounded-2xl border border-purple-150 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+              <div>
+                <span className="block text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-1">Groq/OpenAI (Modelos LLM)</span>
+                <span className="text-xl sm:text-2xl font-black text-purple-950">{groqOpenAiCreditsConsumed}</span>
+              </div>
+              <div className="flex justify-between items-center mt-2.5">
+                <span className="text-[10px] text-slate-400 font-bold">{totalCreditsConsumed > 0 ? ((groqOpenAiCreditsConsumed/totalCreditsConsumed)*100).toFixed(0) : 0}% do consumo total</span>
+                <Sparkles className="w-5 h-5 text-purple-600" />
+              </div>
             </div>
           </div>
 
-          {/* Render Sales tab */}
-          {creditsLogTab === 'sales' && (
-            creditSales.length === 0 ? (
-              <div className="p-12 text-center text-slate-450 font-semibold text-xs">Nenhuma recarga de créditos efetuada.</div>
-            ) : (
-              <div className="overflow-x-auto text-xs">
-                <table className="min-w-full text-left font-medium whitespace-nowrap">
-                  <thead className="bg-slate-50 text-slate-450 font-bold border-b border-slate-100">
-                    <tr>
-                      <th className="px-6 py-4">Professor</th>
-                      <th className="px-6 py-4">Valor Pago</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {creditSales.map(sale => (
-                      <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{sale.payer?.full_name || 'Professor'}</td>
-                        <td className="px-6 py-4 font-bold text-slate-850">${Number(sale.amount).toFixed(2)}</td>
-                        <td className="px-6 py-4">
-                          <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Concluído</span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-450">{new Date(sale.created_at).toLocaleDateString('pt-BR')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          )}
+          {/* AI Feature & Engine breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Feature Usage Details */}
+            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider flex items-center gap-1.5">
+                <Activity className="w-4 h-4 text-rose-500" /> Detalhamento por Recurso
+              </h3>
+              
+              <div className="space-y-4 pt-2">
+                {/* AssemblyAI Transcription */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-600 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> AssemblyAI (Transcrição)
+                    </span>
+                    <span className="text-slate-850">{transcriptionCredits} crd</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+                      style={{ width: `${totalCreditsConsumed > 0 ? (transcriptionCredits / totalCreditsConsumed) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
 
-          {/* Render Usage audit logs tab */}
-          {creditsLogTab === 'usage' && (
-            aiTransactions.length === 0 ? (
-              <div className="p-12 text-center text-slate-450 font-semibold text-xs">Nenhum log de consumo de IA registrado.</div>
-            ) : (
-              <div className="overflow-x-auto text-xs">
-                <table className="min-w-full text-left font-medium whitespace-nowrap">
-                  <thead className="bg-slate-50 text-slate-450 font-bold border-b border-slate-100">
-                    <tr>
-                      <th className="px-6 py-4">Professor</th>
-                      <th className="px-6 py-4">Recurso Utilizado</th>
-                      <th className="px-6 py-4 text-center">Créditos Consumidos</th>
-                      <th className="px-6 py-4 text-slate-450">Data/Hora</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {aiTransactions.map(tx => {
-                      const isPurchase = tx.credits_used < 0
-                      const absCredits = Math.abs(tx.credits_used)
-                      return (
-                        <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 font-bold text-slate-800">
-                            {tx.psychologists?.full_name || 'Professor'}
-                            <span className="text-[10px] text-slate-400 block font-normal">{tx.psychologists?.email}</span>
-                          </td>
-                          <td className="px-6 py-4 font-bold text-slate-650">
-                            {tx.action === 'PURCHASE' ? 'Recarga/Concessão de Créditos' :
-                             tx.action === 'HOMEWORK' ? 'Geração de Lição de Casa' :
-                             tx.action === 'SESSION' ? 'Processamento de Áudio/Transcrição' :
-                             tx.action === 'INSIGHTS' ? 'Análise e Insights da Sessão' :
-                             tx.action === 'SCENARIO' ? 'Simulador de Cenários' : tx.action}
-                          </td>
-                          <td className={`px-6 py-4 text-center font-extrabold ${isPurchase ? 'text-emerald-600' : 'text-rose-500'}`}>
-                            {isPurchase ? `+${absCredits}` : `-${absCredits}`}
-                          </td>
-                          <td className="px-6 py-4 text-slate-450">
-                            {new Date(tx.created_at).toLocaleDateString('pt-BR')} às {new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                {/* Groq Homework */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-600 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span> Groq/OpenAI (Lição de Casa)
+                    </span>
+                    <span className="text-slate-850">{homeworkCredits} crd</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
+                      style={{ width: `${totalCreditsConsumed > 0 ? (homeworkCredits / totalCreditsConsumed) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Groq Insights */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-600 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block"></span> Groq/OpenAI (Análise/Insights)
+                    </span>
+                    <span className="text-slate-850">{insightsCredits} crd</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-violet-500 h-full rounded-full transition-all duration-500" 
+                      style={{ width: `${totalCreditsConsumed > 0 ? (insightsCredits / totalCreditsConsumed) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Groq Scenarios */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-600 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Groq/OpenAI (Avaliação Cenários)
+                    </span>
+                    <span className="text-slate-850">{scenarioCredits} crd</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                      style={{ width: `${totalCreditsConsumed > 0 ? (scenarioCredits / totalCreditsConsumed) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-            )
-          )}
+            </div>
+
+            {/* Top Users usage */}
+            <div className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-4.5 h-4.5 text-rose-500" /> Top Usuários (Consumo de IA)
+              </h3>
+              
+              <div className="divide-y divide-slate-100 pt-1 text-xs">
+                {topUsers.length === 0 ? (
+                  <div className="text-slate-400 font-semibold py-8 text-center">Nenhum consumo de IA registrado.</div>
+                ) : (
+                  topUsers.map((user, idx) => (
+                    <div key={user.id} className="py-3 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                          idx === 0 ? 'bg-amber-100 text-amber-800' :
+                          idx === 1 ? 'bg-slate-200 text-slate-800' :
+                          idx === 2 ? 'bg-orange-100 text-orange-850' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {idx + 1}º
+                        </span>
+                        <div>
+                          <span className="font-bold text-slate-850 block">{user.name}</span>
+                          <span className="text-[10px] text-slate-450 font-semibold block">{user.email}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <span className="text-slate-500 font-bold block text-[10px] uppercase">Carteira</span>
+                          <span className="font-extrabold text-slate-800">{user.balance} crd</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-rose-500 font-bold block text-[10px] uppercase">Consumo</span>
+                          <span className="font-black text-rose-600">{user.consumed} crd</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking, recargas e logs de consumo */}
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+            {/* Header & toggle */}
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider">Histórico de Uso e Venda de Créditos IA</h3>
+              </div>
+              
+              <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-slate-50 text-[10px] font-bold uppercase tracking-wider">
+                <button
+                  onClick={() => setCreditsLogTab('sales')}
+                  className={`py-1.5 px-3.5 transition-colors ${
+                    creditsLogTab === 'sales' ? 'bg-slate-950 text-white font-black' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Recargas de Créditos
+                </button>
+                <button
+                  onClick={() => setCreditsLogTab('usage')}
+                  className={`py-1.5 px-3.5 transition-colors ${
+                    creditsLogTab === 'usage' ? 'bg-slate-950 text-white font-black' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Logs de Consumo
+                </button>
+                <button
+                  onClick={() => setCreditsLogTab('ranking')}
+                  className={`py-1.5 px-3.5 transition-colors ${
+                    creditsLogTab === 'ranking' ? 'bg-slate-950 text-white font-black' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Consumo por Usuário
+                </button>
+              </div>
+            </div>
+
+            {/* Render Sales tab */}
+            {creditsLogTab === 'sales' && (
+              creditSales.length === 0 ? (
+                <div className="p-12 text-center text-slate-450 font-semibold text-xs">Nenhuma recarga de créditos efetuada.</div>
+              ) : (
+                <div className="overflow-x-auto text-xs">
+                  <table className="min-w-full text-left font-medium whitespace-nowrap">
+                    <thead className="bg-slate-50 text-slate-450 font-bold border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-4">Professor</th>
+                        <th className="px-6 py-4">Valor Pago</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {creditSales.map(sale => (
+                        <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 font-bold text-slate-800">{sale.payer?.full_name || 'Professor'}</td>
+                          <td className="px-6 py-4 font-bold text-slate-850">${Number(sale.amount).toFixed(2)}</td>
+                          <td className="px-6 py-4">
+                            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Concluído</span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-450">{new Date(sale.created_at).toLocaleDateString('pt-BR')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {/* Render Usage audit logs tab */}
+            {creditsLogTab === 'usage' && (
+              aiTransactions.length === 0 ? (
+                <div className="p-12 text-center text-slate-450 font-semibold text-xs">Nenhum log de consumo de IA registrado.</div>
+              ) : (
+                <div className="overflow-x-auto text-xs">
+                  <table className="min-w-full text-left font-medium whitespace-nowrap">
+                    <thead className="bg-slate-50 text-slate-450 font-bold border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-4">Professor</th>
+                        <th className="px-6 py-4">Recurso Utilizado</th>
+                        <th className="px-6 py-4 text-center">Créditos Consumidos</th>
+                        <th className="px-6 py-4 text-slate-450">Data/Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {aiTransactions.map(tx => {
+                        const isPurchase = tx.credits_used < 0
+                        const absCredits = Math.abs(tx.credits_used)
+                        return (
+                          <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800">
+                              {tx.psychologists?.full_name || 'Professor'}
+                              <span className="text-[10px] text-slate-400 block font-normal">{tx.psychologists?.email}</span>
+                            </td>
+                            <td className="px-6 py-4 font-bold text-slate-650">
+                              {tx.action === 'PURCHASE' ? 'Recarga/Concessão de Créditos' :
+                               tx.action === 'HOMEWORK' ? 'Geração de Lição de Casa' :
+                               tx.action === 'SESSION' ? 'Processamento de Áudio/Transcrição' :
+                               tx.action === 'INSIGHTS' ? 'Análise e Insights da Sessão' :
+                               tx.action === 'SCENARIO' ? 'Simulador de Cenários' : tx.action}
+                            </td>
+                            <td className={`px-6 py-4 text-center font-extrabold ${isPurchase ? 'text-emerald-600' : 'text-rose-500'}`}>
+                              {isPurchase ? `+${absCredits}` : `-${absCredits}`}
+                            </td>
+                            <td className="px-6 py-4 text-slate-450">
+                              {new Date(tx.created_at).toLocaleDateString('pt-BR')} às {new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {/* Render User Usage stats ranking tab */}
+            {creditsLogTab === 'ranking' && (
+              userUsageStats.length === 0 ? (
+                <div className="p-12 text-center text-slate-450 font-semibold text-xs">Nenhum professor cadastrado.</div>
+              ) : (
+                <div className="overflow-x-auto text-xs">
+                  <table className="min-w-full text-left font-medium whitespace-nowrap">
+                    <thead className="bg-slate-50 text-slate-450 font-bold border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-4">Professor</th>
+                        <th className="px-6 py-4 text-center">Saldo Disponível</th>
+                        <th className="px-6 py-4 text-center">Total Recarregado</th>
+                        <th className="px-6 py-4 text-center">Total Consumido</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {userUsageStats.sort((a, b) => b.consumed - a.consumed).map(u => (
+                        <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 font-bold text-slate-800">
+                            {u.name}
+                            <span className="text-[10px] text-slate-400 block font-normal">{u.email}</span>
+                          </td>
+                          <td className="px-6 py-4 text-center font-bold text-indigo-600">{u.balance} créditos</td>
+                          <td className="px-6 py-4 text-center text-emerald-600 font-semibold">+{u.refilled} créditos</td>
+                          <td className="px-6 py-4 text-center text-rose-500 font-extrabold">{u.consumed} créditos</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </div>
         </div>
       )}
 

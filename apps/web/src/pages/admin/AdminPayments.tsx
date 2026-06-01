@@ -613,7 +613,9 @@ export default function AdminPayments() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {psychologists.map(teacher => {
-                    const walletBal = teacher.ai_wallets?.[0]?.balance || 0
+                    const walletBal = Array.isArray(teacher.ai_wallets)
+                      ? (teacher.ai_wallets[0]?.balance ?? 0)
+                      : (teacher.ai_wallets?.balance ?? 0)
                     return (
                       <tr key={teacher.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">

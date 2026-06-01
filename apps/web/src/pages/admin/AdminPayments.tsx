@@ -627,7 +627,7 @@ export default function AdminPayments() {
                         </td>
                         <td className="px-6 py-4">
                           <select
-                            value={teacher.plan_type || 'STARTER'}
+                            value={(teacher.plan_type || 'STARTER').toUpperCase()}
                             onChange={(e) => handleUpdatePlan(teacher.id, e.target.value)}
                             className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-800 font-bold outline-none"
                           >

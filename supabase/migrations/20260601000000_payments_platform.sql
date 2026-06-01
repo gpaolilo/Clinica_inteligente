@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS public.revenue_share_rules (
   percentage numeric(5, 2) NOT NULL,
   credits_included integer DEFAULT 50 NOT NULL
 );
+ALTER TABLE public.revenue_share_rules ADD COLUMN IF NOT EXISTS credits_included integer DEFAULT 50 NOT NULL;
+
 
 -- Seed revenue share rules
 INSERT INTO public.revenue_share_rules (plan_type, percentage, credits_included) VALUES
@@ -196,6 +198,39 @@ ALTER TABLE public.platform_revenue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- 17. Policies
+-- Drop existing policies to prevent conflicts
+DROP POLICY IF EXISTS "Admins have full access to stripe_customers" ON public.stripe_customers;
+DROP POLICY IF EXISTS "Admins have full access to stripe_subscriptions" ON public.stripe_subscriptions;
+DROP POLICY IF EXISTS "Admins have full access to stripe_connected_accounts" ON public.stripe_connected_accounts;
+DROP POLICY IF EXISTS "Admins have full access to teacher_products" ON public.teacher_products;
+DROP POLICY IF EXISTS "Admins have full access to teacher_product_prices" ON public.teacher_product_prices;
+DROP POLICY IF EXISTS "Admins have full access to student_subscriptions" ON public.student_subscriptions;
+DROP POLICY IF EXISTS "Admins have full access to payments" ON public.payments;
+DROP POLICY IF EXISTS "Admins have full access to payment_transactions" ON public.payment_transactions;
+DROP POLICY IF EXISTS "Admins have full access to payouts" ON public.payouts;
+DROP POLICY IF EXISTS "Admins have full access to revenue_share_rules" ON public.revenue_share_rules;
+DROP POLICY IF EXISTS "Admins have full access to ai_wallets" ON public.ai_wallets;
+DROP POLICY IF EXISTS "Admins have full access to ai_transactions" ON public.ai_transactions;
+DROP POLICY IF EXISTS "Admins have full access to platform_revenue" ON public.platform_revenue;
+DROP POLICY IF EXISTS "Admins have full access to platform_subscriptions" ON public.platform_subscriptions;
+DROP POLICY IF EXISTS "Admins have full access to psychologists" ON public.psychologists;
+DROP POLICY IF EXISTS "Admins podem ler psychologists" ON public.psychologists;
+
+DROP POLICY IF EXISTS "Teachers read/write their own products" ON public.teacher_products;
+DROP POLICY IF EXISTS "Teachers read/write prices of their products" ON public.teacher_product_prices;
+DROP POLICY IF EXISTS "Teachers view their own connected account info" ON public.stripe_connected_accounts;
+DROP POLICY IF EXISTS "Teachers view their payments received" ON public.payments;
+DROP POLICY IF EXISTS "Teachers view their payouts" ON public.payouts;
+DROP POLICY IF EXISTS "Teachers manage their AI credit wallet" ON public.ai_wallets;
+DROP POLICY IF EXISTS "Teachers view their AI credit usage logs" ON public.ai_transactions;
+DROP POLICY IF EXISTS "Teachers view their platform subscription details" ON public.platform_subscriptions;
+
+DROP POLICY IF EXISTS "Students view products of their teacher" ON public.teacher_products;
+DROP POLICY IF EXISTS "Students view prices of teacher products" ON public.teacher_product_prices;
+DROP POLICY IF EXISTS "Students view their own student subscriptions" ON public.student_subscriptions;
+DROP POLICY IF EXISTS "Students view their own payments made" ON public.payments;
+DROP POLICY IF EXISTS "Read revenue rules publicly" ON public.revenue_share_rules;
+
 -- Admin Policies: Admins have full access to all payments tables
 CREATE POLICY "Admins have full access to stripe_customers" ON public.stripe_customers FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'ADMIN'));
 CREATE POLICY "Admins have full access to stripe_subscriptions" ON public.stripe_subscriptions FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'ADMIN'));
@@ -211,6 +246,7 @@ CREATE POLICY "Admins have full access to ai_wallets" ON public.ai_wallets FOR A
 CREATE POLICY "Admins have full access to ai_transactions" ON public.ai_transactions FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'ADMIN'));
 CREATE POLICY "Admins have full access to platform_revenue" ON public.platform_revenue FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'ADMIN'));
 CREATE POLICY "Admins have full access to platform_subscriptions" ON public.platform_subscriptions FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'ADMIN'));
+CREATE POLICY "Admins have full access to psychologists" ON public.psychologists FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'ADMIN'));
 
 -- Teacher Policies:
 -- Teachers can manage their own products, view their connected account status, wallets, and sales payouts/payments.
@@ -308,4 +344,4 @@ SELECT id,
     ELSE 50
   END
 FROM public.psychologists
-ON CONFLICT (teacher_id) DO NOTHING;
+ON CONFLICT (teacher_id) DO UPDATE SET balance = EXCLUDED.balance, updated_at = now();

@@ -125,16 +125,19 @@ CREATE INDEX IF NOT EXISTS idx_payouts_teacher ON public.payouts(teacher_id);
 CREATE TABLE IF NOT EXISTS public.revenue_share_rules (
   id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
   plan_type text NOT NULL UNIQUE, -- STARTER, PRO, ACADEMY, BASIC
-  percentage numeric(5, 2) NOT NULL
+  percentage numeric(5, 2) NOT NULL,
+  credits_included integer DEFAULT 50 NOT NULL
 );
 
 -- Seed revenue share rules
-INSERT INTO public.revenue_share_rules (plan_type, percentage) VALUES
-('STARTER', 15.00),
-('PRO', 10.00),
-('ACADEMY', 5.00),
-('BASIC', 15.00)
-ON CONFLICT (plan_type) DO UPDATE SET percentage = EXCLUDED.percentage;
+INSERT INTO public.revenue_share_rules (plan_type, percentage, credits_included) VALUES
+('STARTER', 15.00, 50),
+('PRO', 10.00, 500),
+('ACADEMY', 5.00, 2000),
+('BASIC', 15.00, 50)
+ON CONFLICT (plan_type) DO UPDATE SET 
+  percentage = EXCLUDED.percentage,
+  credits_included = EXCLUDED.credits_included;
 
 -- 12. Create table: ai_wallets
 CREATE TABLE IF NOT EXISTS public.ai_wallets (
@@ -263,22 +266,37 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_initial_balance integer := 50; -- Default Starter
 BEGIN
-  IF NEW.plan_type = 'PRO' THEN
-    v_initial_balance := 500;
-  ELSIF NEW.plan_type = 'ACADEMY' THEN
-    v_initial_balance := 2000;
+  -- Fetch from rules if exists
+  SELECT COALESCE(credits_included, 50) INTO v_initial_balance
+  FROM public.revenue_share_rules
+  WHERE plan_type = UPPER(NEW.plan_type)
+  LIMIT 1;
+
+  IF v_initial_balance IS NULL THEN
+    IF UPPER(NEW.plan_type) = 'PRO' THEN
+      v_initial_balance := 500;
+    ELSIF UPPER(NEW.plan_type) = 'ACADEMY' THEN
+      v_initial_balance := 2000;
+    ELSE
+      v_initial_balance := 50;
+    END IF;
   END IF;
 
   INSERT INTO public.ai_wallets (teacher_id, balance)
   VALUES (NEW.id, v_initial_balance)
-  ON CONFLICT (teacher_id) DO NOTHING;
+  ON CONFLICT (teacher_id) DO UPDATE
+  SET balance = EXCLUDED.balance, updated_at = now();
+
+  -- Log transaction
+  INSERT INTO public.ai_transactions (teacher_id, action, credits_used)
+  VALUES (NEW.id, 'PURCHASE', -v_initial_balance);
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE TRIGGER trigger_provision_ai_wallet
-  AFTER INSERT ON public.psychologists
+  AFTER INSERT OR UPDATE OF plan_type ON public.psychologists
   FOR EACH ROW EXECUTE PROCEDURE public.provision_ai_wallet_for_teacher();
 
 -- Backfill wallets for existing psychologists

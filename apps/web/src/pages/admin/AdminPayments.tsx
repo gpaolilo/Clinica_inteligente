@@ -40,8 +40,10 @@ export default function AdminPayments() {
   const [refillCreditsInput, setRefillCreditsInput] = useState<{ [key: string]: string }>({})
   const [newPlanType, setNewPlanType] = useState('')
   const [newPlanPercentage, setNewPlanPercentage] = useState('')
+  const [newPlanCredits, setNewPlanCredits] = useState('')
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
   const [editingPercentage, setEditingPercentage] = useState('')
+  const [editingCredits, setEditingCredits] = useState('')
   const [selectedTeacherId, setSelectedTeacherId] = useState('')
   const [payoutAmountInput, setPayoutAmountInput] = useState('')
   const [creditsLogTab, setCreditsLogTab] = useState<'sales' | 'usage'>('sales')
@@ -148,7 +150,50 @@ export default function AdminPayments() {
         .eq('id', teacherId)
       if (psyErr) throw psyErr
 
-      // 2. Check platform_subscriptions and update or insert active sub
+      // 2. Fetch the plan details to get credits_included
+      const { data: rule } = await supabase
+        .from('revenue_share_rules')
+        .select('credits_included')
+        .eq('plan_type', plan.toUpperCase())
+        .maybeSingle()
+
+      // Default fallback if not configured
+      let planCredits = 50
+      if (rule) {
+        planCredits = rule.credits_included
+      } else {
+        if (plan.toUpperCase() === 'PRO') planCredits = 500
+        else if (plan.toUpperCase() === 'ACADEMY') planCredits = 2000
+      }
+
+      // 3. Update their ai_wallets balance to that plan's credits
+      const { data: wallet } = await supabase
+        .from('ai_wallets')
+        .select('id')
+        .eq('teacher_id', teacherId)
+        .maybeSingle()
+
+      if (wallet) {
+        await supabase
+          .from('ai_wallets')
+          .update({ balance: planCredits })
+          .eq('teacher_id', teacherId)
+      } else {
+        await supabase
+          .from('ai_wallets')
+          .insert([{ teacher_id: teacherId, balance: planCredits }])
+      }
+
+      // 4. Log in ai_transactions
+      await supabase
+        .from('ai_transactions')
+        .insert([{
+          teacher_id: teacherId,
+          action: 'PURCHASE',
+          credits_used: -planCredits // Negative represents refill/grant
+        }])
+
+      // 5. Check platform_subscriptions and update or insert active sub
       const { data: existingSub } = await supabase
         .from('platform_subscriptions')
         .select('id')
@@ -171,12 +216,13 @@ export default function AdminPayments() {
           }])
       }
 
-      alert('Plano do professor atualizado com sucesso!')
+      alert(`Plano do professor atualizado com sucesso! Carteira IA sincronizada com ${planCredits} créditos.`)
       fetchAdminData()
     } catch (err: any) {
       alert('Erro ao atualizar plano: ' + err.message)
     }
   }
+
 
   // REFILL CREDITS: Add AI credits manually to teacher
   const handleRefillCredits = async (teacherId: string) => {
@@ -225,39 +271,53 @@ export default function AdminPayments() {
     }
   }
 
-  // REVENUE SHARE: Update rule percentage
+  // REVENUE SHARE: Update rule percentage & credits
   const handleUpdateRevenueRule = async (id: string) => {
     const pct = Number(editingPercentage)
+    const creds = Number(editingCredits)
     if (isNaN(pct) || pct < 0 || pct > 100) {
       alert('Por favor, informe uma porcentagem válida (0 a 100).')
+      return
+    }
+    if (isNaN(creds) || creds < 0) {
+      alert('Por favor, informe uma quantidade de créditos de IA válida.')
       return
     }
 
     try {
       await supabase
         .from('revenue_share_rules')
-        .update({ percentage: pct })
+        .update({ 
+          percentage: pct,
+          credits_included: creds
+        })
         .eq('id', id)
 
       setEditingRuleId(null)
-      alert('Regra de comissão atualizada com sucesso!')
+      alert('Regra de comissão e créditos atualizada com sucesso!')
       fetchAdminData()
     } catch (err: any) {
       alert('Erro ao atualizar comissão: ' + err.message)
     }
   }
 
+
   // REVENUE SHARE: Create a new custom plan
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newPlanType || !newPlanPercentage) {
+    if (!newPlanType || !newPlanPercentage || !newPlanCredits) {
       alert('Por favor, preencha todos os campos do plano.')
       return
     }
 
     const pct = Number(newPlanPercentage)
+    const creds = Number(newPlanCredits)
     if (isNaN(pct) || pct < 0 || pct > 100) {
       alert('A porcentagem de comissão deve ser entre 0 e 100.')
+      return
+    }
+    if (isNaN(creds) || creds < 0) {
+      alert('Os créditos incluídos devem ser maiores ou iguais a 0.')
       return
     }
 
@@ -267,11 +327,13 @@ export default function AdminPayments() {
         .from('revenue_share_rules')
         .insert([{
           plan_type: planNameUpper,
-          percentage: pct
+          percentage: pct,
+          credits_included: creds
         }])
 
       setNewPlanType('')
       setNewPlanPercentage('')
+      setNewPlanCredits('')
       alert(`Novo plano ${planNameUpper} criado com sucesso!`)
       fetchAdminData()
     } catch (err: any) {
@@ -656,7 +718,7 @@ export default function AdminPayments() {
           {/* Rules List */}
           <div className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-100">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Regras de Comissão e Divisão de Receita</h3>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Regras de Comissão e Créditos Incluídos</h3>
             </div>
 
             <div className="overflow-x-auto text-xs">
@@ -665,6 +727,7 @@ export default function AdminPayments() {
                   <tr>
                     <th className="px-6 py-4">Plano / Categoria</th>
                     <th className="px-6 py-4">Comissão da Plataforma (Revenue Share)</th>
+                    <th className="px-6 py-4">Créditos de IA Iniciais</th>
                     <th className="px-6 py-4 text-center">Ações</th>
                   </tr>
                 </thead>
@@ -685,6 +748,20 @@ export default function AdminPayments() {
                           </div>
                         ) : (
                           <span>{rule.percentage}%</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-extrabold text-slate-700">
+                        {editingRuleId === rule.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={editingCredits}
+                              onChange={(e) => setEditingCredits(e.target.value)}
+                              className="border border-slate-300 rounded px-2 py-0.5 w-24 text-center focus:outline-none"
+                            />
+                          </div>
+                        ) : (
+                          <span>{rule.credits_included || 0} créditos</span>
                         )}
                       </td>
                       <td className="px-6 py-4">
@@ -709,6 +786,7 @@ export default function AdminPayments() {
                               onClick={() => {
                                 setEditingRuleId(rule.id)
                                 setEditingPercentage(rule.percentage.toString())
+                                setEditingCredits((rule.credits_included || 0).toString())
                               }}
                               className="border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold py-1 px-3 rounded-lg text-[10px] transition-all bg-white shadow-sm"
                             >
@@ -730,7 +808,7 @@ export default function AdminPayments() {
               <Plus className="w-4.5 h-4.5 text-rose-500" /> Criar Novo Plano / Comissão
             </h3>
             <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-              Crie categorias personalizadas para classificar comissões de splits de psicólogos/professores.
+              Crie categorias personalizadas para classificar comissões de splits de psicólogos/professores e sua franquia inicial de créditos IA.
             </p>
 
             <form onSubmit={handleCreatePlan} className="space-y-3.5 pt-2 text-xs">
@@ -752,6 +830,17 @@ export default function AdminPayments() {
                   placeholder="8"
                   value={newPlanPercentage}
                   onChange={(e) => setNewPlanPercentage(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl p-2.5 focus:outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-slate-600 font-bold">Créditos de IA Inclusos</label>
+                <input
+                  type="number"
+                  placeholder="1000"
+                  value={newPlanCredits}
+                  onChange={(e) => setNewPlanCredits(e.target.value)}
                   className="w-full border border-slate-200 rounded-xl p-2.5 focus:outline-none font-bold text-slate-800"
                 />
               </div>

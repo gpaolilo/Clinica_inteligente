@@ -13,6 +13,22 @@
       "destination": "/api/admin-action/index.ts"
     },
     {
+      "source": "/api/payments/:action*",
+      "destination": "/api/payments/index.ts"
+    },
+    {
+      "source": "/api/student-engine/:action*",
+      "destination": "/api/student-engine/index.ts"
+    },
+    {
+      "source": "/api/scenario-engine/:action*",
+      "destination": "/api/scenario-engine/index.ts"
+    },
+    {
+      "source": "/api/dashboard/:action*",
+      "destination": "/api/dashboard/index.ts"
+    },
+    {
       "source": "/api/:match*",
       "destination": "/api/:match*"
     },

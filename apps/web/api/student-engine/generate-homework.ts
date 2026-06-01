@@ -1,4 +1,4 @@
-import { createAuthClient } from '../_lib/supabase.js'
+import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI homework generator.
 Based on the student's recent learning events (errors, gaps) and their overall profile, generate a personalized homework plan.
@@ -29,6 +29,31 @@ export default async function handler(req: any, res: any) {
     if (!sessionId || !psychologistId || !patientId) {
       throw new Error('Missing required parameters')
     }
+
+    // 1. Verify and deduct AI credits
+    const { data: wallet } = await supabaseAdmin
+      .from('ai_wallets')
+      .select('balance')
+      .eq('teacher_id', psychologistId)
+      .maybeSingle()
+
+    const creditsCost = 20
+    if (!wallet || wallet.balance < creditsCost) {
+      return res.status(403).json({ error: 'Saldo de créditos de IA insuficiente para gerar lição de casa (Necessário: 20 créditos).' })
+    }
+
+    await supabaseAdmin
+      .from('ai_wallets')
+      .update({ balance: wallet.balance - creditsCost })
+      .eq('teacher_id', psychologistId)
+
+    await supabaseAdmin
+      .from('ai_transactions')
+      .insert([{
+        teacher_id: psychologistId,
+        action: 'HOMEWORK',
+        credits_used: creditsCost
+      }])
 
     const supabaseAuth = createAuthClient(req)
     // 1. Fetch learning events for this session

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { supabase } from '../../lib/supabase'
 import { getAvailableSlots, Slot } from '../../lib/booking-engine'
-import { Calendar as CalendarIcon, Clock, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, User, BookOpen } from 'lucide-react'
+import { Calendar as CalendarIcon, Clock, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, User, BookOpen, Loader2 } from 'lucide-react'
 
 // Util helper para datas
 const addDays = (date: Date, days: number) => {
@@ -22,6 +22,12 @@ export default function BookClass() {
   const [patientData, setPatientData] = useState<any>(null)
   const [teacher, setTeacher] = useState<any>(null)
   const [balance, setBalance] = useState(0)
+  
+  // Products and Checkout State
+  const [products, setProducts] = useState<any[]>([])
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix'>('card')
+  const [cpfCnpj, setCpfCnpj] = useState('')
+  const [checkingOut, setCheckingOut] = useState<string | null>(null)
   
   // Wizard State
   const [step, setStep] = useState(1) // 1: Info, 2: Date/Time, 3: Confirm
@@ -49,6 +55,14 @@ export default function BookClass() {
       setBalance(patient.class_balance || 0)
       setTeacher(patient.psychologists)
       
+      // Fetch teacher's active products
+      const { data: prods } = await supabase
+        .from('teacher_products')
+        .select('*')
+        .eq('teacher_id', patient.psychologists.id)
+        .eq('active', true)
+      setProducts(prods || [])
+      
       // Atualizar eventos do Google Calendar do professor em tempo real no servidor
       try {
         const { data: sessionData } = await supabase.auth.getSession()
@@ -67,6 +81,70 @@ export default function BookClass() {
     }
     
     setLoading(false)
+  }
+
+  const handleCheckout = async (productId: string) => {
+    if (paymentMethod === 'pix' && !cpfCnpj) {
+      alert('CPF ou CNPJ é obrigatório para pagamentos via PIX.')
+      return
+    }
+    setCheckingOut(productId)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const res = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          productId,
+          paymentMethod,
+          cpfCnpj
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.isMock) {
+          alert('Simulando checkout do aluno no sandbox...')
+          // Simulate complete payment webhook locally
+          await fetch('/api/payments/webhook', {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'checkout.session.completed',
+              data: {
+                object: {
+                  id: data.session_id,
+                  payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
+                  metadata: {
+                    type: 'PRODUCT',
+                    payer_id: session?.user?.id,
+                    payee_id: teacher.id,
+                    product_id: productId,
+                    classes_included: String(products.find(p => p.id === productId)?.classes_included || '1'),
+                    price_amount: String(products.find(p => p.id === productId)?.price || '0')
+                  }
+                }
+              }
+            })
+          })
+          alert('Pagamento simulado com sucesso! Saldo atualizado.')
+          fetchInitialData()
+        } else if (data.url) {
+          window.location.href = data.url
+        }
+      } else {
+        const err = await res.json()
+        alert('Erro ao criar sessão de checkout: ' + (err.error || 'Erro desconhecido'))
+      }
+    } catch (err: any) {
+      alert('Erro de checkout: ' + err.message)
+    } finally {
+      setCheckingOut(null)
+    }
   }
 
   const fetchSlots = async (psychologistId: string, startDate: Date) => {
@@ -181,9 +259,105 @@ export default function BookClass() {
               </div>
 
               {balance <= 0 ? (
-                <div className="mt-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 font-medium flex gap-3">
-                  <ArrowRight className="w-6 h-6 shrink-0" />
-                  <p>Você não tem aulas disponíveis no seu saldo. Por favor, adquira um novo pacote ou entre em contato com seu professor.</p>
+                <div className="mt-8 space-y-6 pt-6 border-t border-slate-100">
+                  <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl text-rose-700 font-medium flex gap-3 text-sm">
+                    <ArrowRight className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Você não tem aulas disponíveis no seu saldo.</p>
+                      <p className="text-xs opacity-90 mt-0.5">Adquira um pacote de aulas ou plano mensal abaixo para prosseguir com o agendamento.</p>
+                    </div>
+                  </div>
+
+                  {products.length === 0 ? (
+                    <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl text-center text-slate-500 font-semibold text-xs leading-relaxed">
+                      Seu professor ainda não cadastrou produtos de pagamento na plataforma.<br/>
+                      Entre em contato com ele para liberar a compra de aulas.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                        <div>
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Forma de Pagamento</span>
+                          <div className="flex gap-2.5 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod('card')}
+                              className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                paymentMethod === 'card' 
+                                  ? 'bg-slate-900 border-slate-900 text-white shadow-sm' 
+                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              Cartão de Crédito
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod('pix')}
+                              className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                paymentMethod === 'pix' 
+                                  ? 'bg-slate-900 border-slate-900 text-white shadow-sm' 
+                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              PIX (Brasil)
+                            </button>
+                          </div>
+                        </div>
+
+                        {paymentMethod === 'pix' && (
+                          <div className="w-full sm:w-60">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">CPF ou CNPJ (PIX)</label>
+                            <input
+                              type="text"
+                              placeholder="000.000.000-00"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-slate-800 transition-all"
+                              value={cpfCnpj}
+                              onChange={e => setCpfCnpj(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {products.map(prod => (
+                          <div key={prod.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 text-slate-800">
+                            <div>
+                              <div className="flex justify-between items-start">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                  {prod.type === 'MONTHLY_SUBSCRIPTION' ? 'Assinatura' :
+                                   prod.type === 'PACKAGE' ? 'Pacote' : 'Individual'}
+                                </span>
+                              </div>
+                              <h4 className="font-extrabold text-slate-800 text-sm sm:text-base mt-1">{prod.name}</h4>
+                              <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-1">{prod.description || `${prod.classes_included} aulas inclusas.`}</p>
+                            </div>
+
+                            <div className="space-y-3">
+                              <div className="flex items-baseline gap-0.5">
+                                <span className="text-2xl font-black text-slate-850">${prod.price}</span>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">{prod.currency}</span>
+                              </div>
+
+                              <button
+                                onClick={() => handleCheckout(prod.id)}
+                                disabled={checkingOut !== null}
+                                className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1 hover:-translate-y-0.5"
+                              >
+                                {checkingOut === prod.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <span>Adquirir</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="mt-8 flex justify-end">

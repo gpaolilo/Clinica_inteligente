@@ -1,4 +1,4 @@
-import { createAuthClient } from '../_lib/supabase.js'
+import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 
 const SYSTEM_PROMPT = `You are an expert language evaluator and conversational partner.
 The user is practicing a specific scenario. Evaluate their final performance based on the conversation transcript.
@@ -25,6 +25,44 @@ export default async function handler(req: any, res: any) {
     if (!patientId || !scenarioType || !transcript) {
       throw new Error('Missing required parameters')
     }
+
+    // Fetch psychologistId for this patient
+    const { data: patientData, error: patientError } = await supabaseAdmin
+      .from('patients')
+      .select('psychologist_id')
+      .eq('id', patientId)
+      .maybeSingle()
+
+    if (patientError || !patientData) {
+      throw new Error('Professor associado ao aluno não encontrado')
+    }
+    const psychologistId = patientData.psychologist_id
+
+    // Verify and deduct AI credits (Cost: 15 credits)
+    const { data: wallet } = await supabaseAdmin
+      .from('ai_wallets')
+      .select('balance')
+      .eq('teacher_id', psychologistId)
+      .maybeSingle()
+
+    const creditsCost = 15
+    if (!wallet || wallet.balance < creditsCost) {
+      return res.status(403).json({ error: 'Saldo de créditos de IA insuficiente para realizar a avaliação do cenário (Necessário: 15 créditos).' })
+    }
+
+    await supabaseAdmin
+      .from('ai_wallets')
+      .update({ balance: wallet.balance - creditsCost })
+      .eq('teacher_id', psychologistId)
+
+    await supabaseAdmin
+      .from('ai_transactions')
+      .insert([{
+        teacher_id: psychologistId,
+        action: 'SCENARIO',
+        credits_used: creditsCost
+      }])
+
 
     const groqKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY
     if (!groqKey) throw new Error('GROQ API Key is missing')

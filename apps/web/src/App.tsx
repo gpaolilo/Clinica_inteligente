@@ -15,6 +15,9 @@ import Settings from './pages/Settings'
 import Finance from './pages/Finance'
 import Profile from './pages/Profile'
 import AvailabilitySettings from './pages/admin/AvailabilitySettings'
+import AiCreditsStore from './pages/AiCreditsStore'
+import AdminPayments from './pages/admin/AdminPayments'
+import ClientBilling from './pages/client/ClientBilling'
 
 // Layouts e Páginas (Admin)
 import AdminLayout from './layouts/AdminLayout'
@@ -129,6 +132,7 @@ export default function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="availability" element={<AvailabilitySettings />} />
           <Route path="finance" element={<Finance />} />
+          <Route path="ai-credits" element={<AiCreditsStore />} />
           <Route path="profile" element={<Profile />} />
           <Route path="brand-studio" element={<BrandStudioPage />} />
         </Route>
@@ -140,6 +144,7 @@ export default function App() {
           <Route path="teacher-requests" element={<TeacherRequests />} />
           <Route path="student-requests" element={<EnrollmentRequests />} />
           <Route path="email-logs" element={<EmailLogs />} />
+          <Route path="payments" element={<AdminPayments />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 
@@ -153,6 +158,7 @@ export default function App() {
           <Route path="vocabulary" element={<VocabularyBank />} />
           <Route path="book" element={<BookClass />} />
           <Route path="agenda" element={<StudentAgenda />} />
+          <Route path="billing" element={<ClientBilling />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

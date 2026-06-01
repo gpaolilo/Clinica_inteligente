@@ -1,127 +1,847 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import PackageModal from '../components/finance/PackageModal'
+import { useAuthStore } from '../stores/authStore'
+import { 
+  DollarSign, Plus, TrendingUp, Users, Calendar, 
+  Settings, CheckCircle, AlertTriangle, LayoutGrid, Award, 
+  ArrowRight, ShieldCheck, ChevronRight, Loader2, BarChart2
+} from 'lucide-react'
+import { 
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
+} from 'recharts'
 
 export default function Finance() {
-  const [invoices, setInvoices] = useState<any[]>([])
+  const { session } = useAuthStore()
+  
+  // Tab control: 'revenue' | 'products' | 'saas'
+  const [activeTab, setActiveTab] = useState<'revenue' | 'products' | 'saas'>('revenue')
   const [loading, setLoading] = useState(true)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  
+  // Stripe connection states
+  const [stripeStatus, setStripeStatus] = useState<any>({
+    status: 'NOT_CONNECTED',
+    details_submitted: false,
+    charges_enabled: false,
+    payouts_enabled: false,
+    stripe_account_id: ''
+  })
+  const [connectingStripe, setConnectingStripe] = useState(false)
 
-  const fetchInvoices = async () => {
+  // Wallet stats
+  const [stats, setStats] = useState({
+    grossRevenue: 0,
+    netRevenue: 0,
+    platformFees: 0,
+    stripeFees: 0,
+    pendingPayouts: 0,
+    subscribers: 0,
+    mrr: 0,
+    payoutHistory: [] as any[],
+    chartData: [] as any[]
+  })
+
+  // Product catalog states
+  const [products, setProducts] = useState<any[]>([])
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    description: '',
+    type: 'SINGLE_CLASS',
+    price: '',
+    classes_included: '1'
+  })
+  const [savingProduct, setSavingProduct] = useState(false)
+
+  // SaaS subscription settings
+  const [teacherPlan, setTeacherPlan] = useState('STARTER')
+  const [aiWalletBalance, setAiWalletBalance] = useState(0)
+  const [purchasingCredits, setPurchasingCredits] = useState<string | null>(null)
+  const [subscribingSaaS, setSubscribingSaaS] = useState<string | null>(null)
+
+  // Fetch all dashboard & billing info
+  const fetchDashboardData = async () => {
+    if (!session?.user?.id) return
     setLoading(true)
-    const { data } = await supabase
-      .from('invoices')
-      .select('*, patient:patients(name)')
-      .order('due_date', { ascending: false })
     
-    setInvoices(data || [])
-    setLoading(false)
+    try {
+      // 1. Fetch Stripe connection status
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const statusRes = await fetch('/api/payments/connect', {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      })
+      if (statusRes.ok) {
+        const statusData = await statusRes.json()
+        setStripeStatus(statusData)
+      }
+
+      // 2. Fetch dashboard financials if Stripe is connected
+      const statsRes = await fetch('/api/payments/dashboard', {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      })
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        setStats(statsData)
+      }
+
+      // 3. Fetch products
+      const { data: prods } = await supabase
+        .from('teacher_products')
+        .select('*')
+        .eq('teacher_id', session.user.id)
+        .order('created_at', { ascending: false })
+      
+      setProducts(prods || [])
+
+      // 4. Fetch psychologist metadata (plan and AI wallet)
+      const { data: psy } = await supabase
+        .from('psychologists')
+        .select('plan_type')
+        .eq('id', session.user.id)
+        .single()
+
+      if (psy) {
+        setTeacherPlan(psy.plan_type || 'STARTER')
+      }
+
+      const { data: wallet } = await supabase
+        .from('ai_wallets')
+        .select('balance')
+        .eq('teacher_id', session.user.id)
+        .maybeSingle()
+
+      if (wallet) {
+        setAiWalletBalance(wallet.balance)
+      }
+
+    } catch (err) {
+      console.error('Error fetching billing dashboard data:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    fetchInvoices()
-  }, [])
+    fetchDashboardData()
+  }, [session])
 
-  const markAsPaid = async (id: string) => {
-    if(!confirm("Atestar pagamento manual desta fatura?")) return;
-    await supabase.from('invoices').update({ status: 'PAID' }).eq('id', id)
-    fetchInvoices()
+  // Triggers Stripe Express Onboarding redirect
+  const handleConnectStripe = async () => {
+    setConnectingStripe(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      
+      const res = await fetch('/api/payments/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (data.url) {
+          if (data.isMock) {
+            alert('Simulando Stripe Connect Express Onboarding...')
+            // Auto complete onboarding for mock sandbox testing
+            await supabase.from('stripe_connected_accounts').upsert({
+              teacher_id: session?.user?.id,
+              status: 'ACTIVE',
+              details_submitted: true,
+              charges_enabled: true,
+              payouts_enabled: true
+            }, { onConflict: 'teacher_id' })
+            
+            await supabase.from('psychologists').update({
+              stripe_onboarding_completed: true,
+              stripe_charges_enabled: true,
+              stripe_payouts_enabled: true
+            }).eq('id', session?.user?.id)
+            
+            fetchDashboardData()
+          } else {
+            window.location.href = data.url
+          }
+        }
+      }
+    } catch (err: any) {
+      alert('Erro ao conectar com o Stripe: ' + err.message)
+    } finally {
+      setConnectingStripe(false)
+    }
   }
 
-  const generatePixLink = async (invoiceId: string) => {
-    alert(`Enviando via Edge Function. Link PIX seria gerado via Stripe/MercadoPago para o Invoice ${invoiceId}`);
-    // await supabase.functions.invoke('generate-pix', { body: { invoiceId }})
+  // Create products mapping to database
+  const handleCreateProduct = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newProduct.name || !newProduct.price) {
+      alert('Preencha os campos obrigatórios.')
+      return
+    }
+
+    setSavingProduct(true)
+    try {
+      const { data, error } = await supabase
+        .from('teacher_products')
+        .insert([{
+          teacher_id: session?.user?.id,
+          name: newProduct.name,
+          description: newProduct.description,
+          type: newProduct.type,
+          price: parseFloat(newProduct.price),
+          classes_included: parseInt(newProduct.classes_included, 10),
+          active: true
+        }])
+        .select('*')
+      
+      if (error) throw error
+
+      // Create mock Stripe Price mapping for checkout
+      if (data && data.length > 0) {
+        await supabase
+          .from('teacher_product_prices')
+          .insert([{
+            product_id: data[0].id,
+            stripe_price_id: 'price_mock_' + Math.random().toString(36).substring(2, 10),
+            price: parseFloat(newProduct.price),
+            currency: 'USD'
+          }])
+      }
+
+      setShowProductModal(false)
+      setNewProduct({
+        name: '',
+        description: '',
+        type: 'SINGLE_CLASS',
+        price: '',
+        classes_included: '1'
+      })
+      fetchDashboardData()
+    } catch (err: any) {
+      alert('Erro ao criar produto: ' + err.message)
+    } finally {
+      setSavingProduct(false)
+    }
   }
 
-  const totalEmAberto = invoices.filter(i => i.status === 'OPEN').reduce((acc, curr) => acc + curr.amount, 0)
-  const totalRecebido = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + curr.amount, 0)
+  // Handle SaaS subscription purchase
+  const handleSaaSSubscribe = async (plan: string) => {
+    setSubscribingSaaS(plan)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const res = await fetch('/api/payments/saas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          action: 'saas_subscribe',
+          planType: plan
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.isMock) {
+          alert(`Inscrição simulada com sucesso no plano ${plan}! Concedendo benefícios...`)
+          // Simulate webhook completed locally
+          await fetch('/api/payments/webhook', {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'checkout.session.completed',
+              data: {
+                object: {
+                  id: data.session_id,
+                  payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
+                  metadata: {
+                    type: 'SAAS',
+                    teacher_id: session?.user?.id,
+                    plan_type: plan,
+                    price_amount: plan === 'PRO' ? '49' : plan === 'ACADEMY' ? '99' : '19'
+                  }
+                }
+              }
+            })
+          })
+          fetchDashboardData()
+        } else if (data.url) {
+          window.location.href = data.url
+        }
+      }
+    } catch (err: any) {
+      alert('Erro ao processar assinatura: ' + err.message)
+    } finally {
+      setSubscribingSaaS(null)
+    }
+  }
+
+  // Handle buying credits
+  const handleBuyCredits = async (pack: string) => {
+    setPurchasingCredits(pack)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const res = await fetch('/api/payments/saas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          action: 'purchase_credits',
+          creditPack: pack
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.isMock) {
+          alert(`Simulando compra do pacote de ${pack} créditos de IA...`)
+          // Trigger local webhook mock
+          await fetch('/api/payments/webhook', {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'checkout.session.completed',
+              data: {
+                object: {
+                  id: data.session_id,
+                  payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
+                  metadata: {
+                    type: 'CREDITS',
+                    teacher_id: session?.user?.id,
+                    credits_added: pack,
+                    price_amount: pack === '1500' ? '25' : pack === '5000' ? '75' : '10'
+                  }
+                }
+              }
+            })
+          })
+          fetchDashboardData()
+        } else if (data.url) {
+          window.location.href = data.url
+        }
+      }
+    } catch (err: any) {
+      alert('Erro ao processar compra de créditos: ' + err.message)
+    } finally {
+      setPurchasingCredits(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-tenant-primary" />
+          <span className="text-sm font-semibold text-slate-550">Buscando informações financeiras...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Render NOT_CONNECTED or RESTRICTED screen
+  const isStripeActive = stripeStatus.status === 'ACTIVE'
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 select-none font-sans">
+      
+      {/* Dynamic Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-200">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Painel Financeiro</h2>
-          <p className="text-slate-500 mt-1 text-sm">Controle sua receita, inadimplências e gere links PIX para pacientes.</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2.5">
+            <DollarSign className="w-7 h-7 text-tenant-primary" /> Centro de Receitas Flowike
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm font-medium">Controle suas vendas, planos de alunos, payouts automáticos e créditos de IA.</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto flex justify-center bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-colors">
-          Vender Pacote de Sessões
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-medium text-slate-500 mb-1">Receita Confirmada</h3>
-          <p className="text-3xl font-bold text-emerald-600">R$ {totalRecebido.toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-medium text-slate-500 mb-1">Valores a Receber (Aberto/Atraso)</h3>
-          <p className="text-3xl font-bold text-amber-600">R$ {totalEmAberto.toFixed(2)}</p>
-        </div>
-      </div>
-
-      <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-slate-500">Buscando movimentações...</div>
-        ) : invoices.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-             Nenhuma fatura lançada ainda. Crie um pacote ou encerre uma sessão para visualizar.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-50 border-b border-slate-100 font-medium text-slate-500">
-                <tr>
-                  <th className="px-6 py-4">Paciente</th>
-                  <th className="px-6 py-4">Vencimento</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Valor</th>
-                  <th className="px-6 py-4 text-right">Manejo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {invoices.map(inv => (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-slate-800">
-                      {Array.isArray(inv.patient) ? inv.patient[0]?.name : inv.patient?.name}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500">
-                      {new Date(inv.due_date).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className="px-6 py-4">
-                      {inv.status === 'PAID' && <span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md text-xs font-semibold">Garantido / Pago</span>}
-                      {inv.status === 'OPEN' && <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-md text-xs font-semibold">Aberto (Aguardando)</span>}
-                      {inv.status === 'OVERDUE' && <span className="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-md text-xs font-semibold">Em Atraso</span>}
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-slate-700">R$ {inv.amount.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-right space-x-3">
-                      {inv.status !== 'PAID' && (
-                        <>
-                          <button onClick={() => generatePixLink(inv.id)} className="text-secondary-600 font-medium text-sm text-sky-600 hover:underline">
-                            Compartilhar PIX
-                          </button>
-                          <button onClick={() => markAsPaid(inv.id)} className="text-primary-600 font-medium text-sm hover:underline">
-                            Constar Pagamento
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        
+        {isStripeActive && (
+          <button 
+            onClick={() => setShowProductModal(true)}
+            className="flex items-center gap-1.5 bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-2.5 px-4 rounded-tenant-btn shadow-sm text-xs hover:-translate-y-0.5 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Criar Produto / Plano
+          </button>
         )}
       </div>
 
-      {isModalOpen && (
-        <PackageModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSaved={() => {
-            setIsModalOpen(false)
-            fetchInvoices()
-          }} 
-        />
+      {/* Stripe Connection Call-to-Action if not Active */}
+      {!isStripeActive && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+          
+          <div className="space-y-4 max-w-2xl text-center md:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold">
+              {stripeStatus.status === 'RESTRICTED' ? (
+                <>
+                  <AlertTriangle className="w-3.5 h-3.5" /> Ações Requeridas (Restrita)
+                </>
+              ) : (
+                <>
+                  <Settings className="w-3.5 h-3.5" /> Pagamentos Desconectados
+                </>
+              )}
+            </div>
+            
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Comece a faturar com sua própria marca 🚀</h2>
+            <p className="text-slate-550 text-sm leading-relaxed font-semibold">
+              Conecte sua conta bancária ao Stripe Connect Express para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber payouts automáticos sem complicação.
+            </p>
+
+            <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                Segurança Stripe Connect
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                PIX & Cartão automáticos
+              </div>
+            </div>
+          </div>
+
+          <div className="shrink-0 w-full md:w-auto text-center">
+            <button
+              onClick={handleConnectStripe}
+              disabled={connectingStripe}
+              className="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-emerald-600/10 flex items-center justify-center gap-2 hover:-translate-y-0.5"
+            >
+              {connectingStripe ? (
+                <>
+                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                  <span>Configurando Conta...</span>
+                </>
+              ) : (
+                <>
+                  <span>Conectar Gateway Stripe</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+            <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">Configuração Express de 2 minutos</p>
+          </div>
+        </div>
       )}
+
+      {/* Main Panel Tabs Menu */}
+      {isStripeActive && (
+        <div className="flex border-b border-slate-200 gap-6">
+          <button 
+            onClick={() => setActiveTab('revenue')}
+            className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === 'revenue' 
+                ? 'border-tenant-primary text-tenant-primary' 
+                : 'border-transparent text-slate-400 hover:text-slate-650'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" /> Receitas & Payouts
+          </button>
+          <button 
+            onClick={() => setActiveTab('products')}
+            className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === 'products' 
+                ? 'border-tenant-primary text-tenant-primary' 
+                : 'border-transparent text-slate-400 hover:text-slate-650'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" /> Meus Produtos & Aulas
+          </button>
+          <button 
+            onClick={() => setActiveTab('saas')}
+            className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === 'saas' 
+                ? 'border-tenant-primary text-tenant-primary' 
+                : 'border-transparent text-slate-400 hover:text-slate-650'
+            }`}
+          >
+            <Award className="w-4 h-4" /> Assinatura Flowike & IA
+          </button>
+        </div>
+      )}
+
+      {/* RENDER ACTIVE TAB */}
+      {isStripeActive && activeTab === 'revenue' && (
+        <div className="space-y-6">
+          {/* KPI Dashboard Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Faturamento Bruto</span>
+              <span className="text-xl sm:text-2xl font-black text-slate-800">$ {stats.grossRevenue.toFixed(2)}</span>
+            </div>
+            
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Receita Líquida</span>
+              <span className="text-xl sm:text-2xl font-black text-tenant-primary">$ {stats.netRevenue.toFixed(2)}</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Comissões Flowike</span>
+              <span className="text-xl sm:text-2xl font-black text-rose-500">$ {stats.platformFees.toFixed(2)}</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxas Stripe</span>
+              <span className="text-xl sm:text-2xl font-black text-amber-500">$ {stats.stripeFees.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subscritores Ativos</span>
+                <span className="text-xl sm:text-2xl font-black text-slate-850">{stats.subscribers} alunos</span>
+              </div>
+              <Users className="w-8 h-8 text-slate-200" />
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">MRR Estimado</span>
+                <span className="text-xl sm:text-2xl font-black text-slate-850">$ {stats.mrr.toFixed(2)}/mês</span>
+              </div>
+              <BarChart2 className="w-8 h-8 text-slate-200" />
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Disponível para Payout</span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-600">$ {stats.pendingPayouts.toFixed(2)}</span>
+              </div>
+              <ShieldCheck className="w-8 h-8 text-slate-200" />
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ciclo Payouts</span>
+                <span className="text-xl sm:text-2xl font-black text-slate-750">Automático</span>
+              </div>
+              <Calendar className="w-8 h-8 text-slate-200" />
+            </div>
+          </div>
+
+          {/* Revenue Charts Area */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Chart Area */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-tenant-primary" /> Histórico de Receita Diária (7 dias)
+              </h3>
+              
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
+                    <Area type="monotone" dataKey="Receita" stroke="var(--tenant-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorGross)" />
+                    <Area type="monotone" dataKey="Líquido" stroke="#10b981" strokeWidth={2} fillOpacity={0} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Payout History Area */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
+              <h3 className="text-sm font-bold text-slate-800 mb-4">Payouts Recentes</h3>
+              <div className="flex-1 overflow-y-auto max-h-60 space-y-3.5 pr-1">
+                {stats.payoutHistory.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-center text-slate-400 text-xs font-semibold py-12">
+                    Nenhum payout efetuado na conta bancária ainda.
+                  </div>
+                ) : (
+                  stats.payoutHistory.map((p: any) => (
+                    <div key={p.id} className="flex justify-between items-center border-b border-slate-50 pb-2">
+                      <div>
+                        <span className="block text-xs font-bold text-slate-800">Transferência Bancária</span>
+                        <span className="text-[10px] text-slate-400 font-bold">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-xs font-black text-emerald-600">+ ${p.amount.toFixed(2)}</span>
+                        <span className={`inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
+                          p.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-650'
+                        }`}>{p.status === 'PAID' ? 'Pago' : 'Pendente'}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRODUCTS TAB */}
+      {isStripeActive && activeTab === 'products' && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-sm font-bold text-slate-800">Catálogo de Produtos & Planos de Ensino</h3>
+            </div>
+            
+            {products.length === 0 ? (
+              <div className="p-12 text-center text-slate-450 font-semibold text-sm">
+                Nenhum produto cadastrado. Clique no botão de criação acima para ofertar aulas.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {products.map(prod => (
+                  <div key={prod.id} className="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-800 text-sm sm:text-base">{prod.name}</h4>
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                          prod.type === 'MONTHLY_SUBSCRIPTION' ? 'bg-indigo-50 text-indigo-700' :
+                          prod.type === 'PACKAGE' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-650'
+                        }`}>
+                          {prod.type === 'MONTHLY_SUBSCRIPTION' ? 'Mensal Recorrente' :
+                           prod.type === 'PACKAGE' ? 'Pacote' : 'Aula Individual'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-450 font-medium mt-1">{prod.description || 'Nenhuma descrição fornecida.'}</p>
+                      <span className="block text-[10px] text-slate-400 font-bold mt-2">
+                        Créditos de Aula incluídos: <span className="text-slate-800 font-extrabold">{prod.classes_included} aulas</span>
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="block font-black text-slate-800 text-lg">${prod.price.toFixed(2)}</span>
+                      <span className={`text-[10px] font-bold ${prod.active ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {prod.active ? 'Ativo' : 'Rascunho'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SAAS PLATFORM PLANS TAB */}
+      {isStripeActive && activeTab === 'saas' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Credit store wallet */}
+          <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-6">
+            <div>
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Carteira IA</span>
+              <h3 className="text-3xl font-black text-slate-800 mt-1">{aiWalletBalance} Créditos</h3>
+              <p className="text-xs text-slate-450 font-medium mt-2 leading-relaxed">
+                Seus créditos de IA são consumidos de acordo com o uso das ferramentas de lição de casa automatizada, relatórios de evolução e análises de áudio.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-4 border-t border-slate-100">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comprar mais créditos</span>
+              
+              <div className="grid grid-cols-1 gap-2.5">
+                {[
+                  { id: '500', credits: 500, price: 10 },
+                  { id: '1500', credits: 1500, price: 25 },
+                  { id: '5000', credits: 5000, price: 75 }
+                ].map(pack => (
+                  <button
+                    key={pack.id}
+                    onClick={() => handleBuyCredits(pack.id)}
+                    disabled={purchasingCredits !== null}
+                    className="flex justify-between items-center p-3 border border-slate-200 hover:border-tenant-primary rounded-xl text-left bg-slate-50/50 hover:bg-white transition-all group"
+                  >
+                    <div>
+                      <span className="block text-xs font-bold text-slate-800">{pack.credits} Créditos</span>
+                      <span className="text-[10px] text-slate-400 font-bold">Pacote IA</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-extrabold text-xs text-slate-800">${pack.price}</span>
+                      {purchasingCredits === pack.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-tenant-primary" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* SaaS Membership and pricing */}
+          <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Sua Assinatura Flowike</h3>
+              <p className="text-xs text-slate-450 mt-1 font-medium">Assine planos premium para habilitar marcas exclusivas, menor rev-share e maior limite de IA.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              {[
+                { type: 'STARTER', label: 'Starter', price: 19, share: '15%', credits: 50, color: 'border-slate-200' },
+                { type: 'PRO', label: 'Pro', price: 49, share: '10%', credits: 500, color: 'border-tenant-primary ring-2 ring-tenant-primary/10' },
+                { type: 'ACADEMY', label: 'Academy', price: 99, share: '5%', credits: 2000, color: 'border-slate-800 bg-slate-900 text-white' }
+              ].map(plan => {
+                const isCurrent = teacherPlan === plan.type
+                const isDark = plan.type === 'ACADEMY'
+                
+                return (
+                  <div key={plan.type} className={`p-4 rounded-2xl border flex flex-col justify-between min-h-[220px] ${plan.color}`}>
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <span className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{plan.label}</span>
+                        {isCurrent && (
+                          <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                            isDark ? 'bg-white text-slate-900' : 'bg-tenant-primary/10 text-tenant-primary'
+                          }`}>Ativo</span>
+                        )}
+                      </div>
+
+                      <div className="mt-3">
+                        <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>${plan.price}</span>
+                        <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>/mês</span>
+                      </div>
+
+                      <ul className="mt-4 space-y-2 text-[10px] font-bold">
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-tenant-primary shrink-0" />
+                          {plan.share} Taxa de Rev-share
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-tenant-primary shrink-0" />
+                          {plan.credits} Créditos IA inclusos
+                        </li>
+                      </ul>
+                    </div>
+
+                    {!isCurrent && (
+                      <button
+                        onClick={() => handleSaaSSubscribe(plan.type)}
+                        disabled={subscribingSaaS !== null}
+                        className={`w-full py-2 rounded-xl text-[10px] font-bold transition-all mt-4 border flex items-center justify-center gap-1.5 ${
+                          isDark 
+                            ? 'bg-white text-slate-900 hover:bg-slate-100 border-white' 
+                            : 'bg-slate-900 text-white hover:bg-slate-800 border-slate-900'
+                        }`}
+                      >
+                        {subscribingSaaS === plan.type ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <span>Assinar Plano</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE PRODUCT MODAL */}
+      {showProductModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl border border-slate-100 space-y-4">
+            <h3 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">Criar Novo Produto / Plano</h3>
+            
+            <form onSubmit={handleCreateProduct} className="space-y-3.5 text-slate-800">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Nome do Produto</label>
+                <input 
+                  type="text" 
+                  placeholder="ex: Aula Particular de Inglês de Negócios"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all"
+                  value={newProduct.name}
+                  onChange={e => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Descrição</label>
+                <textarea 
+                  placeholder="Detalhes sobre o pacote, material didático incluso..."
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all h-16 resize-none"
+                  value={newProduct.description}
+                  onChange={e => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Tipo de Cobrança</label>
+                  <select
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all"
+                    value={newProduct.type}
+                    onChange={e => setNewProduct(prev => ({ ...prev, type: e.target.value }))}
+                  >
+                    <option value="SINGLE_CLASS">Aula Individual</option>
+                    <option value="PACKAGE">Pacote de Aulas</option>
+                    <option value="MONTHLY_SUBSCRIPTION">Mensal Recorrente</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Preço ($ USD)</label>
+                  <input 
+                    type="number" 
+                    placeholder="ex: 45"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all"
+                    value={newProduct.price}
+                    onChange={e => setNewProduct(prev => ({ ...prev, price: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Aulas incluídas no Saldo</label>
+                <input 
+                  type="number" 
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all"
+                  value={newProduct.classes_included}
+                  onChange={e => setNewProduct(prev => ({ ...prev, classes_included: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowProductModal(false)}
+                  className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProduct}
+                  className="flex-1 py-2.5 bg-tenant-primary hover:bg-tenant-primary-hover text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+                >
+                  {savingProduct ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <span>Salvar Produto</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

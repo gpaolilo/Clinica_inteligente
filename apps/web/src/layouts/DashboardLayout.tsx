@@ -12,7 +12,8 @@ import {
   Palette, 
   LogOut, 
   X, 
-  User
+  User,
+  Brain
 } from 'lucide-react'
 import { Header } from '../components/header/Header'
 
@@ -38,6 +39,7 @@ export default function DashboardLayout() {
     { to: '/dashboard/patients', label: 'Clientes', icon: Users },
     { to: '/dashboard/agenda', label: 'Agenda', icon: CalendarDays },
     { to: '/dashboard/finance', label: 'Financeiro', icon: DollarSign },
+    { to: '/dashboard/ai-credits', label: 'Créditos IA', icon: Brain },
     { to: '/dashboard/availability', label: 'Disponibilidade', icon: Clock },
     { to: '/dashboard/brand-studio', label: 'Estúdio de Marca', icon: Palette }
   ]

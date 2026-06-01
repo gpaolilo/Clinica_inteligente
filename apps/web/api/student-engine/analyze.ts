@@ -1,4 +1,4 @@
-import { createAuthClient } from '../_lib/supabase.js'
+import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI learning analyst.
 Analyze the following lesson transcript and extract structured learning events. 
@@ -37,6 +37,31 @@ export default async function handler(req: any, res: any) {
     if (!sessionId || !psychologistId || !patientId) {
       throw new Error('Missing required parameters')
     }
+
+    // Verify and deduct AI credits (Cost: 40 credits)
+    const { data: wallet } = await supabaseAdmin
+      .from('ai_wallets')
+      .select('balance')
+      .eq('teacher_id', psychologistId)
+      .maybeSingle()
+
+    const creditsCost = 40
+    if (!wallet || wallet.balance < creditsCost) {
+      return res.status(403).json({ error: 'Saldo de créditos de IA insuficiente para realizar análise da sessão (Necessário: 40 créditos).' })
+    }
+
+    await supabaseAdmin
+      .from('ai_wallets')
+      .update({ balance: wallet.balance - creditsCost })
+      .eq('teacher_id', psychologistId)
+
+    await supabaseAdmin
+      .from('ai_transactions')
+      .insert([{
+        teacher_id: psychologistId,
+        action: 'SESSION',
+        credits_used: creditsCost
+      }])
 
     const supabaseAuth = createAuthClient(req)
     // 1. Fetch transcript

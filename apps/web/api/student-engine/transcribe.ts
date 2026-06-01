@@ -1,4 +1,4 @@
-import { createAuthClient } from '../_lib/supabase.js'
+import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -25,6 +25,18 @@ export default async function handler(req: any, res: any) {
     if (existingTranscript) {
       return res.status(200).json({ success: true, transcript: existingTranscript.transcript })
     }
+
+    // Verify AI credit balance (Pre-check)
+    const { data: wallet } = await supabaseAdmin
+      .from('ai_wallets')
+      .select('balance')
+      .eq('teacher_id', psychologistId)
+      .maybeSingle()
+
+    if (!wallet || wallet.balance < 2) {
+      return res.status(403).json({ error: 'Saldo de créditos de IA insuficiente para iniciar transcrição (Necessário no mínimo 2 créditos).' })
+    }
+
 
     // 1. Submit audio to AssemblyAI
     const submitRes = await fetch('https://api.assemblyai.com/v2/transcript', {
@@ -70,6 +82,35 @@ export default async function handler(req: any, res: any) {
     if (transcriptData.utterances && transcriptData.utterances.length > 0) {
       formattedTranscript = transcriptData.utterances.map((u: any) => `Speaker ${u.speaker}: ${u.text}`).join('\n')
     }
+
+    // Calculate actual cost based on audio duration (2 credits per minute)
+    const audioDurationSeconds = transcriptData.audio_duration || 0
+    const durationMinutes = Math.max(1, Math.ceil(audioDurationSeconds / 60))
+    const creditsCost = durationMinutes * 2
+
+    // Re-verify balance with actual cost
+    const { data: currentWallet } = await supabaseAdmin
+      .from('ai_wallets')
+      .select('balance')
+      .eq('teacher_id', psychologistId)
+      .maybeSingle()
+
+    if (!currentWallet || currentWallet.balance < creditsCost) {
+      return res.status(403).json({ error: `Saldo de créditos de IA insuficiente para completar a transcrição (Necessário: ${creditsCost} créditos para ${durationMinutes} minutos).` })
+    }
+
+    await supabaseAdmin
+      .from('ai_wallets')
+      .update({ balance: currentWallet.balance - creditsCost })
+      .eq('teacher_id', psychologistId)
+
+    await supabaseAdmin
+      .from('ai_transactions')
+      .insert([{
+        teacher_id: psychologistId,
+        action: 'SESSION',
+        credits_used: creditsCost
+      }])
 
     const { error: dbError } = await supabaseAuth.from('session_transcripts').insert([{
       session_id: sessionId,

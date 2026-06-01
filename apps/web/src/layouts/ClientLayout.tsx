@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../stores/authStore'
 import GamificationOverlay from '../components/ui/GamificationOverlay'
-import { Menu, X, LayoutDashboard, Brain, Activity, BookOpen, MessageSquare, Book, User, LogOut, CalendarPlus, CalendarDays } from 'lucide-react'
+import { Menu, X, LayoutDashboard, Brain, Activity, BookOpen, MessageSquare, Book, User, LogOut, CalendarPlus, CalendarDays, CreditCard } from 'lucide-react'
 import { useTenantBranding } from '../hooks/useTenantBranding'
 
 export default function ClientLayout() {
@@ -30,6 +30,7 @@ export default function ClientLayout() {
     { to: '/client/homework', label: 'Meus Exercícios', icon: BookOpen },
     { to: '/client/practice', label: 'Prática com IA', icon: MessageSquare },
     { to: '/client/vocabulary', label: 'Banco de Vocabulário', icon: Book },
+    { to: '/client/billing', label: 'Faturamento', icon: CreditCard },
     { to: '/client/profile', label: 'Meu Perfil', icon: User },
   ] : [
     { to: '/client', label: 'Dashboard', icon: LayoutDashboard },

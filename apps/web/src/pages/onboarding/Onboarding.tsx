@@ -8,7 +8,8 @@ import { brandingPresets } from '../../components/branding/DesignPresetSelector'
 import { BrandingPreviewPanel } from '../../components/branding/BrandingPreviewPanel'
 import { 
   Check, GraduationCap, Tag, FileText, ArrowRight, 
-  Upload, Rocket, Compass, Heart, Award, Loader2 
+  Upload, Rocket, Compass, Heart, Award, Loader2,
+  CreditCard
 } from 'lucide-react'
 
 type OnboardingStep = 
@@ -20,6 +21,7 @@ type OnboardingStep =
   | 'logo' 
   | 'preview' 
   | 'launch'
+  | 'connect_payments'
 
 const STEPS_ORDER: OnboardingStep[] = [
   'welcome',
@@ -29,7 +31,8 @@ const STEPS_ORDER: OnboardingStep[] = [
   'colors',
   'logo',
   'preview',
-  'launch'
+  'launch',
+  'connect_payments'
 ]
 
 const STEPS_META = [
@@ -40,7 +43,8 @@ const STEPS_META = [
   { id: 'colors', label: 'Cores' },
   { id: 'logo', label: 'Logos' },
   { id: 'preview', label: 'Preview' },
-  { id: 'launch', label: 'Lançar' }
+  { id: 'launch', label: 'Lançar' },
+  { id: 'connect_payments', label: 'Pagamentos' }
 ]
 
 const TEACHING_PERSONALITIES = [
@@ -87,6 +91,7 @@ export default function Onboarding() {
   const [faviconUploading, setFaviconUploading] = useState(false)
 
   const [publishing, setPublishing] = useState(false)
+  const [connectingStripe, setConnectingStripe] = useState(false)
 
   // Sync academyName to settings.app_name
   useEffect(() => {
@@ -308,11 +313,11 @@ export default function Onboarding() {
         throw new Error('Erro ao salvar perfil: ' + profileError.message)
       }
 
-      // 2. Marcar progresso concluído
+      // 2. Marcar progresso concluído na etapa 8
       const { error: progressError } = await supabase.from('onboarding_progress').upsert({
         teacher_id: user.id,
         step: 8,
-        completed: true
+        completed: false
       }, { onConflict: 'teacher_id' })
 
       if (progressError) {
@@ -321,12 +326,62 @@ export default function Onboarding() {
 
       // 3. Atualizar context global de branding
       await refreshBranding()
-
-      // Redireciona com reload para forçar aplicação total do CSS customizado
-      window.location.href = '/dashboard'
+      setPublishing(false)
+      setCurrentStepIndex(8)
     } catch (err: any) {
       alert('Erro ao publicar academia: ' + err.message)
       setPublishing(false)
+    }
+  }
+
+  const handleStripeConnect = async () => {
+    setConnectingStripe(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      
+      const res = await fetch('/api/payments/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (data.url) {
+          if (data.isMock) {
+            alert('Simulando Stripe Express Onboarding...')
+          }
+          window.location.href = data.url
+        } else {
+          alert('Erro ao obter link de onboarding do Stripe.')
+        }
+      } else {
+        const err = await res.json()
+        alert('Erro: ' + (err.error || 'Erro desconhecido'))
+      }
+    } catch (err: any) {
+      alert('Erro ao conectar ao Stripe: ' + err.message)
+    } finally {
+      setConnectingStripe(false)
+    }
+  }
+
+  const handleSkipPayments = async () => {
+    if (!user) return
+    try {
+      await supabase.from('onboarding_progress').upsert({
+        teacher_id: user.id,
+        step: 9,
+        completed: true
+      }, { onConflict: 'teacher_id' })
+      
+      window.location.href = '/dashboard'
+    } catch (err: any) {
+      console.error(err)
+      window.location.href = '/dashboard'
     }
   }
 
@@ -917,6 +972,65 @@ export default function Onboarding() {
                             <span>Lançar Minha Academia</span>
                           </>
                         )}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {currentStep === 'connect_payments' && (
+                  <motion.div
+                    key="connect_payments"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col items-center text-center space-y-6 w-full text-slate-800"
+                  >
+                    <div className="inline-flex bg-emerald-50 text-emerald-600 w-16 h-16 rounded-[24px] items-center justify-center border border-emerald-100 shadow-md">
+                      <CreditCard className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Conectar Recebimentos 💳</h2>
+                      <p className="text-slate-500 text-xs mt-1.5 font-semibold max-w-sm font-sans">
+                        Conecte sua conta Stripe Express para cobrar seus alunos por aulas, pacotes de aulas e planos recorrentes.
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl w-full max-w-md text-left space-y-3">
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" /> Benefícios do Stripe Connect:
+                      </h4>
+                      <ul className="space-y-2 text-xs text-slate-600 font-semibold">
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Recebimentos automatizados direto na sua conta bancária</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Divisão de taxas automatizada via Stripe Connect</li>
+                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Aceite Cartões de Crédito, Apple/Google Pay e PIX (Brasil)</li>
+                      </ul>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full max-w-md pt-4 border-t border-slate-100">
+                      <button
+                        onClick={handleStripeConnect}
+                        disabled={connectingStripe}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl text-xs transition-all shadow-xl shadow-emerald-650/10 flex items-center justify-center gap-1.5 hover:-translate-y-0.5"
+                      >
+                        {connectingStripe ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Redirecionando para o Stripe...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Conectar Conta Stripe</span>
+                          </>
+                        )}
+                      </button>
+                      
+                      <button 
+                        onClick={handleSkipPayments} 
+                        disabled={connectingStripe}
+                        className="w-full px-5 py-4 border border-slate-205 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all"
+                      >
+                        Pular e Ir para o Dashboard
                       </button>
                     </div>
                   </motion.div>

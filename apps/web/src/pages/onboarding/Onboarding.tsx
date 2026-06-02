@@ -92,6 +92,8 @@ export default function Onboarding() {
 
   const [publishing, setPublishing] = useState(false)
   const [connectingStripe, setConnectingStripe] = useState(false)
+  const [isFinalizing, setIsFinalizing] = useState(false)
+  const callbackProcessed = React.useRef(false)
 
   // Sync academyName to settings.app_name
   useEffect(() => {
@@ -100,6 +102,63 @@ export default function Onboarding() {
       app_name: academyName || 'Minha Academia'
     }))
   }, [academyName])
+
+  // Stripe success callback handler
+  useEffect(() => {
+    const checkStripeCallback = async () => {
+      if (!user || callbackProcessed.current) return
+      const queryParams = new URLSearchParams(window.location.search)
+      const stripeParam = queryParams.get('stripe')
+      
+      if (stripeParam === 'success' || stripeParam === 'success_mock') {
+        callbackProcessed.current = true
+        setIsFinalizing(true)
+        try {
+          const { data: profile } = await supabase
+            .from('academy_profiles')
+            .select('*')
+            .eq('teacher_id', user.id)
+            .maybeSingle()
+
+          // 1. Mark as published
+          await supabase.from('academy_profiles').upsert({
+            teacher_id: user.id,
+            academy_name: profile?.academy_name || academyName || 'Minha Academia',
+            academy_tagline: profile?.academy_tagline || academyTagline || null,
+            academy_description: profile?.academy_description || academyDescription || null,
+            teaching_style: profile?.teaching_style || teachingStyle || 'Modern & Dynamic',
+            design_preset: profile?.design_preset || designPreset || 'Minimal',
+            primary_color: profile?.primary_color || settings.primary_color,
+            secondary_color: profile?.secondary_color || settings.secondary_color,
+            accent_color: profile?.accent_color || settings.accent_color,
+            logo_url: profile?.logo_url || logoPreview,
+            favicon_url: profile?.favicon_url || faviconPreview,
+            is_published: true
+          }, { onConflict: 'teacher_id' })
+
+          // 2. Mark progress completed
+          await supabase.from('onboarding_progress').upsert({
+            teacher_id: user.id,
+            step: 9,
+            completed: true
+          }, { onConflict: 'teacher_id' })
+
+          // 3. Sync branding settings to global context
+          await refreshBranding()
+          
+          // 4. Redirect to dashboard
+          window.location.href = '/dashboard?stripe=connected'
+        } catch (err) {
+          console.error('Error finalizing onboarding:', err)
+          setIsFinalizing(false)
+        }
+      } else if (stripeParam === 'refresh') {
+        callbackProcessed.current = true
+        setCurrentStepIndex(8)
+      }
+    }
+    checkStripeCallback()
+  }, [user])
 
   // Load existing onboarding draft if it exists
   useEffect(() => {
@@ -293,7 +352,7 @@ export default function Onboarding() {
     setPublishing(true)
 
     try {
-      // 1. Salvar perfil como publicado
+      // 1. Salvar perfil como rascunho (ainda nao publicado para evitar redirecionamento precoce)
       const { error: profileError } = await supabase.from('academy_profiles').upsert({
         teacher_id: user.id,
         academy_name: academyName,
@@ -306,7 +365,7 @@ export default function Onboarding() {
         accent_color: settings.accent_color,
         logo_url: logoPreview,
         favicon_url: faviconPreview,
-        is_published: true
+        is_published: false
       }, { onConflict: 'teacher_id' })
 
       if (profileError) {
@@ -345,7 +404,8 @@ export default function Onboarding() {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        },
+        body: JSON.stringify({ source: 'onboarding' })
       })
       
       if (res.ok) {
@@ -372,12 +432,18 @@ export default function Onboarding() {
   const handleSkipPayments = async () => {
     if (!user) return
     try {
+      // Marcar academia como publicada antes de redirecionar para evitar loops
+      await supabase.from('academy_profiles').update({
+        is_published: true
+      }).eq('teacher_id', user.id)
+
       await supabase.from('onboarding_progress').upsert({
         teacher_id: user.id,
         step: 9,
         completed: true
       }, { onConflict: 'teacher_id' })
       
+      await refreshBranding()
       window.location.href = '/dashboard'
     } catch (err: any) {
       console.error(err)
@@ -400,6 +466,18 @@ export default function Onboarding() {
   // Check if current step splits the layout (showing live preview)
   const isSplitLayout = ['preset', 'colors', 'logo', 'preview'].includes(currentStep)
 
+  if (isFinalizing) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#F5F3FF] flex flex-col items-center justify-center font-sans">
+        <div className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl flex flex-col items-center text-center space-y-4 max-w-sm">
+          <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
+          <h2 className="text-xl font-black text-slate-900">Finalizando sua Academia...</h2>
+          <p className="text-slate-500 text-xs font-semibold">Configurando seu portal de estudos e conexões de pagamento. Você será redirecionado em instantes.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#F5F3FF] text-slate-800 flex flex-col font-sans select-none overflow-x-hidden relative">
       {/* Background dotted grid pattern */}
@@ -412,8 +490,8 @@ export default function Onboarding() {
       {/* Onboarding Header / Progress */}
       <header className="bg-white/80 border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-20 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <img src="/Flowike_icon.png" alt="Flowike" className="w-9 h-9 object-contain" />
-          <img src="/Flowike_logo_name_only.png" alt="Flowike Logo Name" className="h-5.5 object-contain" />
+          <img src="/Flowike_icon.png" alt="Flowike" className="w-8 h-8 object-contain" />
+          <img src="/Flowike_logo_name_only.png" alt="Flowike Logo Name" className="h-5 object-contain" />
           <span className="bg-indigo-50 text-indigo-600 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-100/60 ml-1">Onboarding</span>
         </div>
 

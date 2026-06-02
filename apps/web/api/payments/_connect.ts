@@ -107,8 +107,17 @@ export default async function handler(req: any, res: any) {
 
     // --- POST: Create / Connect Stripe Account ---
     if (req.method === 'POST') {
-      const baseUrl = process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'
+      const origin = req.headers.origin || req.headers.referer
+      const baseUrl = origin ? new URL(origin).origin : (process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app')
       
+      const source = req.body?.source || 'dashboard'
+      const return_url = source === 'onboarding'
+        ? `${baseUrl}/onboarding?stripe=success`
+        : `${baseUrl}/dashboard/finance?stripe=success`
+      const refresh_url = source === 'onboarding'
+        ? `${baseUrl}/onboarding?stripe=refresh`
+        : `${baseUrl}/dashboard/finance?stripe=refresh`
+
       // Check if connection already exists
       let { data: connectedAccount } = await supabaseAdmin
         .from('stripe_connected_accounts')
@@ -161,8 +170,8 @@ export default async function handler(req: any, res: any) {
       try {
         const accountLink = await stripe.accountLinks.create({
           account: stripeAccountId,
-          refresh_url: `${baseUrl}/dashboard/finance?stripe=refresh`,
-          return_url: `${baseUrl}/dashboard/finance?stripe=success`,
+          refresh_url,
+          return_url,
           type: 'account_onboarding',
         })
 
@@ -170,7 +179,9 @@ export default async function handler(req: any, res: any) {
       } catch (err: any) {
         console.error('Stripe Account Link Creation Error:', err)
         // If Stripe fails (e.g. mock key), fallback with local mock onboarding redirect
-        const mockRedirectUrl = `${baseUrl}/dashboard/finance?stripe=success_mock`
+        const mockRedirectUrl = source === 'onboarding'
+          ? `${baseUrl}/onboarding?stripe=success_mock`
+          : `${baseUrl}/dashboard/finance?stripe=success_mock`
         return res.status(200).json({ url: mockRedirectUrl, isMock: true })
       }
     }

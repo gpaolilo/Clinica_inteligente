@@ -114,7 +114,7 @@ export default function Register() {
 
       const { error: insertError } = await supabase
         .from('teacher_signup_requests')
-        .insert([{
+        .upsert({
           full_name: name,
           email: email,
           academy_name: academyName,
@@ -125,7 +125,9 @@ export default function Register() {
           challenge: challenge,
           current_tools: currentTools,
           status: 'PENDING'
-        }])
+        }, {
+          onConflict: 'email'
+        })
 
       if (insertError) {
         throw new Error(insertError.message)

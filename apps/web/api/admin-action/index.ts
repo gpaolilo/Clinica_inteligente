@@ -46,8 +46,78 @@ export default async function handler(req: any, res: any) {
     // --- Action A: DELETE USER ---
     if (body.userId && !body.email && !body.requestId && !body.studentRequestId && body.action !== 'create_student_request') {
       const { userId } = body
+
+      // A1. Get user email and role from Auth/Profiles for log cleanup
+      let userEmail: string | undefined
+      let userRole: string | undefined
+
+      try {
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+        userEmail = authUser?.user?.email
+      } catch (err) {
+        console.warn('Could not fetch user email from auth:', err)
+      }
+
+      try {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('email, role')
+          .eq('id', userId)
+          .maybeSingle()
+        if (profile) {
+          userRole = profile.role
+          if (!userEmail) userEmail = profile.email
+        }
+      } catch (err) {
+        console.warn('Could not fetch user profile details:', err)
+      }
+
+      // A2. Perform cleanup in related tables
+      
+      // Delete system email logs
+      if (userEmail) {
+        await supabaseAdmin.from('system_email_logs').delete().eq('recipient', userEmail)
+      }
+
+      // Delete Stripe configurations
+      await supabaseAdmin.from('stripe_customers').delete().eq('user_id', userId)
+      await supabaseAdmin.from('stripe_subscriptions').delete().eq('user_id', userId)
+
+      // Role-specific cleanups
+      if (userRole === 'TEACHER' || userRole === 'PSYCHOLOGIST') {
+        if (userEmail) {
+          await supabaseAdmin.from('teacher_signup_requests').delete().eq('email', userEmail)
+        }
+        await supabaseAdmin.from('student_enrollment_requests').delete().eq('teacher_id', userId)
+        await supabaseAdmin.from('stripe_connected_accounts').delete().eq('teacher_id', userId)
+        await supabaseAdmin.from('onboarding_progress').delete().eq('teacher_id', userId)
+        await supabaseAdmin.from('academy_profiles').delete().eq('teacher_id', userId)
+
+        // Deleting the tenant will cascade delete settings, assets, drafts
+        await supabaseAdmin.from('tenants').delete().eq('owner_user_id', userId)
+
+        // Deleting the psychologist will cascade delete wallets, transactions, subscriptions, and patients (with all their sessions/notes/gamification)
+        await supabaseAdmin.from('psychologists').delete().eq('id', userId)
+      } else if (userRole === 'STUDENT' || userRole === 'PATIENT') {
+        if (userEmail) {
+          await supabaseAdmin.from('student_enrollment_requests').delete().eq('student_email', userEmail)
+        }
+        await supabaseAdmin.from('student_subscriptions').delete().eq('student_id', userId)
+
+        // Deleting patient will cascade delete sessions, notes, gamification_profiles, achievements, scenario_sessions, vocab banks
+        await supabaseAdmin.from('patients').delete().eq('user_id', userId)
+        if (userEmail) {
+          await supabaseAdmin.from('patients').delete().eq('email', userEmail)
+        }
+      }
+
+      // Delete main profile record
+      await supabaseAdmin.from('profiles').delete().eq('id', userId)
+
+      // A3. Finally delete user from Auth
       const { data, error } = await supabaseAdmin.auth.admin.deleteUser(userId)
       if (error) throw error
+
       return res.status(200).json({ success: true, user: data.user })
     } 
 

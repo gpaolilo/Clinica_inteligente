@@ -5,6 +5,8 @@ import { useAuthStore } from '../stores/authStore'
 import { supabase } from '../lib/supabase'
 import { syncPendingSessions, pullGoogleEvents } from '../lib/googleSync'
 import { useNavigate } from 'react-router-dom'
+import { usePlanFeatures } from '../hooks/usePlanFeatures'
+import { Loader2, ChevronRight } from 'lucide-react'
 
 export default function Settings() {
   const { setAccessToken } = useGoogleStore()
@@ -12,6 +14,135 @@ export default function Settings() {
   const [isConnected, setIsConnected] = useState(false)
   const [checking, setChecking] = useState(true)
   const navigate = useNavigate()
+
+  const { plan: activePlan, loading: loadingPlan } = usePlanFeatures()
+  const [plans, setPlans] = useState<any[]>([])
+  const [loadingPlans, setLoadingPlans] = useState(true)
+  const [switchingPlanName, setSwitchingPlanName] = useState<string | null>(null)
+  const [wallet, setWallet] = useState<any>(null)
+
+  useEffect(() => {
+    const loadPlansAndWallet = async () => {
+      if (!session?.user?.id) return
+      try {
+        const { data: plansData } = await supabase
+          .from('plans')
+          .select('*')
+          .eq('active', true)
+          .order('price', { ascending: true })
+        if (plansData) setPlans(plansData)
+
+        const { data: walletData } = await supabase
+          .from('teacher_wallets')
+          .select('*')
+          .eq('teacher_id', session.user.id)
+          .maybeSingle()
+        setWallet(walletData)
+      } catch (err) {
+        console.error('Error loading plans/wallet:', err)
+      } finally {
+        setLoadingPlans(false)
+      }
+    }
+    loadPlansAndWallet()
+  }, [session])
+
+  useEffect(() => {
+    const handleBillingCallback = async () => {
+      const queryParams = new URLSearchParams(window.location.search)
+      const billingParam = queryParams.get('billing')
+      
+      if (billingParam === 'success' || billingParam === 'success_mock') {
+        if (billingParam === 'success_mock') {
+          const planTypeParam = queryParams.get('plan_type') || 'STARTER'
+          const sessionIdParam = queryParams.get('session_id') || ('saas_sess_' + Math.random().toString(36).substring(2, 10))
+          
+          await fetch('/api/payments/webhook', {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'checkout.session.completed',
+              data: {
+                object: {
+                  id: sessionIdParam,
+                  payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
+                  metadata: {
+                    type: 'SAAS',
+                    teacher_id: session?.user?.id,
+                    plan_type: planTypeParam,
+                    price_amount: planTypeParam === 'ACADEMY' ? '399.00' : planTypeParam === 'GROWTH' ? '129.00' : '59.00'
+                  }
+                }
+              }
+            })
+          })
+        }
+        
+        alert('Seu plano foi atualizado com sucesso!')
+        window.history.replaceState({}, document.title, window.location.pathname)
+        window.location.reload()
+      }
+    }
+    if (session?.user?.id) {
+      handleBillingCallback()
+    }
+  }, [session])
+
+  const handleSwitchPlan = async (planName: string) => {
+    setSwitchingPlanName(planName)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const res = await fetch('/api/payments/saas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          action: 'saas_subscribe',
+          planType: planName,
+          source: 'settings'
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.isMock) {
+          alert(`Inscrição simulada com sucesso no plano ${planName}! Concedendo benefícios...`)
+          await fetch('/api/payments/webhook', {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'checkout.session.completed',
+              data: {
+                object: {
+                  id: data.session_id,
+                  payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
+                  metadata: {
+                    type: 'SAAS',
+                    teacher_id: session?.user?.id,
+                    plan_type: planName,
+                    price_amount: planName === 'ACADEMY' ? '399.00' : planName === 'GROWTH' ? '129.00' : '59.00'
+                  }
+                }
+              }
+            })
+          })
+          window.location.reload()
+        } else if (data.url) {
+          window.location.href = data.url
+        }
+      } else {
+        const err = await res.json()
+        alert('Erro ao mudar de plano: ' + (err.error || 'Erro desconhecido'))
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert('Erro ao processar alteração de plano: ' + err.message)
+    } finally {
+      setSwitchingPlanName(null)
+    }
+  }
 
   useEffect(() => {
     const checkGoogleConnection = async () => {
@@ -120,15 +251,83 @@ export default function Settings() {
         {/* Assinatura */}
         <section className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Assinatura Atual</h3>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="mb-4 sm:mb-0">
-               <p className="text-primary-700 font-bold bg-primary-50 border border-primary-100 px-3 py-1 rounded inline-block mb-2">Plano Premium (Ativo)</p>
-               <p className="text-sm text-slate-500">Você já consumiu <span className="font-semibold text-slate-700">400</span> de 1000 minutos de processamento de AI este mês.</p>
+          {loadingPlan || loadingPlans ? (
+            <div className="flex items-center gap-2 py-4">
+              <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+              <span className="text-sm font-semibold text-slate-450">Buscando assinatura...</span>
             </div>
-            <button className="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm justify-center flex items-center">
-              Gerenciar no Stripe
-            </button>
-          </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="mb-2 sm:mb-0 text-slate-800">
+                   <p className="text-indigo-700 font-bold bg-indigo-50 border border-indigo-100 px-3 py-1 rounded inline-block mb-2 text-xs">
+                     Plano {activePlan?.name || 'STARTER'} (Ativo)
+                   </p>
+                   <p className="text-sm text-slate-500">
+                     Você já consumiu <span className="font-semibold text-slate-700">{wallet?.credits_consumed || 0}</span> de <span className="font-semibold text-slate-700">{wallet?.monthly_allocation || activePlan?.included_credits || 8000}</span> créditos de IA este mês.
+                   </p>
+                   <p className="text-xs text-slate-400 mt-1 font-semibold">
+                     Limite de alunos ativos: {activePlan?.student_limit || 10} assentos.
+                   </p>
+                </div>
+                <button 
+                  onClick={() => navigate('/dashboard/finance')}
+                  className="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm justify-center flex items-center text-sm"
+                >
+                  Ver no Centro Financeiro
+                </button>
+              </div>
+
+              {/* Mudar Plano */}
+              <div className="border-t border-slate-100 pt-5 space-y-4">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Alterar Plano de Assinatura</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {plans.map((p) => {
+                    const isCurrent = activePlan?.name === p.name
+                    return (
+                      <div key={p.name} className={`p-4 rounded-xl border flex flex-col justify-between min-h-[180px] text-slate-800 ${
+                        isCurrent ? 'border-indigo-500 bg-indigo-50/15' : 'border-slate-200'
+                      }`}>
+                        <div>
+                          <div className="flex justify-between items-start">
+                            <span className="text-xs font-bold text-slate-800">{p.name}</span>
+                            {isCurrent && (
+                              <span className="text-[9px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full uppercase tracking-wider">Ativo</span>
+                            )}
+                          </div>
+                          <div className="mt-2">
+                            <span className="text-xl font-black text-slate-900">${Number(p.price).toFixed(0)}</span>
+                            <span className="text-[10px] font-bold text-slate-500">/mês</span>
+                          </div>
+                          <ul className="mt-3 space-y-1 text-[10px] text-slate-500 font-semibold">
+                            <li>• Limite de {p.student_limit} alunos</li>
+                            <li>• {p.included_credits.toLocaleString()} créditos de IA</li>
+                          </ul>
+                        </div>
+
+                        {!isCurrent && (
+                          <button
+                            onClick={() => handleSwitchPlan(p.name)}
+                            disabled={switchingPlanName !== null}
+                            className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-[10px] transition-all flex items-center justify-center gap-1 mt-4"
+                          >
+                            {switchingPlanName === p.name ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <>
+                                <span>Mudar para {p.name}</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Notificações WhatsApp */}

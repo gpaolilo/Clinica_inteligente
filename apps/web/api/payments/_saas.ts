@@ -20,7 +20,7 @@ export default async function handler(req: any, res: any) {
       return res.status(401).json({ error: 'Unauthorized: Invalid token' })
     }
 
-    const { action, planType, creditPack } = req.body
+    const { action, planType, creditPack, source } = req.body
 
     if (action !== 'saas_subscribe' && action !== 'purchase_credits') {
       return res.status(400).json({ error: 'Invalid action parameter' })
@@ -56,8 +56,16 @@ export default async function handler(req: any, res: any) {
     }
 
     const baseUrl = process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'
-    const successUrl = `${baseUrl}/dashboard/finance?billing=success`
-    const cancelUrl = `${baseUrl}/dashboard/finance?billing=cancel`
+    let successUrl = `${baseUrl}/dashboard/finance?billing=success`
+    let cancelUrl = `${baseUrl}/dashboard/finance?billing=cancel`
+
+    if (source === 'onboarding') {
+      successUrl = `${baseUrl}/onboarding?billing=success`
+      cancelUrl = `${baseUrl}/onboarding?billing=cancel`
+    } else if (source === 'settings') {
+      successUrl = `${baseUrl}/dashboard/settings?billing=success`
+      cancelUrl = `${baseUrl}/dashboard/settings?billing=cancel`
+    }
 
     // --- Action 1: SaaS Subscription ---
     if (action === 'saas_subscribe') {
@@ -123,9 +131,9 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({ url: session.url })
       } catch (err: any) {
         console.error('Stripe SaaS Session Error:', err)
-        // Mock fallback for local dev
         const mockSessionId = 'saas_sess_' + Math.random().toString(36).substring(2, 10)
-        const mockUrl = `${baseUrl}/dashboard/finance?billing=success_mock&plan_type=${plan}&session_id=${mockSessionId}`
+        const redirectParam = source === 'onboarding' ? 'onboarding' : source === 'settings' ? 'dashboard/settings' : 'dashboard/finance'
+        const mockUrl = `${baseUrl}/${redirectParam}?billing=success_mock&plan_type=${plan}&session_id=${mockSessionId}`
         
         await supabaseAdmin
           .from('payments')

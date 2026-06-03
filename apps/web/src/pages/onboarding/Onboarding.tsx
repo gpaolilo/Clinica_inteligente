@@ -14,6 +14,7 @@ import {
 
 type OnboardingStep = 
   | 'welcome' 
+  | 'plan'
   | 'identity' 
   | 'personality' 
   | 'preset' 
@@ -25,6 +26,7 @@ type OnboardingStep =
 
 const STEPS_ORDER: OnboardingStep[] = [
   'welcome',
+  'plan',
   'identity',
   'personality',
   'preset',
@@ -37,6 +39,7 @@ const STEPS_ORDER: OnboardingStep[] = [
 
 const STEPS_META = [
   { id: 'welcome', label: 'Início' },
+  { id: 'plan', label: 'Plano' },
   { id: 'identity', label: 'Nome' },
   { id: 'personality', label: 'Estilo' },
   { id: 'preset', label: 'Preset' },
@@ -92,6 +95,79 @@ export default function Onboarding() {
 
   const [publishing, setPublishing] = useState(false)
   const [connectingStripe, setConnectingStripe] = useState(false)
+  
+  const [plans, setPlans] = useState<any[]>([])
+  const [loadingPlans, setLoadingPlans] = useState(true)
+  const [subscribingSaaS, setSubscribingSaaS] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const { data } = await supabase
+          .from('plans')
+          .select('*')
+          .eq('active', true)
+          .order('price', { ascending: true })
+        if (data && data.length > 0) {
+          setPlans(data)
+        } else {
+          setPlans([
+            { name: 'STARTER', price: 59.00, student_limit: 10, included_credits: 8000 },
+            { name: 'GROWTH', price: 129.00, student_limit: 25, included_credits: 20000 },
+            { name: 'ACADEMY', price: 399.00, student_limit: 100, included_credits: 80000 }
+          ])
+        }
+      } catch (err) {
+        console.error('Error fetching plans:', err)
+        setPlans([
+          { name: 'STARTER', price: 59.00, student_limit: 10, included_credits: 8000 },
+          { name: 'GROWTH', price: 129.00, student_limit: 25, included_credits: 20000 },
+          { name: 'ACADEMY', price: 399.00, student_limit: 100, included_credits: 80000 }
+        ])
+      } finally {
+        setLoadingPlans(false)
+      }
+    }
+    fetchPlans()
+  }, [])
+
+  const handleSubscribePlan = async (planName: string) => {
+    setSubscribingSaaS(planName)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const res = await fetch('/api/payments/saas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          action: 'saas_subscribe',
+          planType: planName,
+          source: 'onboarding'
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.url) {
+          window.location.href = data.url
+        } else {
+          alert('Erro ao obter link de checkout.')
+        }
+      } else {
+        const err = await res.json()
+        alert('Erro: ' + (err.error || 'Erro desconhecido'))
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert('Erro ao processar assinatura: ' + err.message)
+    } finally {
+      setSubscribingSaaS(null)
+    }
+  }
   const [isFinalizing, setIsFinalizing] = useState(false)
   const callbackProcessed = React.useRef(false)
 
@@ -139,7 +215,7 @@ export default function Onboarding() {
           // 2. Mark progress completed
           await supabase.from('onboarding_progress').upsert({
             teacher_id: user.id,
-            step: 9,
+            step: 10,
             completed: true
           }, { onConflict: 'teacher_id' })
 
@@ -154,10 +230,89 @@ export default function Onboarding() {
         }
       } else if (stripeParam === 'refresh') {
         callbackProcessed.current = true
-        setCurrentStepIndex(8)
+        setCurrentStepIndex(9)
       }
     }
     checkStripeCallback()
+  }, [user])
+
+  // SaaS plan billing success callback handler
+  useEffect(() => {
+    const checkBillingCallback = async () => {
+      if (!user || callbackProcessed.current) return
+      const queryParams = new URLSearchParams(window.location.search)
+      const billingParam = queryParams.get('billing')
+      
+      if (billingParam === 'success' || billingParam === 'success_mock') {
+        callbackProcessed.current = true
+        setIsFinalizing(true)
+        try {
+          if (billingParam === 'success_mock') {
+            const planTypeParam = queryParams.get('plan_type') || 'STARTER'
+            const sessionIdParam = queryParams.get('session_id') || ('saas_sess_' + Math.random().toString(36).substring(2, 10))
+            
+            // Trigger local mock webhook
+            await fetch('/api/payments/webhook', {
+              method: 'POST',
+              body: JSON.stringify({
+                type: 'checkout.session.completed',
+                data: {
+                  object: {
+                    id: sessionIdParam,
+                    payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
+                    metadata: {
+                      type: 'SAAS',
+                      teacher_id: user.id,
+                      plan_type: planTypeParam,
+                      price_amount: planTypeParam === 'ACADEMY' ? '399.00' : planTypeParam === 'GROWTH' ? '129.00' : '59.00'
+                    }
+                  }
+                }
+              })
+            })
+          }
+
+          // Poll to check if the plan has been updated in the DB
+          let attempts = 0
+          let planUpdated = false
+          while (attempts < 8) {
+            const { data: psychologist } = await supabase
+              .from('psychologists')
+              .select('plan_type, plan_id')
+              .eq('id', user.id)
+              .maybeSingle()
+
+            if (psychologist?.plan_type) {
+              planUpdated = true
+              break
+            }
+            // Wait 1.5 seconds before retrying
+            await new Promise(resolve => setTimeout(resolve, 1500))
+            attempts++
+          }
+
+          if (planUpdated) {
+            // Save progress (step 3 is index 2, which is 'identity')
+            await supabase.from('onboarding_progress').upsert({
+              teacher_id: user.id,
+              step: 3,
+              completed: false
+            }, { onConflict: 'teacher_id' })
+
+            setCurrentStepIndex(2) // Move to identity step
+          } else {
+            alert('Aguardando confirmação de pagamento do Stripe. Se o pagamento foi concluído, por favor recarregue a página.')
+          }
+        } catch (err) {
+          console.error('Error handling billing callback:', err)
+        } finally {
+          setIsFinalizing(false)
+          // Clean query params
+          window.history.replaceState({}, document.title, window.location.pathname)
+        }
+      }
+    }
+    checkBillingCallback()
   }, [user])
 
   // Load existing onboarding draft if it exists
@@ -372,10 +527,10 @@ export default function Onboarding() {
         throw new Error('Erro ao salvar perfil: ' + profileError.message)
       }
 
-      // 2. Marcar progresso concluído na etapa 8
+      // 2. Marcar progresso concluído na etapa 9
       const { error: progressError } = await supabase.from('onboarding_progress').upsert({
         teacher_id: user.id,
-        step: 8,
+        step: 9,
         completed: false
       }, { onConflict: 'teacher_id' })
 
@@ -386,7 +541,7 @@ export default function Onboarding() {
       // 3. Atualizar context global de branding
       await refreshBranding()
       setPublishing(false)
-      setCurrentStepIndex(8)
+      setCurrentStepIndex(9)
     } catch (err: any) {
       alert('Erro ao publicar academia: ' + err.message)
       setPublishing(false)
@@ -439,7 +594,7 @@ export default function Onboarding() {
 
       await supabase.from('onboarding_progress').upsert({
         teacher_id: user.id,
-        step: 9,
+        step: 10,
         completed: true
       }, { onConflict: 'teacher_id' })
       
@@ -582,6 +737,94 @@ export default function Onboarding() {
                       <span>Iniciar Configuração</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
+                  </motion.div>
+                )}
+
+                {currentStep === 'plan' && (
+                  <motion.div
+                    key="plan"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
+                  >
+                    <div>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Escolha o seu plano 🚀</h2>
+                      <p className="text-slate-500 text-xs mt-1.5 font-semibold">Assine um plano premium para habilitar sua própria marca e começar a dar aulas.</p>
+                    </div>
+
+                    {loadingPlans ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3">
+                        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                        <span className="text-xs font-semibold text-slate-450">Carregando planos de assinatura...</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {plans.map((p) => {
+                          const isGrowth = p.name === 'GROWTH'
+                          const isAcademy = p.name === 'ACADEMY'
+                          
+                          let planColorClass = 'border-slate-200 bg-white/50'
+                          if (isGrowth) planColorClass = 'border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-500/10'
+                          if (isAcademy) planColorClass = 'border-slate-850 bg-slate-900 text-white'
+
+                          return (
+                            <div key={p.name} className={`p-5 rounded-2xl border flex flex-col justify-between min-h-[260px] relative transition-all ${planColorClass}`}>
+                              {isGrowth && (
+                                <span className="absolute -top-2.5 right-4 bg-indigo-600 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Mais Popular</span>
+                              )}
+                              
+                              <div>
+                                <span className={`text-[10px] font-black uppercase tracking-wider ${isAcademy ? 'text-slate-400' : 'text-slate-455'}`}>{p.name}</span>
+                                <div className="mt-2.5 flex items-baseline">
+                                  <span className="text-2xl font-black">${Number(p.price).toFixed(0)}</span>
+                                  <span className={`text-[10px] font-semibold ml-1 ${isAcademy ? 'text-slate-400' : 'text-slate-500'}`}>/mês</span>
+                                </div>
+
+                                <ul className="mt-5 space-y-2 text-[10px] font-bold">
+                                  <li className="flex items-center gap-1.5">
+                                    <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[3]" />
+                                    Limite de {p.student_limit} alunos
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[3]" />
+                                    {p.included_credits.toLocaleString()} créditos de IA
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[3]" />
+                                    Portal White-Label
+                                  </li>
+                                </ul>
+                              </div>
+
+                              <button
+                                onClick={() => handleSubscribePlan(p.name)}
+                                disabled={subscribingSaaS !== null}
+                                className={`w-full py-2.5 rounded-xl text-[10px] font-black transition-all mt-6 flex items-center justify-center gap-1.5 border ${
+                                  isAcademy 
+                                    ? 'bg-white text-slate-900 border-white hover:bg-slate-100' 
+                                    : 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
+                                }`}
+                              >
+                                {subscribingSaaS === p.name ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <span>Assinar e Avançar</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4 border-t border-slate-100 justify-between items-center text-slate-500 text-xs">
+                      <button onClick={handlePrev} className="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <span className="text-[10px] font-bold uppercase text-slate-400 text-right">Ambiente de Checkout Seguro</span>
+                    </div>
                   </motion.div>
                 )}
 

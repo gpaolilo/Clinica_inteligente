@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { 
@@ -10,6 +10,7 @@ import {
 type SignupStep = 1 | 2 | 3 // 1: Basic Account, 2: Academy Context, 3: Success Screen
 
 export default function Register() {
+  const navigate = useNavigate()
   const [step, setStep] = useState<SignupStep>(1)
   
   // Basic Fields
@@ -124,7 +125,7 @@ export default function Register() {
           website: website || null,
           challenge: challenge,
           current_tools: currentTools,
-          status: 'PENDING'
+          status: 'APPROVED'
         }, {
           onConflict: 'email'
         })
@@ -133,7 +134,9 @@ export default function Register() {
         throw new Error(insertError.message)
       }
 
-      setStep(3)
+      setTimeout(() => {
+        navigate('/onboarding')
+      }, 500)
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro no cadastro.')
     } finally {
@@ -290,9 +293,9 @@ export default function Register() {
                   <div className="flex justify-center lg:justify-start mb-6">
                     <img src="/Flowike_logo_transparent.png" alt="Flowike" className="h-10 object-contain" />
                   </div>
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">Request access</h2>
+                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">Crie sua conta</h2>
                   <p className="text-slate-550 font-semibold mt-2 text-sm leading-relaxed">
-                    Comece configurando seus dados de conta para entrar na fila.
+                    Comece configurando seus dados de conta para iniciar sua academia.
                   </p>
                 </div>
 
@@ -512,7 +515,7 @@ export default function Register() {
                       disabled={loading}
                       className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 hover:-translate-y-0.5 flex justify-center items-center gap-1.5 text-sm"
                     >
-                      {loading ? 'Processando...' : 'Solicitar Acesso'}
+                      {loading ? 'Processando...' : 'Criar Academia e Começar'}
                     </button>
                   </div>
                 </form>

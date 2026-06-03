@@ -6,13 +6,15 @@ import { supabase } from '../../lib/supabase'
 import { uploadTenantAsset, BrandSettings } from '../../lib/brandingService'
 import { brandingPresets } from '../../components/branding/DesignPresetSelector'
 import { BrandingPreviewPanel } from '../../components/branding/BrandingPreviewPanel'
+import { Link, useNavigate } from 'react-router-dom'
 import { 
   Check, GraduationCap, Tag, FileText, ArrowRight, 
   Upload, Rocket, Compass, Heart, Award, Loader2,
-  CreditCard
+  CreditCard, Globe, BookOpen, Users, Link2, ShieldAlert
 } from 'lucide-react'
 
 type OnboardingStep = 
+  | 'register'
   | 'welcome' 
   | 'plan'
   | 'identity' 
@@ -25,6 +27,7 @@ type OnboardingStep =
   | 'connect_payments'
 
 const STEPS_ORDER: OnboardingStep[] = [
+  'register',
   'welcome',
   'plan',
   'identity',
@@ -38,9 +41,10 @@ const STEPS_ORDER: OnboardingStep[] = [
 ]
 
 const STEPS_META = [
+  { id: 'register', label: 'Cadastro' },
   { id: 'welcome', label: 'Início' },
   { id: 'plan', label: 'Plano' },
-  { id: 'identity', label: 'Nome' },
+  { id: 'identity', label: 'Identidade' },
   { id: 'personality', label: 'Estilo' },
   { id: 'preset', label: 'Preset' },
   { id: 'colors', label: 'Cores' },
@@ -48,6 +52,41 @@ const STEPS_META = [
   { id: 'preview', label: 'Preview' },
   { id: 'launch', label: 'Lançar' },
   { id: 'connect_payments', label: 'Pagamentos' }
+]
+
+const TEACHING_AREA_OPTIONS = [
+  { value: 'English', label: 'Inglês' },
+  { value: 'Spanish', label: 'Espanhol' },
+  { value: 'Music', label: 'Música' },
+  { value: 'Coaching', label: 'Coaching' },
+  { value: 'Tutoring', label: 'Reforço Escolar' },
+  { value: 'Business Education', label: 'Educação Executiva' },
+  { value: 'Test Preparation', label: 'Preparação para Provas' },
+  { value: 'Other', label: 'Outro' }
+]
+
+const STUDENT_COUNT_OPTIONS = [
+  { value: '1-10', label: '1 a 10 alunos' },
+  { value: '11-30', label: '11 a 30 alunos' },
+  { value: '31-100', label: '31 a 100 alunos' },
+  { value: '100+', label: 'Mais de 100 alunos' }
+]
+
+const CURRENT_TOOLS_OPTIONS = [
+  { value: 'WhatsApp', label: 'WhatsApp' },
+  { value: 'Planilhas', label: 'Planilhas (Excel/Sheets)' },
+  { value: 'Google Agenda', label: 'Google Agenda' },
+  { value: 'Plataforma LMS', label: 'Plataforma LMS (Hotmart/Moodle)' },
+  { value: 'Múltiplas Ferramentas', label: 'Várias ferramentas juntas' }
+]
+
+const CHALLENGE_OPTIONS = [
+  { value: 'Criação de tarefas', label: 'Criação de dever de casa / tarefas' },
+  { value: 'Organização de alunos', label: 'Organização e controle de alunos' },
+  { value: 'Agendamento', label: 'Agendamento e aulas marcadas' },
+  { value: 'Controle de pagamentos', label: 'Controle financeiro e cobranças' },
+  { value: 'Engajamento de alunos', label: 'Manter alunos motivados' },
+  { value: 'Escalar meu negócio', label: 'Escalar meu negócio de ensino' }
 ]
 
 const TEACHING_PERSONALITIES = [
@@ -72,6 +111,24 @@ export default function Onboarding() {
   const [academyDescription, setAcademyDescription] = useState('')
   const [teachingStyle, setTeachingStyle] = useState('')
   const [designPreset, setDesignPreset] = useState('Minimal')
+
+  const navigate = useNavigate()
+  const { onboardingCompleted } = useAuthStore()
+
+  // Register step states
+  const [regName, setRegName] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regLoading, setRegLoading] = useState(false)
+  const [regError, setRegError] = useState<string | null>(null)
+
+  // Questionnaire states
+  const [country, setCountry] = useState('')
+  const [teachingArea, setTeachingArea] = useState('')
+  const [studentCount, setStudentCount] = useState('')
+  const [website, setWebsite] = useState('')
+  const [currentTools, setCurrentTools] = useState('')
+  const [challenge, setChallenge] = useState('')
   
   // Branding settings matching BrandSettings
   const [settings, setSettings] = useState<BrandSettings>({
@@ -212,10 +269,10 @@ export default function Onboarding() {
             is_published: true
           }, { onConflict: 'teacher_id' })
 
-          // 2. Mark progress completed
+          // 2. Mark progress completed (step 11 corresponds to step count under 11-step onboarding order)
           await supabase.from('onboarding_progress').upsert({
             teacher_id: user.id,
-            step: 10,
+            step: 11,
             completed: true
           }, { onConflict: 'teacher_id' })
 
@@ -230,7 +287,7 @@ export default function Onboarding() {
         }
       } else if (stripeParam === 'refresh') {
         callbackProcessed.current = true
-        setCurrentStepIndex(9)
+        setCurrentStepIndex(10)
       }
     }
     checkStripeCallback()
@@ -292,14 +349,14 @@ export default function Onboarding() {
           }
 
           if (planUpdated) {
-            // Save progress (step 3 is index 2, which is 'identity')
+            // Save progress (step 4 is index 3, which is 'identity')
             await supabase.from('onboarding_progress').upsert({
               teacher_id: user.id,
-              step: 3,
+              step: 4,
               completed: false
             }, { onConflict: 'teacher_id' })
 
-            setCurrentStepIndex(2) // Move to identity step
+            setCurrentStepIndex(3) // Move to identity step
           } else {
             alert('Aguardando confirmação de pagamento do Stripe. Se o pagamento foi concluído, por favor recarregue a página.')
           }
@@ -345,6 +402,26 @@ export default function Onboarding() {
           favicon_url: profile.favicon_url
         }))
 
+        // Load questionnaire fields if they exist
+        const { data: req } = await supabase
+          .from('teacher_signup_requests')
+          .select('*')
+          .eq('email', user.email)
+          .maybeSingle()
+
+        if (req) {
+          setCountry(req.country || '')
+          setTeachingArea(req.teaching_area || '')
+          if (req.student_count === 5) setStudentCount('1-10')
+          else if (req.student_count === 20) setStudentCount('11-30')
+          else if (req.student_count === 50) setStudentCount('31-100')
+          else if (req.student_count === 150) setStudentCount('100+')
+          
+          setWebsite(req.website || '')
+          setCurrentTools(req.current_tools || '')
+          setChallenge(req.challenge || '')
+        }
+
         // Load progress if any
         const { data: progress } = await supabase
           .from('onboarding_progress')
@@ -353,13 +430,45 @@ export default function Onboarding() {
           .maybeSingle()
 
         if (progress?.step) {
-          const stepIndex = Math.min(progress.step - 1, STEPS_ORDER.length - 1)
-          setCurrentStepIndex(stepIndex)
+          let stepIndex = progress.step - 1
+          
+          const { data: teacher } = await supabase
+            .from('psychologists')
+            .select('plan_type')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (teacher?.plan_type) {
+            // User has a plan. They should not see register (0), welcome (1), or plan (2).
+            if (stepIndex < 3) {
+              stepIndex = 3
+            } else {
+              if (!req?.country || !req?.teaching_area) {
+                stepIndex = 3
+              }
+            }
+          }
+          
+          setCurrentStepIndex(Math.min(stepIndex, STEPS_ORDER.length - 1))
         }
       }
     }
     loadExistingDraft()
   }, [user])
+
+  // Auto skip register if user is logged in
+  useEffect(() => {
+    if (user && currentStepIndex === 0) {
+      setCurrentStepIndex(1)
+    }
+  }, [user, currentStepIndex])
+
+  // Redirect to dashboard if onboarding is already completed
+  useEffect(() => {
+    if (user && onboardingCompleted) {
+      navigate('/dashboard')
+    }
+  }, [user, onboardingCompleted, navigate])
 
   const saveProgress = async (nextIdx: number) => {
     if (!user) return
@@ -401,11 +510,126 @@ export default function Onboarding() {
     setCurrentStepIndex(nextIdx)
   }
 
-  const handleNext = () => {
-    if (currentStep === 'identity' && !academyName) {
-      alert('Nome da academia é obrigatório.')
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!regName || !regEmail || !regPassword) {
+      setRegError('Por favor, preencha todos os campos.')
       return
     }
+    if (regPassword.length < 6) {
+      setRegError('A senha deve ter no mínimo 6 caracteres.')
+      return
+    }
+
+    setRegLoading(true)
+    setRegError(null)
+
+    try {
+      // 1. Sign up user
+      const { data: signUpData, error: authError } = await supabase.auth.signUp({
+        email: regEmail,
+        password: regPassword,
+        options: {
+          data: {
+            full_name: regName,
+            role: 'TEACHER'
+          }
+        }
+      })
+
+      if (authError) {
+        throw new Error(authError.message)
+      }
+
+      if (!signUpData.user) {
+        throw new Error('Erro ao criar usuário.')
+      }
+
+      // 2. Insert into teacher_signup_requests
+      const { data: existingReq } = await supabase
+        .from('teacher_signup_requests')
+        .select('id')
+        .eq('email', regEmail)
+        .maybeSingle()
+
+      if (!existingReq) {
+        const { error: insertError } = await supabase
+          .from('teacher_signup_requests')
+          .insert({
+            full_name: regName,
+            email: regEmail,
+            academy_name: 'Minha Academia', // placeholder to satisfy NOT NULL schema constraint
+            country: 'Brasil',
+            teaching_area: 'English',
+            student_count: 5,
+            status: 'APPROVED'
+          })
+
+        if (insertError) {
+          throw new Error(insertError.message)
+        }
+      }
+
+      setCurrentStepIndex(1) // Move to welcome step
+    } catch (err: any) {
+      setRegError(err.message || 'Erro ao realizar o cadastro.')
+    } finally {
+      setRegLoading(false)
+    }
+  }
+
+  const handleNext = async () => {
+    if (currentStep === 'identity') {
+      if (!academyName) {
+        alert('Nome da academia é obrigatório.')
+        return
+      }
+      if (!country) {
+        alert('País é obrigatório.')
+        return
+      }
+      if (!teachingArea) {
+        alert('Área de ensino é obrigatória.')
+        return
+      }
+      if (!studentCount) {
+        alert('Quantidade de alunos é obrigatória.')
+        return
+      }
+      if (!currentTools) {
+        alert('Como você gerencia seus alunos é obrigatório.')
+        return
+      }
+      if (!challenge) {
+        alert('Seu maior desafio é obrigatório.')
+        return
+      }
+
+      if (!user) return
+
+      // Update teacher_signup_requests
+      const mappedStudentCount = studentCount === '1-10' ? 5 : studentCount === '11-30' ? 20 : studentCount === '31-100' ? 50 : 150
+      
+      const { error: updateError } = await supabase
+        .from('teacher_signup_requests')
+        .update({
+          academy_name: academyName,
+          country: country,
+          teaching_area: teachingArea,
+          student_count: mappedStudentCount,
+          website: website || null,
+          challenge: challenge,
+          current_tools: currentTools
+        })
+        .eq('email', user.email)
+
+      if (updateError) {
+        console.error('Error updating signup requests:', updateError)
+        alert('Erro ao salvar dados adicionais: ' + updateError.message)
+        return
+      }
+    }
+    
     if (currentStep === 'personality' && !teachingStyle) {
       alert('Selecione uma personalidade de ensino.')
       return
@@ -700,6 +924,93 @@ export default function Onboarding() {
           }`}>
             <div className={`w-full max-w-xl mx-auto space-y-6 ${!isSplitLayout ? 'max-w-2xl' : ''}`}>
               <AnimatePresence mode="wait">
+                {currentStep === 'register' && (
+                  <motion.div
+                    key="register"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full max-w-md mx-auto text-slate-800"
+                  >
+                    <div className="text-center">
+                      <div className="flex justify-center mb-6">
+                        <img src="/Flowike_logo_name_only.png" alt="Flowike" className="h-7 object-contain" />
+                      </div>
+                      <h2 className="text-2xl font-black text-slate-900 tracking-tight">Crie sua conta</h2>
+                      <p className="text-slate-550 font-semibold mt-2 text-xs">
+                        Comece configurando seus dados de conta para iniciar sua academia.
+                      </p>
+                    </div>
+
+                    {regError && (
+                      <div className="bg-rose-50 text-rose-800 border border-rose-200/60 p-4 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm animate-shake">
+                        <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                        <span>{regError}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-2 px-1 uppercase tracking-wider">Nome Completo</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Seu nome"
+                          className="w-full px-4.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all font-semibold placeholder-slate-400 text-sm"
+                          value={regName}
+                          onChange={(e) => setRegName(e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-2 px-1 uppercase tracking-wider">E-mail Profissional</label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="exemplo@flowike.com"
+                          className="w-full px-4.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all font-semibold placeholder-slate-400 text-sm"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-2 px-1 uppercase tracking-wider">Crie uma Senha</label>
+                        <input
+                          type="password"
+                          required
+                          placeholder="Mínimo 6 caracteres"
+                          className="w-full px-4.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all font-semibold placeholder-slate-400 text-sm"
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={regLoading}
+                        className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-4 px-6 rounded-2xl transition-all mt-4 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 hover:-translate-y-0.5 text-sm"
+                      >
+                        {regLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <span>Cadastrar e Continuar</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    <p className="mt-4 text-center text-xs font-semibold text-slate-500">
+                      Já tem conta?{' '}
+                      <Link to="/login" className="text-indigo-600 hover:text-indigo-500 font-bold border-b border-indigo-600/20 transition-colors pb-0.5 ml-1">
+                        Faça Login
+                      </Link>
+                    </p>
+                  </motion.div>
+                )}
+
                 {currentStep === 'welcome' && (
                   <motion.div
                     key="welcome"
@@ -756,7 +1067,7 @@ export default function Onboarding() {
                     {loadingPlans ? (
                       <div className="flex flex-col items-center justify-center py-12 gap-3">
                         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                        <span className="text-xs font-semibold text-slate-450">Carregando planos de assinatura...</span>
+                        <span className="text-xs font-semibold text-slate-455">Carregando planos de assinatura...</span>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -822,7 +1133,7 @@ export default function Onboarding() {
                     )}
 
                     <div className="flex gap-3 pt-4 border-t border-slate-100 justify-between items-center text-slate-500 text-xs">
-                      <button onClick={handlePrev} className="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
+                      <button onClick={handlePrev} className="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-655 font-bold text-xs rounded-xl transition-all shrink-0">Voltar</button>
                       <span className="text-[10px] font-bold uppercase text-slate-400 text-right">Ambiente de Checkout Seguro</span>
                     </div>
                   </motion.div>
@@ -837,39 +1148,115 @@ export default function Onboarding() {
                     className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
                     <div>
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Qual o nome da sua Academia?</h2>
-                      <p className="text-slate-500 text-xs mt-1.5 font-semibold">Escreva os detalhes básicos da sua plataforma.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Sobre sua Academia</h2>
+                      <p className="text-slate-505 text-xs mt-1.5 font-semibold">Escreva os detalhes da sua plataforma e conte-nos sobre sua demanda de ensino.</p>
                     </div>
 
                     <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
-                          <GraduationCap className="w-4 h-4 text-slate-400" />
-                          Nome da Academia
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Sarah AI English Academy"
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
-                          value={academyName}
-                          onChange={(e) => setAcademyName(e.target.value)}
-                        />
+                      {/* Grid 1: Name and Country */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                            <GraduationCap className="w-4 h-4 text-slate-400" />
+                            Nome da Academia
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Sarah AI English Academy"
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
+                            value={academyName}
+                            onChange={(e) => setAcademyName(e.target.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                            <Globe className="w-4 h-4 text-slate-400" />
+                            País
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: Brasil"
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
+                            value={country}
+                            onChange={(e) => setCountry(e.target.value)}
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
-                          <Tag className="w-4 h-4 text-slate-400" />
-                          Slogan Curto / Tagline
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Business English para profissionais modernos"
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
-                          value={academyTagline}
-                          onChange={(e) => setAcademyTagline(e.target.value)}
-                        />
+                      {/* Grid 2: Teaching Area and Student Count */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                            <BookOpen className="w-4 h-4 text-slate-400" />
+                            Área de Ensino Principal
+                          </label>
+                          <select
+                            required
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold cursor-pointer"
+                            value={teachingArea}
+                            onChange={(e) => setTeachingArea(e.target.value)}
+                          >
+                            <option value="" disabled>Selecione...</option>
+                            {TEACHING_AREA_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                            <Users className="w-4 h-4 text-slate-400" />
+                            Quantidade de Alunos
+                          </label>
+                          <select
+                            required
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold cursor-pointer"
+                            value={studentCount}
+                            onChange={(e) => setStudentCount(e.target.value)}
+                          >
+                            <option value="" disabled>Selecione...</option>
+                            {STUDENT_COUNT_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
+                      {/* Grid 3: Tagline and Website */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                            <Tag className="w-4 h-4 text-slate-400" />
+                            Slogan Curto / Tagline
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Business English para profissionais modernos"
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
+                            value={academyTagline}
+                            onChange={(e) => setAcademyTagline(e.target.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                            <Link2 className="w-4 h-4 text-slate-400" />
+                            Website ou Instagram (Opcional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Ex: instagram.com/sarah.english"
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400"
+                            value={website}
+                            onChange={(e) => setWebsite(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Description */}
                       <div>
                         <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider flex items-center gap-1.5">
                           <FileText className="w-4 h-4 text-slate-400" />
@@ -877,10 +1264,43 @@ export default function Onboarding() {
                         </label>
                         <textarea
                           placeholder="Foco em conversação prática, acelerando o desenvolvimento corporativo..."
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400 h-24 resize-none"
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold placeholder-slate-400 h-20 resize-none"
                           value={academyDescription}
                           onChange={(e) => setAcademyDescription(e.target.value)}
                         />
+                      </div>
+
+                      {/* Management and Challenge */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider">Como gerencia seus alunos hoje?</label>
+                          <select
+                            required
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold cursor-pointer"
+                            value={currentTools}
+                            onChange={(e) => setCurrentTools(e.target.value)}
+                          >
+                            <option value="" disabled>Selecione uma opção...</option>
+                            {CURRENT_TOOLS_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider">Maior desafio atual?</label>
+                          <select
+                            required
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-semibold cursor-pointer"
+                            value={challenge}
+                            onChange={(e) => setChallenge(e.target.value)}
+                          >
+                            <option value="" disabled>Selecione uma opção...</option>
+                            {CHALLENGE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
 

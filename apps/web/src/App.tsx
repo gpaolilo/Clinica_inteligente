@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import Login from './pages/Login'
-import Register from './pages/Register'
 import BrandStudioPage from './pages/BrandStudioPage'
 import { TenantThemeProvider } from './components/branding/TenantThemeProvider'
 
@@ -122,10 +121,10 @@ export default function App() {
         <Routes>
         {/* Rotas Públicas */}
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/register" element={<Navigate to="/onboarding" replace />} />
         
         {/* Rota de Onboarding e Status */}
-        <Route path="/onboarding" element={<TeacherOnlyGuard><Onboarding /></TeacherOnlyGuard>} />
+        <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/review-pending" element={<TeacherOnlyGuard><ReviewPending /></TeacherOnlyGuard>} />
         <Route path="/review-rejected" element={<TeacherOnlyGuard><ReviewRejected /></TeacherOnlyGuard>} />
         

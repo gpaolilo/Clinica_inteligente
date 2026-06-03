@@ -416,7 +416,7 @@ export default function Login() {
           <div className="text-center lg:text-left">
             {/* Logo */}
             <div className="flex justify-center lg:justify-start mb-6">
-              <img src="/Flowike_logo_transparent.png" alt="Flowike" className="h-10 object-contain" />
+              <img src="/Flowike_logo_name_only.png" alt="Flowike" className="h-7 object-contain" />
             </div>
             
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome back</h2>
@@ -540,7 +540,7 @@ export default function Login() {
           {view === 'LOGIN' && (
             <p className="mt-8 text-center lg:text-left text-sm font-semibold text-slate-450">
               Ainda não tem conta? <br className="lg:hidden" />
-              <Link to="/register" className="text-indigo-600 hover:text-indigo-500 font-bold border-b border-indigo-600/20 mt-1.5 inline-block transition-colors pb-0.5 ml-1 lg:ml-0">Cadastre-se para Começar</Link>
+              <Link to="/onboarding" className="text-indigo-600 hover:text-indigo-500 font-bold border-b border-indigo-600/20 mt-1.5 inline-block transition-colors pb-0.5 ml-1 lg:ml-0">Cadastre-se para Começar</Link>
             </p>
           )}
         </div>

@@ -113,25 +113,31 @@ export default function Register() {
         throw new Error(authError.message)
       }
 
-      const { error: insertError } = await supabase
+      const { data: existingReq } = await supabase
         .from('teacher_signup_requests')
-        .upsert({
-          full_name: name,
-          email: email,
-          academy_name: academyName,
-          country: country,
-          teaching_area: teachingArea,
-          student_count: studentCount === '1-10' ? 5 : studentCount === '11-30' ? 20 : studentCount === '31-100' ? 50 : 150,
-          website: website || null,
-          challenge: challenge,
-          current_tools: currentTools,
-          status: 'APPROVED'
-        }, {
-          onConflict: 'email'
-        })
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
 
-      if (insertError) {
-        throw new Error(insertError.message)
+      if (!existingReq) {
+        const { error: insertError } = await supabase
+          .from('teacher_signup_requests')
+          .insert({
+            full_name: name,
+            email: email,
+            academy_name: academyName,
+            country: country,
+            teaching_area: teachingArea,
+            student_count: studentCount === '1-10' ? 5 : studentCount === '11-30' ? 20 : studentCount === '31-100' ? 50 : 150,
+            website: website || null,
+            challenge: challenge,
+            current_tools: currentTools,
+            status: 'APPROVED'
+          })
+
+        if (insertError) {
+          throw new Error(insertError.message)
+        }
       }
 
       setTimeout(() => {

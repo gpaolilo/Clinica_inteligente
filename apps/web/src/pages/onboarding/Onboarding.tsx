@@ -490,7 +490,6 @@ export default function Onboarding() {
       {/* Onboarding Header / Progress */}
       <header className="bg-white/80 border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-20 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <img src="/Flowike_icon.png" alt="Flowike" className="w-8 h-8 object-contain" />
           <img src="/Flowike_logo_name_only.png" alt="Flowike Logo Name" className="h-5 object-contain" />
           <span className="bg-indigo-50 text-indigo-600 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-100/60 ml-1">Onboarding</span>
         </div>

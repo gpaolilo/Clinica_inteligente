@@ -155,7 +155,6 @@ export default function Register() {
         <div className="max-w-xl space-y-10 z-10 w-full">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <img src="/Flowike_icon.png" alt="Flowike" className="w-12 h-12 object-contain" />
               <img src="/Flowike_logo_name_only.png" alt="Flowike Logo Name" className="h-7 object-contain" />
             </div>
             

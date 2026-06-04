@@ -214,7 +214,7 @@ export default function Onboarding() {
       }
     }
     fetchPlans()
-  }, [])
+  }, [user])
 
   const handleSubscribePlan = async (planName: string) => {
     setSubscribingSaaS(planName)
@@ -872,10 +872,10 @@ export default function Onboarding() {
         throw new Error('Erro ao salvar perfil: ' + profileError.message)
       }
 
-      // 2. Marcar progresso concluído na etapa 9
+      // 2. Marcar progresso concluído na etapa 10
       const { error: progressError } = await supabase.from('onboarding_progress').upsert({
         teacher_id: user.id,
-        step: 9,
+        step: 10,
         completed: false
       }, { onConflict: 'teacher_id' })
 
@@ -886,7 +886,7 @@ export default function Onboarding() {
       // 3. Atualizar context global de branding
       await refreshBranding()
       setPublishing(false)
-      setCurrentStepIndex(9)
+      setCurrentStepIndex(10)
     } catch (err: any) {
       alert('Erro ao publicar academia: ' + err.message)
       setPublishing(false)

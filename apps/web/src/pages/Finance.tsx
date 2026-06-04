@@ -306,9 +306,12 @@ export default function Finance() {
         if (data.isMock) {
           alert(`Inscrição simulada com sucesso no plano ${plan}! Concedendo benefícios...`)
           // Simulate webhook completed locally
-          const rate = rates[selectedCurrency] || 1.0
-          const basePrice = plan === 'ACADEMY' ? 399.00 : plan === 'GROWTH' ? 129.00 : 59.00
-          const finalPrice = basePrice * rate
+          const finalPrice = data.price !== undefined ? Number(data.price) : (() => {
+            const rate = rates[selectedCurrency] || 1.0
+            const dbPlan = plans.find(p => p.name === plan.toUpperCase())
+            const basePrice = dbPlan ? Number(dbPlan.price) : (plan === 'ACADEMY' ? 399.00 : plan === 'GROWTH' ? 129.00 : 59.00)
+            return basePrice * rate
+          })()
 
           await fetch('/api/payments/webhook', {
             method: 'POST',
@@ -365,9 +368,12 @@ export default function Finance() {
         if (data.isMock) {
           alert(`Simulando compra do pacote de ${pack} créditos de IA...`)
           // Trigger local webhook mock
-          const rate = rates[selectedCurrency] || 1.0
-          const basePackPrice = pack === '50000' ? 149.00 : pack === '20000' ? 69.00 : 19.00
-          const finalPrice = basePackPrice * rate
+          const finalPrice = data.price !== undefined ? Number(data.price) : (() => {
+            const rate = rates[selectedCurrency] || 1.0
+            const dbPack = creditPackages.find(p => String(p.credits) === pack)
+            const basePackPrice = dbPack ? Number(dbPack.price) : (pack === '50000' ? 149.00 : pack === '20000' ? 69.00 : 19.00)
+            return basePackPrice * rate
+          })()
 
           await fetch('/api/payments/webhook', {
             method: 'POST',

@@ -84,10 +84,18 @@ export default function Settings() {
         if (billingParam === 'success_mock') {
           const planTypeParam = queryParams.get('plan_type') || 'STARTER'
           const sessionIdParam = queryParams.get('session_id') || ('saas_sess_' + Math.random().toString(36).substring(2, 10))
-          const currencyParam = (queryParams.get('currency') || 'usd').toLowerCase()
-          const rate = rates[currencyParam] || 1.0
-          const basePrice = planTypeParam === 'ACADEMY' ? 399.00 : planTypeParam === 'GROWTH' ? 129.00 : 59.00
-          const finalPrice = basePrice * rate
+          const priceParam = queryParams.get('price')
+          
+          let finalPrice = 0
+          if (priceParam) {
+            finalPrice = parseFloat(priceParam)
+          } else {
+            const dbPlan = plans.find(p => p.name === planTypeParam.toUpperCase())
+            const basePrice = dbPlan ? Number(dbPlan.price) : (planTypeParam === 'ACADEMY' ? 399.00 : planTypeParam === 'GROWTH' ? 129.00 : 59.00)
+            const currencyParam = (queryParams.get('currency') || 'usd').toLowerCase()
+            const rate = rates[currencyParam] || 1.0
+            finalPrice = basePrice * rate
+          }
           
           await fetch('/api/payments/webhook', {
             method: 'POST',
@@ -143,9 +151,12 @@ export default function Settings() {
         const data = await res.json()
         if (data.isMock) {
           alert(`Inscrição simulada com sucesso no plano ${planName}! Concedendo benefícios...`)
-          const rate = rates[selectedCurrency] || 1.0
-          const basePrice = planName === 'ACADEMY' ? 399.00 : planName === 'GROWTH' ? 129.05 : 59.00
-          const finalPrice = basePrice * rate
+          const finalPrice = data.price !== undefined ? Number(data.price) : (() => {
+            const rate = rates[selectedCurrency] || 1.0
+            const dbPlan = plans.find(p => p.name === planName.toUpperCase())
+            const basePrice = dbPlan ? Number(dbPlan.price) : (planName === 'ACADEMY' ? 399.00 : planName === 'GROWTH' ? 129.05 : 59.00)
+            return basePrice * rate
+          })()
 
           await fetch('/api/payments/webhook', {
             method: 'POST',

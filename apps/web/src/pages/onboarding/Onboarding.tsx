@@ -336,10 +336,18 @@ export default function Onboarding() {
           if (billingParam === 'success_mock') {
             const planTypeParam = queryParams.get('plan_type') || 'STARTER'
             const sessionIdParam = queryParams.get('session_id') || ('saas_sess_' + Math.random().toString(36).substring(2, 10))
-            const currencyParam = (queryParams.get('currency') || 'usd').toLowerCase()
-            const rate = rates[currencyParam] || 1.0
-            const basePrice = planTypeParam === 'ACADEMY' ? 399.00 : planTypeParam === 'GROWTH' ? 129.00 : 59.00
-            const finalPrice = basePrice * rate
+            const priceParam = queryParams.get('price')
+            
+            let finalPrice = 0
+            if (priceParam) {
+              finalPrice = parseFloat(priceParam)
+            } else {
+              const dbPlan = plans.find(p => p.name === planTypeParam.toUpperCase())
+              const basePrice = dbPlan ? Number(dbPlan.price) : (planTypeParam === 'ACADEMY' ? 399.00 : planTypeParam === 'GROWTH' ? 129.00 : 59.00)
+              const currencyParam = (queryParams.get('currency') || 'usd').toLowerCase()
+              const rate = rates[currencyParam] || 1.0
+              finalPrice = basePrice * rate
+            }
             
             // Trigger local mock webhook
             await fetch('/api/payments/webhook', {
@@ -745,7 +753,19 @@ export default function Onboarding() {
     }
     reader.readAsDataURL(file)
 
-    if (!tenantId) return
+    let activeTenantId = tenantId
+    if (!activeTenantId && user) {
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('owner_user_id', user.id)
+        .maybeSingle()
+      if (tenant) {
+        activeTenantId = tenant.id
+      }
+    }
+
+    if (!activeTenantId) return
     
     if (type === 'logo') {
       setLogoUploading(true)
@@ -754,7 +774,7 @@ export default function Onboarding() {
     }
 
     try {
-      const url = await uploadTenantAsset(tenantId, file, type)
+      const url = await uploadTenantAsset(activeTenantId, file, type)
       if (type === 'logo') {
         setLogoPreview(url)
         setSettings(prev => ({ ...prev, logo_url: url }))
@@ -771,10 +791,67 @@ export default function Onboarding() {
   }
 
   const handleLaunch = async () => {
-    if (!user || !tenantId) return
+    if (!user) return
     setPublishing(true)
 
     try {
+      let activeTenantId = tenantId
+      if (!activeTenantId) {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('owner_user_id', user.id)
+          .maybeSingle()
+        if (tenant) {
+          activeTenantId = tenant.id
+        }
+      }
+
+      // If still no tenantId, try creating one
+      if (!activeTenantId) {
+        const { data: psychologist } = await supabase
+          .from('psychologists')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!psychologist) {
+          await supabase.from('psychologists').insert([{
+            id: user.id,
+            full_name: user.user_metadata?.full_name || 'Sem Nome',
+            email: user.email || ''
+          }])
+        }
+
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('owner_user_id', user.id)
+          .maybeSingle()
+        
+        if (tenant) {
+          activeTenantId = tenant.id
+        } else {
+          const cleanName = user.user_metadata?.full_name || 'Sem Nome'
+          const cleanSlug = 'academy-' + user.id.substring(0, 8)
+          const { data: newTenant, error: newTenantErr } = await supabase
+            .from('tenants')
+            .insert([{
+              owner_user_id: user.id,
+              name: cleanName,
+              slug: cleanSlug,
+              status: 'PENDING'
+            }])
+            .select('id')
+            .single()
+          
+          if (newTenantErr) {
+            throw new Error('Não foi possível criar o tenant da sua academia: ' + newTenantErr.message)
+          }
+          activeTenantId = newTenant.id
+        }
+      }
+
       // 1. Salvar perfil como rascunho (ainda nao publicado para evitar redirecionamento precoce)
       const { error: profileError } = await supabase.from('academy_profiles').upsert({
         teacher_id: user.id,

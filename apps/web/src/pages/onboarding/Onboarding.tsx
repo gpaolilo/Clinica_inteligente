@@ -222,11 +222,17 @@ export default function Onboarding() {
       const { data: sessionData } = await supabase.auth.getSession()
       const token = sessionData.session?.access_token
 
+      if (!token) {
+        alert('Sessão não encontrada. Por favor, faça login ou confirme seu e-mail para continuar.')
+        setSubscribingSaaS(null)
+        return
+      }
+
       const res = await fetch('/api/payments/saas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           action: 'saas_subscribe',
@@ -614,6 +620,12 @@ export default function Onboarding() {
         if (insertError) {
           throw new Error(insertError.message)
         }
+      }
+
+      if (!signUpData.session) {
+        alert('Cadastro realizado! Um e-mail de confirmação foi enviado para ' + regEmail + '. Por favor, confirme seu e-mail para ativar sua conta e continuar.')
+        navigate('/login')
+        return
       }
 
       setCurrentStepIndex(1) // Move to welcome step

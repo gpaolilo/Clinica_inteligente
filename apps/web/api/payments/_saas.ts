@@ -18,7 +18,16 @@ export default async function handler(req: any, res: any) {
     const { data: { user: teacherUser }, error: authError } = await authClient.auth.getUser()
 
     if (authError || !teacherUser) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid token' })
+      const authHeader = req.headers.authorization
+      const token = authHeader ? authHeader.split(' ')[1] : ''
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
+      const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
+      
+      const debugInfo = `Details: ${authError?.message || 'No user found'}. Env: URL=${supabaseUrl ? supabaseUrl.substring(0, 15) + '...' : 'none'}, KeyLength=${supabaseKey ? supabaseKey.length : 0}. TokenLength=${token ? token.length : 0}`
+      
+      return res.status(401).json({ 
+        error: `Unauthorized: Invalid token (${debugInfo})` 
+      })
     }
 
     const { action, planType, creditPack, source, currency: reqCurrency = 'usd' } = req.body

@@ -20,6 +20,24 @@ export default function Settings() {
   const [loadingPlans, setLoadingPlans] = useState(true)
   const [switchingPlanName, setSwitchingPlanName] = useState<string | null>(null)
   const [wallet, setWallet] = useState<any>(null)
+  
+  const [rates, setRates] = useState<Record<string, number>>({ usd: 1.0, brl: 5.0, eur: 0.9 })
+  const [selectedCurrency, setSelectedCurrency] = useState<'usd' | 'brl' | 'eur'>('usd')
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const res = await fetch('/api/payments/rates')
+        if (res.ok) {
+          const data = await res.json()
+          setRates(data)
+        }
+      } catch (err) {
+        console.error('Error fetching rates:', err)
+      }
+    }
+    fetchRates()
+  }, [])
 
   useEffect(() => {
     const loadPlansAndWallet = async () => {
@@ -47,6 +65,16 @@ export default function Settings() {
     loadPlansAndWallet()
   }, [session])
 
+  const formatPrice = (usdPrice: number, curr: string) => {
+    const rate = rates[curr.toLowerCase()] || 1.0
+    const converted = usdPrice * rate
+    const formatter = new Intl.NumberFormat(curr === 'brl' ? 'pt-BR' : curr === 'eur' ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: curr.toUpperCase()
+    })
+    return formatter.format(converted)
+  }
+
   useEffect(() => {
     const handleBillingCallback = async () => {
       const queryParams = new URLSearchParams(window.location.search)
@@ -56,6 +84,10 @@ export default function Settings() {
         if (billingParam === 'success_mock') {
           const planTypeParam = queryParams.get('plan_type') || 'STARTER'
           const sessionIdParam = queryParams.get('session_id') || ('saas_sess_' + Math.random().toString(36).substring(2, 10))
+          const currencyParam = (queryParams.get('currency') || 'usd').toLowerCase()
+          const rate = rates[currencyParam] || 1.0
+          const basePrice = planTypeParam === 'ACADEMY' ? 399.00 : planTypeParam === 'GROWTH' ? 129.00 : 59.00
+          const finalPrice = basePrice * rate
           
           await fetch('/api/payments/webhook', {
             method: 'POST',
@@ -69,7 +101,7 @@ export default function Settings() {
                     type: 'SAAS',
                     teacher_id: session?.user?.id,
                     plan_type: planTypeParam,
-                    price_amount: planTypeParam === 'ACADEMY' ? '399.00' : planTypeParam === 'GROWTH' ? '129.00' : '59.00'
+                    price_amount: String(finalPrice)
                   }
                 }
               }
@@ -85,7 +117,7 @@ export default function Settings() {
     if (session?.user?.id) {
       handleBillingCallback()
     }
-  }, [session])
+  }, [session, rates])
 
   const handleSwitchPlan = async (planName: string) => {
     setSwitchingPlanName(planName)
@@ -102,7 +134,8 @@ export default function Settings() {
         body: JSON.stringify({
           action: 'saas_subscribe',
           planType: planName,
-          source: 'settings'
+          source: 'settings',
+          currency: selectedCurrency
         })
       })
 
@@ -110,6 +143,10 @@ export default function Settings() {
         const data = await res.json()
         if (data.isMock) {
           alert(`Inscrição simulada com sucesso no plano ${planName}! Concedendo benefícios...`)
+          const rate = rates[selectedCurrency] || 1.0
+          const basePrice = planName === 'ACADEMY' ? 399.00 : planName === 'GROWTH' ? 129.05 : 59.00
+          const finalPrice = basePrice * rate
+
           await fetch('/api/payments/webhook', {
             method: 'POST',
             body: JSON.stringify({
@@ -122,7 +159,7 @@ export default function Settings() {
                     type: 'SAAS',
                     teacher_id: session?.user?.id,
                     plan_type: planName,
-                    price_amount: planName === 'ACADEMY' ? '399.00' : planName === 'GROWTH' ? '129.00' : '59.00'
+                    price_amount: String(finalPrice)
                   }
                 }
               }
@@ -280,7 +317,24 @@ export default function Settings() {
 
               {/* Mudar Plano */}
               <div className="border-t border-slate-100 pt-5 space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Alterar Plano de Assinatura</h4>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Alterar Plano de Assinatura</h4>
+                  <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+                    {(['usd', 'brl', 'eur'] as const).map((curr) => (
+                      <button
+                        key={curr}
+                        onClick={() => setSelectedCurrency(curr)}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase ${
+                          selectedCurrency === curr
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        {curr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {plans.map((p) => {
                     const isCurrent = activePlan?.name === p.name
@@ -296,7 +350,7 @@ export default function Settings() {
                             )}
                           </div>
                           <div className="mt-2">
-                            <span className="text-xl font-black text-slate-900">${Number(p.price).toFixed(0)}</span>
+                            <span className="text-xl font-black text-slate-900">{formatPrice(Number(p.price), selectedCurrency)}</span>
                             <span className="text-[10px] font-bold text-slate-500">/mês</span>
                           </div>
                           <ul className="mt-3 space-y-1 text-[10px] text-slate-500 font-semibold">

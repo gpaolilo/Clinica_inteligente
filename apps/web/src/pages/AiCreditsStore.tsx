@@ -11,6 +11,35 @@ export default function AiCreditsStore() {
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<any[]>([])
   const [purchasing, setPurchasing] = useState<string | null>(null)
+  
+  const [creditPackages, setCreditPackages] = useState<any[]>([])
+  const [rates, setRates] = useState<Record<string, number>>({ usd: 1.0, brl: 5.0, eur: 0.9 })
+  const [selectedCurrency, setSelectedCurrency] = useState<'usd' | 'brl' | 'eur'>('usd')
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const res = await fetch('/api/payments/rates')
+        if (res.ok) {
+          const data = await res.json()
+          setRates(data)
+        }
+      } catch (err) {
+        console.error('Error fetching rates:', err)
+      }
+    }
+    fetchRates()
+  }, [])
+
+  const formatPrice = (usdPrice: number, curr: string) => {
+    const rate = rates[curr.toLowerCase()] || 1.0
+    const converted = usdPrice * rate
+    const formatter = new Intl.NumberFormat(curr === 'brl' ? 'pt-BR' : curr === 'eur' ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: curr.toUpperCase()
+    })
+    return formatter.format(converted)
+  }
 
   const fetchWalletDetails = async () => {
     if (!session?.user?.id) return
@@ -35,6 +64,16 @@ export default function AiCreditsStore() {
         .order('created_at', { ascending: false })
       
       setTransactions(txs || [])
+
+      // 3. Fetch credit packages
+      const { data: packsData } = await supabase
+        .from('credit_packages')
+        .select('*')
+        .eq('active', true)
+        .order('price', { ascending: true })
+      if (packsData) {
+        setCreditPackages(packsData)
+      }
     } catch (err) {
       console.error('Error fetching AI Wallet details:', err)
     } finally {
@@ -60,7 +99,8 @@ export default function AiCreditsStore() {
         },
         body: JSON.stringify({
           action: 'purchase_credits',
-          creditPack: pack
+          creditPack: pack,
+          currency: selectedCurrency
         })
       })
 
@@ -69,6 +109,10 @@ export default function AiCreditsStore() {
         if (data.isMock) {
           alert(`Simulando compra do pacote de ${pack} créditos de IA...`)
           // Trigger local webhook mock
+          const rate = rates[selectedCurrency] || 1.0
+          const basePackPrice = pack === '50000' ? 149.00 : pack === '20000' ? 69.00 : 19.00
+          const finalPrice = basePackPrice * rate
+
           await fetch('/api/payments/webhook', {
             method: 'POST',
             body: JSON.stringify({
@@ -81,7 +125,7 @@ export default function AiCreditsStore() {
                     type: 'CREDITS',
                     teacher_id: session?.user?.id,
                     credits_added: pack,
-                    price_amount: pack === '1500' ? '25' : pack === '5000' ? '75' : '10'
+                    price_amount: String(finalPrice)
                   }
                 }
               }
@@ -130,6 +174,21 @@ export default function AiCreditsStore() {
           </h1>
           <p className="text-slate-550 mt-1 text-sm font-medium">Compre e gerencie os créditos utilizados para alimentar os recursos de Inteligência Artificial.</p>
         </div>
+        <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 shrink-0 self-start sm:self-center">
+          {(['usd', 'brl', 'eur'] as const).map((curr) => (
+            <button
+              key={curr}
+              onClick={() => setSelectedCurrency(curr)}
+              className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase ${
+                selectedCurrency === curr
+                  ? 'bg-white text-slate-850 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {curr}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -157,38 +216,44 @@ export default function AiCreditsStore() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { id: '500', credits: 500, price: 10, value: '$0.02 / crédito' },
-                { id: '1500', credits: 1500, price: 25, value: '$0.016 / crédito' },
-                { id: '5000', credits: 5000, price: 75, value: '$0.015 / crédito' }
-              ].map(pack => (
-                <div key={pack.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between space-y-4">
-                  <div>
-                    <h4 className="font-extrabold text-slate-800 text-base">{pack.credits} Créditos</h4>
-                    <span className="text-[10px] text-slate-400 font-bold block mt-0.5">{pack.value}</span>
-                  </div>
+              {(creditPackages.length > 0 ? creditPackages : [
+                { id: '5000', name: 'Starter Pack', credits: 5000, price: 19.00 },
+                { id: '20000', name: 'Growth Pack', credits: 20000, price: 69.00 },
+                { id: '50000', name: 'Academy Pack', credits: 50000, price: 149.00 }
+              ]).map(pack => {
+                const creditsStr = String(pack.credits)
+                const pricePerCredit = Number(pack.price) / Number(pack.credits)
+                
+                return (
+                  <div key={pack.id || creditsStr} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between space-y-4">
+                    <div>
+                      <h4 className="font-extrabold text-slate-800 text-base">{pack.credits} Créditos</h4>
+                      <span className="text-[10px] text-slate-400 font-bold block mt-0.5 animate-fade-in">
+                        {pack.name || 'Pacote IA'} ({formatPrice(pricePerCredit, selectedCurrency)} / crédito)
+                      </span>
+                    </div>
 
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-slate-850">${pack.price}</span>
-                    <span className="text-[10px] text-slate-400 font-bold">USD</span>
-                  </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-black text-slate-850">{formatPrice(Number(pack.price), selectedCurrency)}</span>
+                    </div>
 
-                  <button
-                    onClick={() => handleBuyCredits(pack.id)}
-                    disabled={purchasing !== null}
-                    className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1 hover:-translate-y-0.5"
-                  >
-                    {purchasing === pack.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <span>Adquirir Pacote</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </div>
-              ))}
+                    <button
+                      onClick={() => handleBuyCredits(creditsStr)}
+                      disabled={purchasing !== null}
+                      className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1 hover:-translate-y-0.5"
+                    >
+                      {purchasing === creditsStr ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <span>Adquirir Pacote</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </div>
 

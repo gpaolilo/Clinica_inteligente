@@ -156,6 +156,34 @@ export default function Onboarding() {
   const [plans, setPlans] = useState<any[]>([])
   const [loadingPlans, setLoadingPlans] = useState(true)
   const [subscribingSaaS, setSubscribingSaaS] = useState<string | null>(null)
+  
+  const [rates, setRates] = useState<Record<string, number>>({ usd: 1.0, brl: 5.0, eur: 0.9 })
+  const [selectedCurrency, setSelectedCurrency] = useState<'usd' | 'brl' | 'eur'>('usd')
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const res = await fetch('/api/payments/rates')
+        if (res.ok) {
+          const data = await res.json()
+          setRates(data)
+        }
+      } catch (err) {
+        console.error('Error fetching rates:', err)
+      }
+    }
+    fetchRates()
+  }, [])
+
+  const formatPrice = (usdPrice: number, curr: string) => {
+    const rate = rates[curr.toLowerCase()] || 1.0
+    const converted = usdPrice * rate
+    const formatter = new Intl.NumberFormat(curr === 'brl' ? 'pt-BR' : curr === 'eur' ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: curr.toUpperCase()
+    })
+    return formatter.format(converted)
+  }
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -203,7 +231,8 @@ export default function Onboarding() {
         body: JSON.stringify({
           action: 'saas_subscribe',
           planType: planName,
-          source: 'onboarding'
+          source: 'onboarding',
+          currency: selectedCurrency
         })
       })
 
@@ -307,6 +336,10 @@ export default function Onboarding() {
           if (billingParam === 'success_mock') {
             const planTypeParam = queryParams.get('plan_type') || 'STARTER'
             const sessionIdParam = queryParams.get('session_id') || ('saas_sess_' + Math.random().toString(36).substring(2, 10))
+            const currencyParam = (queryParams.get('currency') || 'usd').toLowerCase()
+            const rate = rates[currencyParam] || 1.0
+            const basePrice = planTypeParam === 'ACADEMY' ? 399.00 : planTypeParam === 'GROWTH' ? 129.00 : 59.00
+            const finalPrice = basePrice * rate
             
             // Trigger local mock webhook
             await fetch('/api/payments/webhook', {
@@ -321,7 +354,7 @@ export default function Onboarding() {
                       type: 'SAAS',
                       teacher_id: user.id,
                       plan_type: planTypeParam,
-                      price_amount: planTypeParam === 'ACADEMY' ? '399.00' : planTypeParam === 'GROWTH' ? '129.00' : '59.00'
+                      price_amount: String(finalPrice)
                     }
                   }
                 }
@@ -370,7 +403,7 @@ export default function Onboarding() {
       }
     }
     checkBillingCallback()
-  }, [user])
+  }, [user, rates])
 
   // Load existing onboarding draft if it exists
   useEffect(() => {
@@ -1070,9 +1103,26 @@ export default function Onboarding() {
                     exit={{ opacity: 0, y: -15 }}
                     className="bg-white/70 border border-slate-200/80 backdrop-blur-md p-8 sm:p-10 rounded-[32px] shadow-2xl shadow-slate-100/50 flex flex-col space-y-6 w-full text-slate-800"
                   >
-                    <div>
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Escolha o seu plano 🚀</h2>
-                      <p className="text-slate-500 text-xs mt-1.5 font-semibold">Assine um plano premium para habilitar sua própria marca e começar a dar aulas.</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Escolha o seu plano 🚀</h2>
+                        <p className="text-slate-500 text-xs mt-1.5 font-semibold">Assine um plano premium para habilitar sua própria marca e começar a dar aulas.</p>
+                      </div>
+                      <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-550/5 self-start sm:self-center shrink-0">
+                        {(['usd', 'brl', 'eur'] as const).map((curr) => (
+                          <button
+                            key={curr}
+                            onClick={() => setSelectedCurrency(curr)}
+                            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase ${
+                              selectedCurrency === curr
+                                ? 'bg-white text-slate-800 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                          >
+                            {curr}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {loadingPlans ? (
@@ -1099,7 +1149,7 @@ export default function Onboarding() {
                               <div>
                                 <span className={`text-[10px] font-black uppercase tracking-wider ${isAcademy ? 'text-slate-400' : 'text-slate-455'}`}>{p.name}</span>
                                 <div className="mt-2.5 flex items-baseline">
-                                  <span className="text-2xl font-black">${Number(p.price).toFixed(0)}</span>
+                                  <span className="text-2xl font-black">{formatPrice(Number(p.price), selectedCurrency)}</span>
                                   <span className={`text-[10px] font-semibold ml-1 ${isAcademy ? 'text-slate-400' : 'text-slate-500'}`}>/mês</span>
                                 </div>
 

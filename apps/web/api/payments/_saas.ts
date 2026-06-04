@@ -1,5 +1,6 @@
 import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 import Stripe from 'stripe'
+import { getExchangeRates } from './_rates.js'
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51MockSecretKey'
 const stripe = new Stripe(stripeSecretKey, {
@@ -20,11 +21,16 @@ export default async function handler(req: any, res: any) {
       return res.status(401).json({ error: 'Unauthorized: Invalid token' })
     }
 
-    const { action, planType, creditPack, source } = req.body
+    const { action, planType, creditPack, source, currency: reqCurrency = 'usd' } = req.body
 
     if (action !== 'saas_subscribe' && action !== 'purchase_credits') {
       return res.status(400).json({ error: 'Invalid action parameter' })
     }
+
+    // Fetch exchange rates and determine conversion rate
+    const currency = reqCurrency.toLowerCase()
+    const rates = await getExchangeRates()
+    const rate = rates[currency] || 1.0
 
     // 2. Fetch or create Stripe Customer for the teacher
     let { data: stripeCustomer } = await supabaseAdmin
@@ -86,7 +92,8 @@ export default async function handler(req: any, res: any) {
       }
 
       const plan = dbPlan.name
-      const planPrice = Number(dbPlan.price)
+      const planPriceUSD = Number(dbPlan.price)
+      const convertedPrice = planPriceUSD * rate
 
       const sessionConfig: Stripe.Checkout.SessionCreateParams = {
         customer: stripeCustomerId,
@@ -94,12 +101,12 @@ export default async function handler(req: any, res: any) {
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
-            currency: 'usd',
+            currency: currency,
             product_data: {
               name: `Flowike SaaS Plan - ${plan}`,
               description: `SaaS Subscription Plan for AI-powered teachers. Includes custom branding and booking features.`,
             },
-            unit_amount: Math.round(planPrice * 100),
+            unit_amount: Math.round(convertedPrice * 100),
             recurring: { interval: 'month' }
           },
           quantity: 1,
@@ -110,7 +117,7 @@ export default async function handler(req: any, res: any) {
           teacher_id: teacherUser.id,
           type: 'SAAS',
           plan_type: plan,
-          price_amount: String(planPrice)
+          price_amount: String(convertedPrice)
         }
       }
 
@@ -122,7 +129,7 @@ export default async function handler(req: any, res: any) {
           .insert([{
             payer_id: teacherUser.id,
             payee_id: null, // Goes to platform
-            amount: planPrice,
+            amount: convertedPrice,
             status: 'PENDING',
             type: 'SAAS',
             stripe_payment_intent_id: session.id
@@ -133,14 +140,14 @@ export default async function handler(req: any, res: any) {
         console.error('Stripe SaaS Session Error:', err)
         const mockSessionId = 'saas_sess_' + Math.random().toString(36).substring(2, 10)
         const redirectParam = source === 'onboarding' ? 'onboarding' : source === 'settings' ? 'dashboard/settings' : 'dashboard/finance'
-        const mockUrl = `${baseUrl}/${redirectParam}?billing=success_mock&plan_type=${plan}&session_id=${mockSessionId}`
+        const mockUrl = `${baseUrl}/${redirectParam}?billing=success_mock&plan_type=${plan}&session_id=${mockSessionId}&currency=${currency}`
         
         await supabaseAdmin
           .from('payments')
           .insert([{
             payer_id: teacherUser.id,
             payee_id: null,
-            amount: planPrice,
+            amount: convertedPrice,
             status: 'PENDING',
             type: 'SAAS',
             stripe_payment_intent_id: mockSessionId
@@ -153,7 +160,7 @@ export default async function handler(req: any, res: any) {
     // --- Action 2: Purchase AI Credits ---
     if (action === 'purchase_credits') {
       if (!creditPack) {
-        return res.status(400).json({ error: 'Credit pack size is required' })
+        return res.status(400).json({ error: 'credit pack size is required' })
       }
 
       // Fetch credit pack from database dynamically
@@ -168,7 +175,8 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: 'Invalid or inactive credit package' })
       }
 
-      const packPrice = Number(dbPack.price)
+      const packPriceUSD = Number(dbPack.price)
+      const convertedPrice = packPriceUSD * rate
       const creditsAdded = dbPack.credits
 
       const sessionConfig: Stripe.Checkout.SessionCreateParams = {
@@ -177,12 +185,12 @@ export default async function handler(req: any, res: any) {
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
-            currency: 'usd',
+            currency: currency,
             product_data: {
               name: `Flowike AI Pack - ${creditsAdded} Credits`,
               description: `Additional AI credits for generating homework, insights, and session reports.`,
             },
-            unit_amount: Math.round(packPrice * 100),
+            unit_amount: Math.round(convertedPrice * 100),
           },
           quantity: 1,
         }],
@@ -192,7 +200,7 @@ export default async function handler(req: any, res: any) {
           teacher_id: teacherUser.id,
           type: 'CREDITS',
           credits_added: String(creditsAdded),
-          price_amount: String(packPrice)
+          price_amount: String(convertedPrice)
         }
       }
 
@@ -204,7 +212,7 @@ export default async function handler(req: any, res: any) {
           .insert([{
             payer_id: teacherUser.id,
             payee_id: null, // Direct platform revenue
-            amount: packPrice,
+            amount: convertedPrice,
             status: 'PENDING',
             type: 'CREDITS',
             stripe_payment_intent_id: session.id
@@ -215,14 +223,14 @@ export default async function handler(req: any, res: any) {
         console.error('Stripe Credits Checkout Error:', err)
         // Mock fallback
         const mockSessionId = 'credits_sess_' + Math.random().toString(36).substring(2, 10)
-        const mockUrl = `${baseUrl}/dashboard/finance?billing=success_mock&credits=${creditsAdded}&session_id=${mockSessionId}`
+        const mockUrl = `${baseUrl}/dashboard/finance?billing=success_mock&credits=${creditsAdded}&session_id=${mockSessionId}&currency=${currency}`
         
         await supabaseAdmin
           .from('payments')
           .insert([{
             payer_id: teacherUser.id,
             payee_id: null,
-            amount: packPrice,
+            amount: convertedPrice,
             status: 'PENDING',
             type: 'CREDITS',
             stripe_payment_intent_id: mockSessionId

@@ -57,6 +57,36 @@ export default function Finance() {
   const [aiWalletBalance, setAiWalletBalance] = useState(0)
   const [purchasingCredits, setPurchasingCredits] = useState<string | null>(null)
   const [subscribingSaaS, setSubscribingSaaS] = useState<string | null>(null)
+  
+  const [plans, setPlans] = useState<any[]>([])
+  const [creditPackages, setCreditPackages] = useState<any[]>([])
+  const [rates, setRates] = useState<Record<string, number>>({ usd: 1.0, brl: 5.0, eur: 0.9 })
+  const [selectedCurrency, setSelectedCurrency] = useState<'usd' | 'brl' | 'eur'>('usd')
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const res = await fetch('/api/payments/rates')
+        if (res.ok) {
+          const data = await res.json()
+          setRates(data)
+        }
+      } catch (err) {
+        console.error('Error fetching rates:', err)
+      }
+    }
+    fetchRates()
+  }, [])
+
+  const formatPrice = (usdPrice: number, curr: string) => {
+    const rate = rates[curr.toLowerCase()] || 1.0
+    const converted = usdPrice * rate
+    const formatter = new Intl.NumberFormat(curr === 'brl' ? 'pt-BR' : curr === 'eur' ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: curr.toUpperCase()
+    })
+    return formatter.format(converted)
+  }
 
   // Fetch all dashboard & billing info
   const fetchDashboardData = async () => {
@@ -117,6 +147,26 @@ export default function Finance() {
 
       if (wallet) {
         setAiWalletBalance(wallet.balance)
+      }
+
+      // 5. Fetch plans
+      const { data: plansData } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('active', true)
+        .order('price', { ascending: true })
+      if (plansData) {
+        setPlans(plansData)
+      }
+
+      // 6. Fetch credit packages
+      const { data: packsData } = await supabase
+        .from('credit_packages')
+        .select('*')
+        .eq('active', true)
+        .order('price', { ascending: true })
+      if (packsData) {
+        setCreditPackages(packsData)
       }
 
     } catch (err) {
@@ -246,7 +296,8 @@ export default function Finance() {
         },
         body: JSON.stringify({
           action: 'saas_subscribe',
-          planType: plan
+          planType: plan,
+          currency: selectedCurrency
         })
       })
 
@@ -255,6 +306,10 @@ export default function Finance() {
         if (data.isMock) {
           alert(`Inscrição simulada com sucesso no plano ${plan}! Concedendo benefícios...`)
           // Simulate webhook completed locally
+          const rate = rates[selectedCurrency] || 1.0
+          const basePrice = plan === 'ACADEMY' ? 399.00 : plan === 'GROWTH' ? 129.00 : 59.00
+          const finalPrice = basePrice * rate
+
           await fetch('/api/payments/webhook', {
             method: 'POST',
             body: JSON.stringify({
@@ -267,7 +322,7 @@ export default function Finance() {
                     type: 'SAAS',
                     teacher_id: session?.user?.id,
                     plan_type: plan,
-                    price_amount: plan === 'PRO' ? '49' : plan === 'ACADEMY' ? '99' : '19'
+                    price_amount: String(finalPrice)
                   }
                 }
               }
@@ -300,7 +355,8 @@ export default function Finance() {
         },
         body: JSON.stringify({
           action: 'purchase_credits',
-          creditPack: pack
+          creditPack: pack,
+          currency: selectedCurrency
         })
       })
 
@@ -309,6 +365,10 @@ export default function Finance() {
         if (data.isMock) {
           alert(`Simulando compra do pacote de ${pack} créditos de IA...`)
           // Trigger local webhook mock
+          const rate = rates[selectedCurrency] || 1.0
+          const basePackPrice = pack === '50000' ? 149.00 : pack === '20000' ? 69.00 : 19.00
+          const finalPrice = basePackPrice * rate
+
           await fetch('/api/payments/webhook', {
             method: 'POST',
             body: JSON.stringify({
@@ -321,7 +381,7 @@ export default function Finance() {
                     type: 'CREDITS',
                     teacher_id: session?.user?.id,
                     credits_added: pack,
-                    price_amount: pack === '1500' ? '25' : pack === '5000' ? '75' : '10'
+                    price_amount: String(finalPrice)
                   }
                 }
               }
@@ -651,83 +711,111 @@ export default function Finance() {
               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comprar mais créditos</span>
               
               <div className="grid grid-cols-1 gap-2.5">
-                {[
-                  { id: '500', credits: 500, price: 10 },
-                  { id: '1500', credits: 1500, price: 25 },
-                  { id: '5000', credits: 5000, price: 75 }
-                ].map(pack => (
+                {(creditPackages.length > 0 ? creditPackages : [
+                  { id: '5000', name: 'Starter Pack', credits: 5000, price: 19.00 },
+                  { id: '20000', name: 'Growth Pack', credits: 20000, price: 69.00 },
+                  { id: '50000', name: 'Academy Pack', credits: 50000, price: 149.00 }
+                ]).map(pack => {
+                  const creditsStr = String(pack.credits)
+                  return (
+                    <button
+                      key={pack.id || creditsStr}
+                      onClick={() => handleBuyCredits(creditsStr)}
+                      disabled={purchasingCredits !== null}
+                      className="flex justify-between items-center p-3 border border-slate-200 hover:border-tenant-primary rounded-xl text-left bg-slate-50/50 hover:bg-white transition-all group"
+                    >
+                      <div>
+                        <span className="block text-xs font-bold text-slate-800">{pack.credits} Créditos</span>
+                        <span className="text-[10px] text-slate-400 font-bold">{pack.name || 'Pacote IA'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-extrabold text-xs text-slate-800">{formatPrice(Number(pack.price), selectedCurrency)}</span>
+                        {purchasingCredits === creditsStr ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-tenant-primary" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+ 
+          {/* SaaS Membership and pricing */}
+          <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">Sua Assinatura Flowike</h3>
+                <p className="text-xs text-slate-450 mt-1 font-medium">Assine planos premium para habilitar marcas exclusivas, menor rev-share e maior limite de IA.</p>
+              </div>
+              <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 shrink-0 self-start sm:self-center">
+                {(['usd', 'brl', 'eur'] as const).map((curr) => (
                   <button
-                    key={pack.id}
-                    onClick={() => handleBuyCredits(pack.id)}
-                    disabled={purchasingCredits !== null}
-                    className="flex justify-between items-center p-3 border border-slate-200 hover:border-tenant-primary rounded-xl text-left bg-slate-50/50 hover:bg-white transition-all group"
+                    key={curr}
+                    onClick={() => setSelectedCurrency(curr)}
+                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase ${
+                      selectedCurrency === curr
+                        ? 'bg-white text-slate-850 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
                   >
-                    <div>
-                      <span className="block text-xs font-bold text-slate-800">{pack.credits} Créditos</span>
-                      <span className="text-[10px] text-slate-400 font-bold">Pacote IA</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-extrabold text-xs text-slate-800">${pack.price}</span>
-                      {purchasingCredits === pack.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-tenant-primary" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                      )}
-                    </div>
+                    {curr}
                   </button>
                 ))}
               </div>
             </div>
-          </div>
-
-          {/* SaaS Membership and pricing */}
-          <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <div>
-              <h3 className="text-base font-bold text-slate-800">Sua Assinatura Flowike</h3>
-              <p className="text-xs text-slate-450 mt-1 font-medium">Assine planos premium para habilitar marcas exclusivas, menor rev-share e maior limite de IA.</p>
-            </div>
-
+ 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              {[
-                { type: 'STARTER', label: 'Starter', price: 19, share: '15%', credits: 50, color: 'border-slate-200' },
-                { type: 'PRO', label: 'Pro', price: 49, share: '10%', credits: 500, color: 'border-tenant-primary ring-2 ring-tenant-primary/10' },
-                { type: 'ACADEMY', label: 'Academy', price: 99, share: '5%', credits: 2000, color: 'border-slate-800 bg-slate-900 text-white' }
-              ].map(plan => {
-                const isCurrent = teacherPlan === plan.type
-                const isDark = plan.type === 'ACADEMY'
+              {(plans.length > 0 ? plans : [
+                { name: 'STARTER', price: 59.00 },
+                { name: 'GROWTH', price: 129.00 },
+                { name: 'ACADEMY', price: 399.00 }
+              ]).map(plan => {
+                const isCurrent = teacherPlan === plan.name
+                const isDark = plan.name === 'ACADEMY'
+                const isGrowth = plan.name === 'GROWTH'
+                
+                let planColorClass = 'border-slate-200 bg-white shadow-sm'
+                if (isGrowth) planColorClass = 'border-tenant-primary ring-2 ring-tenant-primary/10'
+                if (isDark) planColorClass = 'border-slate-800 bg-slate-900 text-white'
+
+                const sharePercent = plan.name === 'STARTER' ? '15%' : plan.name === 'GROWTH' ? '10%' : '5%'
+                const creditsAlloc = plan.name === 'STARTER' ? '50' : plan.name === 'GROWTH' ? '500' : '2000'
                 
                 return (
-                  <div key={plan.type} className={`p-4 rounded-2xl border flex flex-col justify-between min-h-[220px] ${plan.color}`}>
+                  <div key={plan.name} className={`p-4 rounded-2xl border flex flex-col justify-between min-h-[220px] ${planColorClass}`}>
                     <div>
                       <div className="flex justify-between items-start">
-                        <span className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{plan.label}</span>
+                        <span className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{plan.name}</span>
                         {isCurrent && (
                           <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
                             isDark ? 'bg-white text-slate-900' : 'bg-tenant-primary/10 text-tenant-primary'
                           }`}>Ativo</span>
                         )}
                       </div>
-
+ 
                       <div className="mt-3">
-                        <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>${plan.price}</span>
+                        <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{formatPrice(Number(plan.price), selectedCurrency)}</span>
                         <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>/mês</span>
                       </div>
-
+ 
                       <ul className="mt-4 space-y-2 text-[10px] font-bold">
                         <li className="flex items-center gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 text-tenant-primary shrink-0" />
-                          {plan.share} Taxa de Rev-share
+                          {sharePercent} Taxa de Rev-share
                         </li>
                         <li className="flex items-center gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 text-tenant-primary shrink-0" />
-                          {plan.credits} Créditos IA inclusos
+                          {creditsAlloc} Créditos IA inclusos
                         </li>
                       </ul>
                     </div>
-
+ 
                     {!isCurrent && (
                       <button
-                        onClick={() => handleSaaSSubscribe(plan.type)}
+                        onClick={() => handleSaaSSubscribe(plan.name)}
                         disabled={subscribingSaaS !== null}
                         className={`w-full py-2 rounded-xl text-[10px] font-bold transition-all mt-4 border flex items-center justify-center gap-1.5 ${
                           isDark 
@@ -735,7 +823,7 @@ export default function Finance() {
                             : 'bg-slate-900 text-white hover:bg-slate-800 border-slate-900'
                         }`}
                       >
-                        {subscribingSaaS === plan.type ? (
+                        {subscribingSaaS === plan.name ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
                         ) : (
                           <>

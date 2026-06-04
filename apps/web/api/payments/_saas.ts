@@ -140,7 +140,7 @@ export default async function handler(req: any, res: any) {
         console.error('Stripe SaaS Session Error:', err)
         const mockSessionId = 'saas_sess_' + Math.random().toString(36).substring(2, 10)
         const redirectParam = source === 'onboarding' ? 'onboarding' : source === 'settings' ? 'dashboard/settings' : 'dashboard/finance'
-        const mockUrl = `${baseUrl}/${redirectParam}?billing=success_mock&plan_type=${plan}&session_id=${mockSessionId}&currency=${currency}`
+        const mockUrl = `${baseUrl}/${redirectParam}?billing=success_mock&plan_type=${plan}&session_id=${mockSessionId}&currency=${currency}&price=${convertedPrice}`
         
         await supabaseAdmin
           .from('payments')
@@ -153,7 +153,7 @@ export default async function handler(req: any, res: any) {
             stripe_payment_intent_id: mockSessionId
           }])
 
-        return res.status(200).json({ url: mockUrl, isMock: true })
+        return res.status(200).json({ url: mockUrl, isMock: true, session_id: mockSessionId, price: convertedPrice })
       }
     }
 
@@ -223,7 +223,7 @@ export default async function handler(req: any, res: any) {
         console.error('Stripe Credits Checkout Error:', err)
         // Mock fallback
         const mockSessionId = 'credits_sess_' + Math.random().toString(36).substring(2, 10)
-        const mockUrl = `${baseUrl}/dashboard/finance?billing=success_mock&credits=${creditsAdded}&session_id=${mockSessionId}&currency=${currency}`
+        const mockUrl = `${baseUrl}/dashboard/finance?billing=success_mock&credits=${creditsAdded}&session_id=${mockSessionId}&currency=${currency}&price=${convertedPrice}`
         
         await supabaseAdmin
           .from('payments')
@@ -236,7 +236,7 @@ export default async function handler(req: any, res: any) {
             stripe_payment_intent_id: mockSessionId
           }])
 
-        return res.status(200).json({ url: mockUrl, isMock: true })
+        return res.status(200).json({ url: mockUrl, isMock: true, session_id: mockSessionId, price: convertedPrice })
       }
     }
 

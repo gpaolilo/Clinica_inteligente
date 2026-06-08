@@ -35,10 +35,12 @@ export default function Login() {
       }
     })
     
-    if (window.location.hash.includes('type=recovery') || window.location.hash.includes('type=invite') || window.location.hash.includes('type=signup')) {
+    const savedHashType = sessionStorage.getItem('auth_hash_type')
+    if (savedHashType || window.location.hash.includes('type=recovery') || window.location.hash.includes('type=invite') || window.location.hash.includes('type=signup')) {
       setView('UPDATE_PASSWORD')
       setError(null)
       setMessage('Defina sua nova senha abaixo.')
+      sessionStorage.removeItem('auth_hash_type')
     }
 
     return () => {

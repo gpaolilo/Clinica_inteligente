@@ -9,6 +9,8 @@ import {
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts'
+import { loadConnectAndInitialize } from '@stripe/connect-js'
+import { ConnectComponentsProvider, ConnectAccountManagement, ConnectPayouts, ConnectAccountOnboarding } from '@stripe/react-connect-js'
 
 export const STRIPE_SUPPORTED_BANKS = [
   { code: '001', name: '001 - Banco do Brasil S.A.' },
@@ -42,6 +44,12 @@ export default function Finance() {
   // Tab control: 'revenue' | 'products' | 'saas'
   const [activeTab, setActiveTab] = useState<'revenue' | 'products' | 'saas'>('revenue')
   const [loading, setLoading] = useState(true)
+  
+  // Stripe Connect Embedded management states
+  const [revenueSubTab, setRevenueSubTab] = useState<'overview' | 'stripe'>('overview')
+  const [stripeConnectInstance, setStripeConnectInstance] = useState<any>(null)
+  const [loadingStripeSession, setLoadingStripeSession] = useState(false)
+  const [isEmbeddedMock, setIsEmbeddedMock] = useState(true)
   
   // Stripe connection states
   const [stripeStatus, setStripeStatus] = useState<any>({
@@ -264,6 +272,67 @@ export default function Finance() {
       fetchDashboardData()
     }
   }, [session])
+
+  useEffect(() => {
+    if (stripeStatus.stripe_account_id && session?.user?.id) {
+      if (stripeStatus.stripe_account_id.startsWith('acct_mock_')) {
+        setIsEmbeddedMock(true)
+        setStripeConnectInstance(null)
+      } else {
+        const initEmbeddedManagement = async () => {
+          setLoadingStripeSession(true)
+          try {
+            const { data: sessionData } = await supabase.auth.getSession()
+            const token = sessionData.session?.access_token
+
+            const res = await fetch('/api/payments/connect', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({ source: 'dashboard' })
+            })
+
+            if (!res.ok) {
+              throw new Error('Erro ao criar sessão do Stripe no servidor.')
+            }
+
+            const data = await res.json()
+            if (data.isMock) {
+              setIsEmbeddedMock(true)
+            } else if (data.clientSecret && data.publishableKey) {
+              setIsEmbeddedMock(false)
+              const instance = loadConnectAndInitialize({
+                publishableKey: data.publishableKey,
+                fetchClientSecret: async () => data.clientSecret,
+                appearance: {
+                  variables: {
+                    colorPrimary: '#10b981', // Emerald 500
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                },
+              })
+              setStripeConnectInstance(instance)
+            } else {
+              setIsEmbeddedMock(true)
+            }
+          } catch (err: any) {
+            console.error('Error initializing Stripe Embedded Management:', err)
+            setIsEmbeddedMock(true)
+          } finally {
+            setLoadingStripeSession(false)
+          }
+        }
+        if (!stripeConnectInstance) {
+          initEmbeddedManagement()
+        }
+      }
+    } else {
+      setIsEmbeddedMock(true)
+      setStripeConnectInstance(null)
+    }
+  }, [stripeStatus.stripe_account_id, session])
 
   const handleSavePaymentSetup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -593,6 +662,31 @@ export default function Finance() {
 
   const renderStripeConnectCTA = (message?: string) => {
     const status = stripeStatus.status
+    
+    if (!isEmbeddedMock && stripeConnectInstance && (status === 'PENDING' || status === 'RESTRICTED')) {
+      return (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl mx-auto text-left select-text">
+          <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-tenant-primary animate-pulse" />
+              Completar Verificação da Conta Stripe
+            </h3>
+            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700">
+              Ação Requerida
+            </span>
+          </div>
+          <div className="w-full min-h-[400px] border border-slate-200 rounded-2xl bg-white overflow-hidden p-2">
+            <ConnectComponentsProvider connectInstance={stripeConnectInstance}>
+              <ConnectAccountOnboarding 
+                onExit={async () => {
+                  fetchDashboardData()
+                }}
+              />
+            </ConnectComponentsProvider>
+          </div>
+        </div>
+      )
+    }
     
     if (showSetupForm) {
       return (
@@ -1062,164 +1156,239 @@ export default function Finance() {
           renderStripeConnectCTA('Conecte sua conta do Stripe para visualizar suas métricas financeiras, payouts e comissões.')
         ) : (
           <div className="space-y-6">
-          {/* KPI Dashboard Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Faturamento Bruto</span>
-              <span className="text-xl sm:text-2xl font-black text-slate-800">$ {stats.grossRevenue.toFixed(2)}</span>
-            </div>
             
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Receita Líquida</span>
-              <span className="text-xl sm:text-2xl font-black text-tenant-primary">$ {stats.netRevenue.toFixed(2)}</span>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Comissões Flowike</span>
-              <span className="text-xl sm:text-2xl font-black text-rose-500">$ {stats.platformFees.toFixed(2)}</span>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxas Stripe</span>
-              <span className="text-xl sm:text-2xl font-black text-amber-500">$ {stats.stripeFees.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subscritores Ativos</span>
-                <span className="text-xl sm:text-2xl font-black text-slate-850">{stats.subscribers} alunos</span>
-              </div>
-              <Users className="w-8 h-8 text-slate-200" />
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">MRR Estimado</span>
-                <span className="text-xl sm:text-2xl font-black text-slate-850">$ {stats.mrr.toFixed(2)}/mês</span>
-              </div>
-              <BarChart2 className="w-8 h-8 text-slate-200" />
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Disponível para Payout</span>
-                <span className="text-xl sm:text-2xl font-black text-emerald-600">$ {stats.pendingPayouts.toFixed(2)}</span>
-              </div>
-              <ShieldCheck className="w-8 h-8 text-slate-200" />
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ciclo Payouts</span>
-                <span className="text-xl sm:text-2xl font-black text-slate-750">Automático</span>
-              </div>
-              <Calendar className="w-8 h-8 text-slate-200" />
-            </div>
-          </div>
-
-          {/* Revenue Charts Area */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Chart Area */}
-            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-tenant-primary" /> Histórico de Receita Diária (7 dias)
-              </h3>
-              
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                    <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
-                    <Area type="monotone" dataKey="Receita" stroke="var(--tenant-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorGross)" />
-                    <Area type="monotone" dataKey="Líquido" stroke="#10b981" strokeWidth={2} fillOpacity={0} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Payout History Area */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
-              <h3 className="text-sm font-bold text-slate-800 mb-4">Payouts Recentes</h3>
-              <div className="flex-1 overflow-y-auto max-h-60 space-y-3.5 pr-1">
-                {stats.payoutHistory.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-center text-slate-400 text-xs font-semibold py-12">
-                    Nenhum payout efetuado na conta bancária ainda.
-                  </div>
-                ) : (
-                  stats.payoutHistory.map((p: any) => (
-                    <div key={p.id} className="flex justify-between items-center border-b border-slate-50 pb-2">
-                      <div>
-                        <span className="block text-xs font-bold text-slate-800">Transferência Bancária</span>
-                        <span className="text-[10px] text-slate-400 font-bold">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="block text-xs font-black text-emerald-600">+ ${p.amount.toFixed(2)}</span>
-                        <span className={`inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
-                          p.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-650'
-                        }`}>{p.status === 'PAID' ? 'Pago' : 'Pendente'}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Banking / Payout Setup Details */}
-          {showSetupForm ? (
-            renderStripeConnectCTA()
-          ) : (
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <CreditCard className="w-4.5 h-4.5 text-emerald-600 animate-pulse" />
-                  Conta de Recebimentos & Payouts (Ativa)
-                </h3>
-                <button
-                  onClick={() => setShowSetupForm(true)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1.5 px-3 rounded-lg text-[10px] transition-all"
+            {/* Sub-tabs for Stripe Connect embedded components */}
+            {!isEmbeddedMock && stripeConnectInstance && (
+              <div className="flex border-b border-slate-200 gap-6">
+                <button 
+                  onClick={() => setRevenueSubTab('overview')}
+                  className={`pb-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                    revenueSubTab === 'overview' 
+                      ? 'border-tenant-primary text-tenant-primary' 
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
                 >
-                  Atualizar Dados Bancários
+                  <TrendingUp className="w-3.5 h-3.5" /> Visão Geral & Histórico
+                </button>
+                <button 
+                  onClick={() => setRevenueSubTab('stripe')}
+                  className={`pb-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                    revenueSubTab === 'stripe' 
+                      ? 'border-tenant-primary text-tenant-primary' 
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" /> Gerenciar Conta Stripe (Embedded)
                 </button>
               </div>
+            )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-600 font-semibold">
-                <div className="space-y-1.5">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Titular / Identificação</span>
-                  <p className="text-slate-800 font-extrabold">{bankSetup.holder_name || 'Não informado'}</p>
-                  <p className="text-[11px] text-slate-500">
-                    {bankSetup.account_type === 'individual' ? 'CPF: ' : 'CNPJ: '} 
-                    <span className="font-bold text-slate-700">{bankSetup.tax_id || 'Não informado'}</span>
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Conta Bancária</span>
-                  <p className="text-slate-800 font-extrabold">Banco: <span className="font-bold text-slate-650">{bankSetup.bank_name || 'Não informado'}</span></p>
-                  <p className="text-[11px] text-slate-500">
-                    Ag: <span className="font-bold text-slate-700">{bankSetup.bank_agency || 'Não informado'}</span> | 
-                    Conta: <span className="font-bold text-slate-700">{bankSetup.bank_account || 'Não informado'}</span>
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Chave PIX Cadastrada</span>
-                  <p className="text-slate-800 font-extrabold capitalize">{bankSetup.pix_key_type || 'Não informado'}</p>
-                  <p className="text-[11px] font-bold text-tenant-primary font-mono">{bankSetup.pix_key || 'Não informado'}</p>
-                </div>
+            {/* Show loader if we are fetching real Stripe session */}
+            {loadingStripeSession && revenueSubTab === 'stripe' && (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white border border-slate-200 rounded-3xl">
+                <Loader2 className="w-8 h-8 animate-spin text-tenant-primary" />
+                <span className="text-xs font-semibold text-slate-500">Buscando dados de gerenciamento da sua conta Stripe...</span>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Sub-tab: Stripe Embedded Components */}
+            {!isEmbeddedMock && stripeConnectInstance && revenueSubTab === 'stripe' && !loadingStripeSession && (
+              <div className="space-y-6">
+                <ConnectComponentsProvider connectInstance={stripeConnectInstance}>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col min-h-[500px]">
+                      <div className="pb-3 border-b border-slate-100 mb-4 flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                          <Settings className="w-4 h-4 text-tenant-primary" />
+                          Configurações & Dados Cadastrais
+                        </h3>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase">Stripe Connect</span>
+                      </div>
+                      <div className="flex-1 overflow-hidden select-text">
+                        <ConnectAccountManagement />
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col min-h-[500px]">
+                      <div className="pb-3 border-b border-slate-100 mb-4 flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                          <CreditCard className="w-4 h-4 text-tenant-primary" />
+                          Dados de Depósito & Payouts
+                        </h3>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase">Stripe Connect</span>
+                      </div>
+                      <div className="flex-1 overflow-hidden select-text">
+                        <ConnectPayouts />
+                      </div>
+                    </div>
+                  </div>
+                </ConnectComponentsProvider>
+              </div>
+            )}
+
+            {/* Sub-tab: Overview (standard dashboard + bank card/editing forms) */}
+            {(isEmbeddedMock || revenueSubTab === 'overview') && (
+              <>
+                {/* KPI Dashboard Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Faturamento Bruto</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-800">$ {stats.grossRevenue.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Receita Líquida</span>
+                    <span className="text-xl sm:text-2xl font-black text-tenant-primary">$ {stats.netRevenue.toFixed(2)}</span>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Comissões Flowike</span>
+                    <span className="text-xl sm:text-2xl font-black text-rose-500">$ {stats.platformFees.toFixed(2)}</span>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxas Stripe</span>
+                    <span className="text-xl sm:text-2xl font-black text-amber-500">$ {stats.stripeFees.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subscritores Ativos</span>
+                      <span className="text-xl sm:text-2xl font-black text-slate-850">{stats.subscribers} alunos</span>
+                    </div>
+                    <Users className="w-8 h-8 text-slate-200" />
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">MRR Estimado</span>
+                      <span className="text-xl sm:text-2xl font-black text-slate-850">$ {stats.mrr.toFixed(2)}/mês</span>
+                    </div>
+                    <BarChart2 className="w-8 h-8 text-slate-200" />
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Disponível para Payout</span>
+                      <span className="text-xl sm:text-2xl font-black text-emerald-600">$ {stats.pendingPayouts.toFixed(2)}</span>
+                    </div>
+                    <ShieldCheck className="w-8 h-8 text-slate-200" />
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ciclo Payouts</span>
+                      <span className="text-xl sm:text-2xl font-black text-slate-750">Automático</span>
+                    </div>
+                    <Calendar className="w-8 h-8 text-slate-200" />
+                  </div>
+                </div>
+
+                {/* Revenue Charts Area */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Chart Area */}
+                  <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
+                      <TrendingUp className="w-4 h-4 text-tenant-primary" /> Histórico de Receita Diária (7 dias)
+                    </h3>
+                    
+                    <div className="h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                          <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                          <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                          <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
+                          <Area type="monotone" dataKey="Receita" stroke="var(--tenant-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorGross)" />
+                          <Area type="monotone" dataKey="Líquido" stroke="#10b981" strokeWidth={2} fillOpacity={0} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Payout History Area */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Payouts Recentes</h3>
+                    <div className="flex-1 overflow-y-auto max-h-60 space-y-3.5 pr-1">
+                      {stats.payoutHistory.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-center text-slate-400 text-xs font-semibold py-12">
+                          Nenhum payout efetuado na conta bancária ainda.
+                        </div>
+                      ) : (
+                        stats.payoutHistory.map((p: any) => (
+                          <div key={p.id} className="flex justify-between items-center border-b border-slate-50 pb-2">
+                            <div>
+                              <span className="block text-xs font-bold text-slate-800">Transferência Bancária</span>
+                              <span className="text-[10px] text-slate-400 font-bold">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="block text-xs font-black text-emerald-600">+ ${p.amount.toFixed(2)}</span>
+                              <span className={`inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
+                                p.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-650'
+                              }`}>{p.status === 'PAID' ? 'Pago' : 'Pendente'}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Banking / Payout Setup Details */}
+                {showSetupForm ? (
+                  renderStripeConnectCTA()
+                ) : (
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <CreditCard className="w-4.5 h-4.5 text-emerald-600 animate-pulse" />
+                        Conta de Recebimentos & Payouts (Ativa)
+                      </h3>
+                      <button
+                        onClick={() => setShowSetupForm(true)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1.5 px-3 rounded-lg text-[10px] transition-all"
+                      >
+                        Atualizar Dados Bancários
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-600 font-semibold">
+                      <div className="space-y-1.5">
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Titular / Identificação</span>
+                        <p className="text-slate-800 font-extrabold">{bankSetup.holder_name || 'Não informado'}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {bankSetup.account_type === 'individual' ? 'CPF: ' : 'CNPJ: '} 
+                          <span className="font-bold text-slate-700">{bankSetup.tax_id || 'Não informado'}</span>
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Conta Bancária</span>
+                        <p className="text-slate-800 font-extrabold">Banco: <span className="font-bold text-slate-650">{bankSetup.bank_name || 'Não informado'}</span></p>
+                        <p className="text-[11px] text-slate-500">
+                          Ag: <span className="font-bold text-slate-700">{bankSetup.bank_agency || 'Não informado'}</span> | 
+                          Conta: <span className="font-bold text-slate-700">{bankSetup.bank_account || 'Não informado'}</span>
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Chave PIX Cadastrada</span>
+                        <p className="text-slate-800 font-extrabold capitalize">{bankSetup.pix_key_type || 'Não informado'}</p>
+                        <p className="text-[11px] font-bold text-tenant-primary font-mono">{bankSetup.pix_key || 'Não informado'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )
       )}

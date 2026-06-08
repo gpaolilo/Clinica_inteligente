@@ -199,6 +199,28 @@ export default async function handler(req: any, res: any) {
                 external_account_collection: true,
               }
             },
+            account_management: {
+              enabled: true,
+              features: {
+                external_account_collection: true,
+              }
+            },
+            payouts: {
+              enabled: true,
+              features: {
+                instant_payouts: true,
+              }
+            },
+            payments: {
+              enabled: true,
+              features: {
+                refund_management: true,
+                dispute_management: true,
+              }
+            },
+            balances: {
+              enabled: true,
+            }
           },
         })
 

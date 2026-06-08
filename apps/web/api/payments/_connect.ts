@@ -49,13 +49,7 @@ export default async function handler(req: any, res: any) {
       // If we have an account ID, retrieve status from Stripe to sync
       try {
         if (connectedAccount.stripe_account_id.startsWith('acct_mock_')) {
-          return res.status(200).json({
-            status: connectedAccount.status,
-            details_submitted: connectedAccount.details_submitted,
-            charges_enabled: connectedAccount.charges_enabled,
-            payouts_enabled: connectedAccount.payouts_enabled,
-            stripe_account_id: connectedAccount.stripe_account_id
-          })
+          return res.status(200).json(connectedAccount)
         }
         const stripeAccount = await stripe.accounts.retrieve(connectedAccount.stripe_account_id)
         
@@ -95,22 +89,16 @@ export default async function handler(req: any, res: any) {
           .eq('id', teacherId)
 
         return res.status(200).json({
+          ...connectedAccount,
           status,
           details_submitted: detailsSubmitted,
           charges_enabled: chargesEnabled,
-          payouts_enabled: payoutsEnabled,
-          stripe_account_id: connectedAccount.stripe_account_id
+          payouts_enabled: payoutsEnabled
         })
       } catch (err: any) {
         console.error('Error fetching Stripe account info:', err)
         // Fallback to local DB if Stripe retrieval fails (e.g. mock key in dev)
-        return res.status(200).json({
-          status: connectedAccount.status,
-          details_submitted: connectedAccount.details_submitted,
-          charges_enabled: connectedAccount.charges_enabled,
-          payouts_enabled: connectedAccount.payouts_enabled,
-          stripe_account_id: connectedAccount.stripe_account_id
-        })
+        return res.status(200).json(connectedAccount)
       }
     }
 

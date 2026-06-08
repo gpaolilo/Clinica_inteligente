@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import { 
   DollarSign, Plus, TrendingUp, Users, Calendar, 
   Settings, CheckCircle, AlertTriangle, LayoutGrid, Award, 
-  ArrowRight, ShieldCheck, ChevronRight, Loader2, BarChart2, Clock
+  ArrowRight, ShieldCheck, ChevronRight, Loader2, BarChart2, Clock, CreditCard
 } from 'lucide-react'
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
@@ -26,6 +26,25 @@ export default function Finance() {
     stripe_account_id: ''
   })
   const [connectingStripe, setConnectingStripe] = useState(false)
+  const [showSetupForm, setShowSetupForm] = useState(false)
+  const [bankSetup, setBankSetup] = useState({
+    account_type: 'individual',
+    holder_name: '',
+    tax_id: '',
+    birth_date: '',
+    bank_name: '',
+    bank_agency: '',
+    bank_account: '',
+    pix_key_type: 'cpf',
+    pix_key: '',
+    address_street: '',
+    address_number: '',
+    address_complement: '',
+    address_neighborhood: '',
+    address_city: '',
+    address_state: '',
+    address_postal_code: ''
+  })
 
   // Wallet stats
   const [stats, setStats] = useState({
@@ -106,6 +125,26 @@ export default function Finance() {
       if (statusRes.ok) {
         const statusData = await statusRes.json()
         setStripeStatus(statusData)
+        if (statusData.stripe_account_id) {
+          setBankSetup({
+            account_type: statusData.account_type || 'individual',
+            holder_name: statusData.holder_name || '',
+            tax_id: statusData.tax_id || '',
+            birth_date: statusData.birth_date || '',
+            bank_name: statusData.bank_name || '',
+            bank_agency: statusData.bank_agency || '',
+            bank_account: statusData.bank_account || '',
+            pix_key_type: statusData.pix_key_type || 'cpf',
+            pix_key: statusData.pix_key || '',
+            address_street: statusData.address_street || '',
+            address_number: statusData.address_number || '',
+            address_complement: statusData.address_complement || '',
+            address_neighborhood: statusData.address_neighborhood || '',
+            address_city: statusData.address_city || '',
+            address_state: statusData.address_state || '',
+            address_postal_code: statusData.address_postal_code || ''
+          })
+        }
       }
 
       // 2. Fetch dashboard financials if Stripe is connected
@@ -191,6 +230,66 @@ export default function Finance() {
       fetchDashboardData()
     }
   }, [session])
+
+  const handleSavePaymentSetup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.user?.id) return
+
+    if (!bankSetup.holder_name || !bankSetup.tax_id || !bankSetup.bank_name || !bankSetup.bank_agency || !bankSetup.bank_account) {
+      alert('Por favor, preencha todos os campos obrigatórios da conta bancária.')
+      return
+    }
+
+    setConnectingStripe(true)
+    try {
+      const mockAccountId = stripeStatus.stripe_account_id || 'acct_mock_' + session.user.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
+      
+      const { error: upsertErr } = await supabase.from('stripe_connected_accounts').upsert({
+        teacher_id: session.user.id,
+        stripe_account_id: mockAccountId,
+        status: 'ACTIVE',
+        details_submitted: true,
+        charges_enabled: true,
+        payouts_enabled: true,
+        updated_at: new Date().toISOString(),
+        
+        account_type: bankSetup.account_type,
+        holder_name: bankSetup.holder_name,
+        tax_id: bankSetup.tax_id,
+        birth_date: bankSetup.birth_date || null,
+        bank_name: bankSetup.bank_name,
+        bank_agency: bankSetup.bank_agency,
+        bank_account: bankSetup.bank_account,
+        pix_key_type: bankSetup.pix_key_type,
+        pix_key: bankSetup.pix_key,
+        address_street: bankSetup.address_street,
+        address_number: bankSetup.address_number,
+        address_complement: bankSetup.address_complement || null,
+        address_neighborhood: bankSetup.address_neighborhood,
+        address_city: bankSetup.address_city,
+        address_state: bankSetup.address_state,
+        address_postal_code: bankSetup.address_postal_code
+      }, { onConflict: 'teacher_id' })
+
+      if (upsertErr) throw upsertErr
+
+      await supabase.from('psychologists').update({
+        stripe_account_id: mockAccountId,
+        stripe_onboarding_completed: true,
+        stripe_charges_enabled: true,
+        stripe_payouts_enabled: true
+      }).eq('id', session.user.id)
+
+      alert('Dados bancários e de payout salvos com sucesso!')
+      setShowSetupForm(false)
+      fetchDashboardData()
+    } catch (err: any) {
+      console.error('Error saving bank details:', err)
+      alert('Erro ao salvar dados bancários: ' + err.message)
+    } finally {
+      setConnectingStripe(false)
+    }
+  }
 
   // Triggers Stripe Express Onboarding redirect
   const handleConnectStripe = async () => {
@@ -437,6 +536,258 @@ export default function Finance() {
 
   const renderStripeConnectCTA = (message?: string) => {
     const status = stripeStatus.status
+    
+    if (showSetupForm) {
+      return (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl mx-auto">
+          <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-tenant-primary" />
+              Configurar Conta de Recebimentos
+            </h3>
+            <button
+              onClick={() => setShowSetupForm(false)}
+              className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+
+          <form onSubmit={handleSavePaymentSetup} className="space-y-4 text-left select-text">
+            {/* Tipo de Conta Toggle */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setBankSetup(p => ({ ...p, account_type: 'individual' }))}
+                className={`py-2 px-4 rounded-xl text-xs font-bold border transition-all ${
+                  bankSetup.account_type === 'individual'
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Pessoa Física (CPF)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBankSetup(p => ({ ...p, account_type: 'company' }))}
+                className={`py-2 px-4 rounded-xl text-xs font-bold border transition-all ${
+                  bankSetup.account_type === 'company'
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Pessoa Jurídica (CNPJ)
+              </button>
+            </div>
+
+            {/* Dados Pessoais / Jurídicos */}
+            <div className="space-y-3 bg-slate-50/50 border border-slate-150 p-4 rounded-2xl">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Identificação</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">
+                    {bankSetup.account_type === 'individual' ? 'Nome Completo *' : 'Razão Social *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={bankSetup.account_type === 'individual' ? 'ex: Maria Silva' : 'ex: Silva Ensino Ltda'}
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.holder_name}
+                    onChange={e => setBankSetup(p => ({ ...p, holder_name: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">
+                    {bankSetup.account_type === 'individual' ? 'CPF *' : 'CNPJ *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={bankSetup.account_type === 'individual' ? '000.000.000-00' : '00.000.000/0000-00'}
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.tax_id}
+                    onChange={e => setBankSetup(p => ({ ...p, tax_id: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {bankSetup.account_type === 'individual' && (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Data de Nascimento *</label>
+                  <input
+                    type="date"
+                    required
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.birth_date}
+                    onChange={e => setBankSetup(p => ({ ...p, birth_date: e.target.value }))}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Endereço */}
+            <div className="space-y-3 bg-slate-50/50 border border-slate-150 p-4 rounded-2xl">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Endereço de Payout</h4>
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Logradouro / Rua</label>
+                  <input
+                    type="text"
+                    placeholder="Rua das Flores"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.address_street}
+                    onChange={e => setBankSetup(p => ({ ...p, address_street: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Número</label>
+                  <input
+                    type="text"
+                    placeholder="123"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.address_number}
+                    onChange={e => setBankSetup(p => ({ ...p, address_number: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">CEP</label>
+                  <input
+                    type="text"
+                    placeholder="00000-000"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.address_postal_code}
+                    onChange={e => setBankSetup(p => ({ ...p, address_postal_code: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Bairro</label>
+                  <input
+                    type="text"
+                    placeholder="Centro"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.address_neighborhood}
+                    onChange={e => setBankSetup(p => ({ ...p, address_neighborhood: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Cidade</label>
+                  <input
+                    type="text"
+                    placeholder="São Paulo"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.address_city}
+                    onChange={e => setBankSetup(p => ({ ...p, address_city: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Estado</label>
+                  <input
+                    type="text"
+                    placeholder="SP"
+                    maxLength={2}
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all uppercase text-slate-800"
+                    value={bankSetup.address_state}
+                    onChange={e => setBankSetup(p => ({ ...p, address_state: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dados Bancários */}
+            <div className="space-y-3 bg-slate-50/50 border border-slate-150 p-4 rounded-2xl">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Conta para Depósito (Payouts)</h4>
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Banco *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ex: Banco do Brasil ou 001"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.bank_name}
+                    onChange={e => setBankSetup(p => ({ ...p, bank_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Agência *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ex: 1234"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.bank_agency}
+                    onChange={e => setBankSetup(p => ({ ...p, bank_agency: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Conta Corrente (com dígito) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: 12345-6"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                  value={bankSetup.bank_account}
+                  onChange={e => setBankSetup(p => ({ ...p, bank_account: e.target.value }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Chave PIX</label>
+                  <select
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.pix_key_type}
+                    onChange={e => setBankSetup(p => ({ ...p, pix_key_type: e.target.value }))}
+                  >
+                    <option value="cpf">CPF</option>
+                    <option value="cnpj">CNPJ</option>
+                    <option value="email">E-mail</option>
+                    <option value="phone">Celular</option>
+                    <option value="random">Chave Aleatória</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Valor da Chave PIX</label>
+                  <input
+                    type="text"
+                    placeholder="ex: pix@meudominio.com"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={bankSetup.pix_key}
+                    onChange={e => setBankSetup(p => ({ ...p, pix_key: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={connectingStripe}
+              className="w-full bg-tenant-primary hover:bg-tenant-primary-hover text-white font-extrabold py-3.5 rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-1.5 hover:-translate-y-0.5"
+            >
+              {connectingStripe ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <span>Salvar Configuração de Payout</span>
+              )}
+            </button>
+          </form>
+        </div>
+      )
+    }
+
     let title = "Comece a faturar com sua própria marca 🚀"
     let desc = message || "Conecte sua conta bancária ao Stripe Connect Express para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber payouts automáticos sem complicação."
     let badge = (
@@ -445,7 +796,6 @@ export default function Finance() {
       </div>
     )
     let buttonText = "Conectar Gateway Stripe"
-    let bgGradient = "from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/10"
 
     if (status === 'PENDING') {
       title = "Sua conta Stripe está em análise ⏳"
@@ -456,7 +806,6 @@ export default function Finance() {
         </div>
       )
       buttonText = "Verificar Status no Stripe"
-      bgGradient = "from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 shadow-amber-600/10"
     } else if (status === 'RESTRICTED') {
       title = "Ações requeridas na sua conta Stripe ⚠️"
       desc = "Para começar ou continuar recebendo pagamentos, o Stripe precisa que você complemente os dados cadastrais ou envie algum documento de verificação."
@@ -466,7 +815,6 @@ export default function Finance() {
         </div>
       )
       buttonText = "Completar Cadastro no Stripe"
-      bgGradient = "from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 shadow-rose-600/10"
     }
 
     return (
@@ -500,25 +848,32 @@ export default function Finance() {
           </div>
         </div>
 
-        <div className="shrink-0 w-full md:w-auto text-center">
+        <div className="shrink-0 w-full md:w-auto text-center flex flex-col gap-2">
           <button
-            onClick={handleConnectStripe}
-            disabled={connectingStripe}
-            className={`w-full md:w-auto bg-gradient-to-r ${bgGradient} text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg flex items-center justify-center gap-2 hover:-translate-y-0.5`}
+            onClick={() => setShowSetupForm(true)}
+            className="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg flex items-center justify-center gap-2 hover:-translate-y-0.5"
           >
-            {connectingStripe ? (
-              <>
-                <Loader2 className="w-4.5 h-4.5 animate-spin" />
-                <span>Processando...</span>
-              </>
-            ) : (
-              <>
-                <span>{buttonText}</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
+            <span>Configurar Payout / Recebimentos</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
-          <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">Configuração Express de 2 minutos</p>
+          
+          {status !== 'NOT_CONNECTED' && (
+            <button
+              onClick={handleConnectStripe}
+              disabled={connectingStripe}
+              className="w-full md:w-auto bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-extrabold py-2 px-8 rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+            >
+              {connectingStripe ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <>
+                  <span>{buttonText}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
+          )}
+          <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">Configuração local de 2 minutos</p>
         </div>
       </div>
     )
@@ -739,6 +1094,52 @@ export default function Finance() {
               </div>
             </div>
           </div>
+
+          {/* Banking / Payout Setup Details */}
+          {showSetupForm ? (
+            renderStripeConnectCTA()
+          ) : (
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <CreditCard className="w-4.5 h-4.5 text-emerald-600 animate-pulse" />
+                  Conta de Recebimentos & Payouts (Ativa)
+                </h3>
+                <button
+                  onClick={() => setShowSetupForm(true)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1.5 px-3 rounded-lg text-[10px] transition-all"
+                >
+                  Atualizar Dados Bancários
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-600 font-semibold">
+                <div className="space-y-1.5">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Titular / Identificação</span>
+                  <p className="text-slate-800 font-extrabold">{bankSetup.holder_name || 'Não informado'}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {bankSetup.account_type === 'individual' ? 'CPF: ' : 'CNPJ: '} 
+                    <span className="font-bold text-slate-700">{bankSetup.tax_id || 'Não informado'}</span>
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Conta Bancária</span>
+                  <p className="text-slate-800 font-extrabold">Banco: <span className="font-bold text-slate-650">{bankSetup.bank_name || 'Não informado'}</span></p>
+                  <p className="text-[11px] text-slate-500">
+                    Ag: <span className="font-bold text-slate-700">{bankSetup.bank_agency || 'Não informado'}</span> | 
+                    Conta: <span className="font-bold text-slate-700">{bankSetup.bank_account || 'Não informado'}</span>
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Chave PIX Cadastrada</span>
+                  <p className="text-slate-800 font-extrabold capitalize">{bankSetup.pix_key_type || 'Não informado'}</p>
+                  <p className="text-[11px] font-bold text-tenant-primary font-mono">{bankSetup.pix_key || 'Não informado'}</p>
+                </div>
+              </div>
+            </div>
+          )}
           </div>
         )
       )}

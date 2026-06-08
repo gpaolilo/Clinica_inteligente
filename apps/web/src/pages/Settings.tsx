@@ -513,9 +513,26 @@ export default function Settings() {
               Integração com o Stripe Express. Crie planos e pacotes de aulas para faturamento automático de seus alunos via Cartão ou PIX.
             </p>
             {!loadingStripe && stripeStatus.status !== 'NOT_CONNECTED' && (
-              <div className="pt-1 text-xs font-bold text-slate-500 flex items-center gap-1.5 flex-wrap">
-                <span>Conta Stripe Vinculada:</span>
-                <code className="bg-slate-100 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[11px] font-black">{stripeStatus.stripe_account_id}</code>
+              <div className="pt-2 text-xs text-slate-500 font-semibold space-y-1 bg-slate-50 border border-slate-100 rounded-xl p-3 w-fit">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span>Conta Stripe Vinculada:</span>
+                  <code className="bg-slate-100 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[11px] font-black">{stripeStatus.stripe_account_id}</code>
+                </div>
+                {stripeStatus.holder_name && (
+                  <div className="text-[11px] text-slate-650">
+                    <span className="text-slate-400 font-medium">Beneficiário:</span> {stripeStatus.holder_name} ({stripeStatus.account_type === 'individual' ? 'CPF' : 'CNPJ'}: {stripeStatus.tax_id})
+                  </div>
+                )}
+                {stripeStatus.bank_name && (
+                  <div className="text-[11px] text-slate-650">
+                    <span className="text-slate-400 font-medium">Banco:</span> {stripeStatus.bank_name} | Ag: {stripeStatus.bank_agency} | C/C: {stripeStatus.bank_account}
+                  </div>
+                )}
+                {stripeStatus.pix_key && (
+                  <div className="text-[11px] text-slate-650">
+                    <span className="text-slate-400 font-medium">Chave PIX:</span> <span className="font-mono font-bold text-indigo-600">{stripeStatus.pix_key}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

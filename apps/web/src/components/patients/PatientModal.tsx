@@ -93,6 +93,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
   const [localPatientId, setLocalPatientId] = useState<string | null>(patient?.id || null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [inviteLoading, setInviteLoading] = useState(false)
+  const [hasInvited, setHasInvited] = useState(false)
 
   const ensureSaved = async () => {
     if (!session) return null;
@@ -132,7 +133,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
     }
   }
 
-  const handleInvite = async (type: 'EMAIL' | 'WHATSAPP') => {
+  const handleInvite = async (type: 'EMAIL' | 'WHATSAPP' | 'COPY') => {
     if (!email) {
       alert('Por favor, preencha o campo de E-mail para enviar o convite.')
       return
@@ -164,12 +165,23 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
           await supabase.from('patients').update({ user_id: apiData.user.id }).eq('id', savedId)
         }
 
+        setHasInvited(true)
+
+        if (apiData.actionLink) {
+          setInviteLink(apiData.actionLink)
+        }
+
         if (type === 'EMAIL') {
           alert('Convite enviado por e-mail com sucesso!')
-        } else {
+        } else if (type === 'COPY') {
           if (apiData.actionLink) {
-            setInviteLink(apiData.actionLink)
+            await navigator.clipboard.writeText(apiData.actionLink)
+            alert('Link de convite copiado para a área de transferência!')
           } else {
+            alert('Convite enviado, mas não foi possível gerar o link de cópia.')
+          }
+        } else if (type === 'WHATSAPP') {
+          if (!apiData.actionLink) {
             alert('Não foi possível gerar o link de compartilhamento do WhatsApp.')
           }
         }
@@ -188,8 +200,8 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
     e.preventDefault()
     const savedId = await ensureSaved()
     if (savedId) {
-      // Se for um novo cadastro com e-mail, e não gerou link do whatsapp ainda, envia convite automático
-      if (!patient && email && !inviteLink) {
+      // Se for um novo cadastro com e-mail, e não gerou link ainda, envia convite automático
+      if (!patient && email && !hasInvited) {
         try {
           const apiRes = await fetch('/api/invite-user', {
             method: 'POST',
@@ -208,6 +220,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
             if (apiData.user?.id) {
               await supabase.from('patients').update({ user_id: apiData.user.id }).eq('id', savedId)
             }
+            setHasInvited(true)
           }
         } catch (err) {
           console.error('Auto invite error:', err)
@@ -394,45 +407,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                           <button
                             type="button"
                             disabled={inviteLoading || !email}
-                            onClick={async () => {
-                              if (!email) return
-                              setInviteLoading(true)
-                              try {
-                                const savedId = await ensureSaved()
-                                if (!savedId) return
-                                const apiRes = await fetch('/api/invite-user', {
-                                  method: 'POST',
-                                  headers: { 
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${session?.access_token || ''}`
-                                  },
-                                  body: JSON.stringify({
-                                    email: email,
-                                    name: name,
-                                    role: 'STUDENT'
-                                  })
-                                })
-                                if (apiRes.ok) {
-                                  const apiData = await apiRes.json()
-                                  if (apiData.user?.id) {
-                                    await supabase.from('patients').update({ user_id: apiData.user.id }).eq('id', savedId)
-                                  }
-                                  if (apiData.actionLink) {
-                                    navigator.clipboard.writeText(apiData.actionLink)
-                                    alert('Link de convite copiado para a área de transferência!')
-                                  } else {
-                                    alert('Convite enviado por e-mail, mas não foi possível gerar o link de cópia.')
-                                  }
-                                } else {
-                                  const err = await apiRes.text()
-                                  alert('Erro ao gerar convite: ' + err)
-                                }
-                              } catch (err: any) {
-                                alert('Erro: ' + err.message)
-                              } finally {
-                                setInviteLoading(false)
-                              }
-                            }}
+                            onClick={() => handleInvite('COPY')}
                             className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                           >
                             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

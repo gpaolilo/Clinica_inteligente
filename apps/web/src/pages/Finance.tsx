@@ -416,8 +416,64 @@ export default function Finance() {
     )
   }
 
-  // Render NOT_CONNECTED or RESTRICTED screen
   const isStripeActive = stripeStatus.status === 'ACTIVE'
+
+  const renderStripeConnectCTA = (message?: string) => (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+      
+      <div className="space-y-4 max-w-2xl text-center md:text-left">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold">
+          {stripeStatus.status === 'RESTRICTED' ? (
+            <>
+              <AlertTriangle className="w-3.5 h-3.5" /> Ações Requeridas (Restrita)
+            </>
+          ) : (
+            <>
+              <Settings className="w-3.5 h-3.5" /> Pagamentos Desconectados
+            </>
+          )}
+        </div>
+        
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Comece a faturar com sua própria marca 🚀</h2>
+        <p className="text-slate-500 text-sm leading-relaxed font-semibold">
+          {message || 'Conecte sua conta bancária ao Stripe Connect Express para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber payouts automáticos sem complicação.'}
+        </p>
+
+        <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            Segurança Stripe Connect
+          </div>
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            PIX & Cartão automáticos
+          </div>
+        </div>
+      </div>
+
+      <div className="shrink-0 w-full md:w-auto text-center">
+        <button
+          onClick={handleConnectStripe}
+          disabled={connectingStripe}
+          className="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-emerald-600/10 flex items-center justify-center gap-2 hover:-translate-y-0.5"
+        >
+          {connectingStripe ? (
+            <>
+              <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              <span>Configurando Conta...</span>
+            </>
+          ) : (
+            <>
+              <span>Conectar Gateway Stripe</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">Configuração Express de 2 minutos</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 select-none font-sans">
@@ -441,103 +497,46 @@ export default function Finance() {
         )}
       </div>
 
-      {/* Stripe Connection Call-to-Action if not Active */}
-      {!isStripeActive && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
-          
-          <div className="space-y-4 max-w-2xl text-center md:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold">
-              {stripeStatus.status === 'RESTRICTED' ? (
-                <>
-                  <AlertTriangle className="w-3.5 h-3.5" /> Ações Requeridas (Restrita)
-                </>
-              ) : (
-                <>
-                  <Settings className="w-3.5 h-3.5" /> Pagamentos Desconectados
-                </>
-              )}
-            </div>
-            
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Comece a faturar com sua própria marca 🚀</h2>
-            <p className="text-slate-550 text-sm leading-relaxed font-semibold">
-              Conecte sua conta bancária ao Stripe Connect Express para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber payouts automáticos sem complicação.
-            </p>
-
-            <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Segurança Stripe Connect
-              </div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                PIX & Cartão automáticos
-              </div>
-            </div>
-          </div>
-
-          <div className="shrink-0 w-full md:w-auto text-center">
-            <button
-              onClick={handleConnectStripe}
-              disabled={connectingStripe}
-              className="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-emerald-600/10 flex items-center justify-center gap-2 hover:-translate-y-0.5"
-            >
-              {connectingStripe ? (
-                <>
-                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
-                  <span>Configurando Conta...</span>
-                </>
-              ) : (
-                <>
-                  <span>Conectar Gateway Stripe</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-            <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">Configuração Express de 2 minutos</p>
-          </div>
-        </div>
-      )}
-
       {/* Main Panel Tabs Menu */}
-      {isStripeActive && (
-        <div className="flex border-b border-slate-200 gap-6">
-          <button 
-            onClick={() => setActiveTab('revenue')}
-            className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
-              activeTab === 'revenue' 
-                ? 'border-tenant-primary text-tenant-primary' 
-                : 'border-transparent text-slate-400 hover:text-slate-650'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" /> Receitas & Payouts
-          </button>
-          <button 
-            onClick={() => setActiveTab('products')}
-            className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
-              activeTab === 'products' 
-                ? 'border-tenant-primary text-tenant-primary' 
-                : 'border-transparent text-slate-400 hover:text-slate-650'
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4" /> Meus Produtos & Aulas
-          </button>
-          <button 
-            onClick={() => setActiveTab('saas')}
-            className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
-              activeTab === 'saas' 
-                ? 'border-tenant-primary text-tenant-primary' 
-                : 'border-transparent text-slate-400 hover:text-slate-650'
-            }`}
-          >
-            <Award className="w-4 h-4" /> Assinatura Flowike & IA
-          </button>
-        </div>
-      )}
+      <div className="flex border-b border-slate-200 gap-6">
+        <button 
+          onClick={() => setActiveTab('revenue')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+            activeTab === 'revenue' 
+              ? 'border-tenant-primary text-tenant-primary' 
+              : 'border-transparent text-slate-400 hover:text-slate-655'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" /> Receitas & Payouts
+        </button>
+        <button 
+          onClick={() => setActiveTab('products')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+            activeTab === 'products' 
+              ? 'border-tenant-primary text-tenant-primary' 
+              : 'border-transparent text-slate-400 hover:text-slate-655'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" /> Meus Produtos & Aulas
+        </button>
+        <button 
+          onClick={() => setActiveTab('saas')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+            activeTab === 'saas' 
+              ? 'border-tenant-primary text-tenant-primary' 
+              : 'border-transparent text-slate-400 hover:text-slate-655'
+          }`}
+        >
+          <Award className="w-4 h-4" /> Assinatura Flowike & IA
+        </button>
+      </div>
 
       {/* RENDER ACTIVE TAB */}
-      {isStripeActive && activeTab === 'revenue' && (
-        <div className="space-y-6">
+      {activeTab === 'revenue' && (
+        !isStripeActive ? (
+          renderStripeConnectCTA('Conecte sua conta do Stripe para visualizar suas métricas financeiras, payouts e comissões.')
+        ) : (
+          <div className="space-y-6">
           {/* KPI Dashboard Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
@@ -650,12 +649,16 @@ export default function Finance() {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        )
       )}
 
       {/* PRODUCTS TAB */}
-      {isStripeActive && activeTab === 'products' && (
-        <div className="space-y-6">
+      {activeTab === 'products' && (
+        !isStripeActive ? (
+          renderStripeConnectCTA('Conecte sua conta do Stripe para gerenciar seu catálogo de aulas e criar planos para seus alunos.')
+        ) : (
+          <div className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-800">Catálogo de Produtos & Planos de Ensino</h3>
@@ -697,11 +700,12 @@ export default function Finance() {
               </div>
             )}
           </div>
-        </div>
+          </div>
+        )
       )}
 
       {/* SAAS PLATFORM PLANS TAB */}
-      {isStripeActive && activeTab === 'saas' && (
+      {activeTab === 'saas' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Credit store wallet */}
           <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-6">

@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import { 
   DollarSign, Plus, TrendingUp, Users, Calendar, 
   Settings, CheckCircle, AlertTriangle, LayoutGrid, Award, 
-  ArrowRight, ShieldCheck, ChevronRight, Loader2, BarChart2
+  ArrowRight, ShieldCheck, ChevronRight, Loader2, BarChart2, Clock
 } from 'lucide-react'
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
@@ -177,7 +177,19 @@ export default function Finance() {
   }
 
   useEffect(() => {
-    fetchDashboardData()
+    if (session?.user?.id) {
+      const queryParams = new URLSearchParams(window.location.search)
+      const stripeParam = queryParams.get('stripe')
+      
+      if (stripeParam === 'success' || stripeParam === 'success_mock') {
+        alert('Sua conta Stripe foi integrada com sucesso!')
+        window.history.replaceState({}, document.title, window.location.pathname)
+      } else if (stripeParam === 'refresh') {
+        alert('Configuração do Stripe atualizada ou reiniciada.')
+        window.history.replaceState({}, document.title, window.location.pathname)
+      }
+      fetchDashboardData()
+    }
   }, [session])
 
   // Triggers Stripe Express Onboarding redirect
@@ -423,83 +435,156 @@ export default function Finance() {
 
   const isStripeActive = stripeStatus.status === 'ACTIVE'
 
-  const renderStripeConnectCTA = (message?: string) => (
-    <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
-      
-      <div className="space-y-4 max-w-2xl text-center md:text-left">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold">
-          {stripeStatus.status === 'RESTRICTED' ? (
-            <>
-              <AlertTriangle className="w-3.5 h-3.5" /> Ações Requeridas (Restrita)
-            </>
-          ) : (
-            <>
-              <Settings className="w-3.5 h-3.5" /> Pagamentos Desconectados
-            </>
-          )}
+  const renderStripeConnectCTA = (message?: string) => {
+    const status = stripeStatus.status
+    let title = "Comece a faturar com sua própria marca 🚀"
+    let desc = message || "Conecte sua conta bancária ao Stripe Connect Express para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber payouts automáticos sem complicação."
+    let badge = (
+      <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-full text-xs font-bold">
+        <Settings className="w-3.5 h-3.5 text-slate-500" /> Pagamentos Desconectados
+      </div>
+    )
+    let buttonText = "Conectar Gateway Stripe"
+    let bgGradient = "from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/10"
+
+    if (status === 'PENDING') {
+      title = "Sua conta Stripe está em análise ⏳"
+      desc = "O Stripe está processando o cadastro da sua conta bancária. Isso costuma demorar apenas alguns minutos. Assim que a análise for concluída, você poderá receber pagamentos de seus alunos normalmente."
+      badge = (
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold animate-pulse">
+          <Clock className="w-3.5 h-3.5 text-amber-600" /> Conexão Pendente
         </div>
+      )
+      buttonText = "Verificar Status no Stripe"
+      bgGradient = "from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 shadow-amber-600/10"
+    } else if (status === 'RESTRICTED') {
+      title = "Ações requeridas na sua conta Stripe ⚠️"
+      desc = "Para começar ou continuar recebendo pagamentos, o Stripe precisa que você complemente os dados cadastrais ou envie algum documento de verificação."
+      badge = (
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 border border-rose-200 text-rose-800 rounded-full text-xs font-bold">
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Pendências Cadastrais (Restrita)
+        </div>
+      )
+      buttonText = "Completar Cadastro no Stripe"
+      bgGradient = "from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 shadow-rose-600/10"
+    }
+
+    return (
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
         
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Comece a faturar com sua própria marca 🚀</h2>
-        <p className="text-slate-500 text-sm leading-relaxed font-semibold">
-          {message || 'Conecte sua conta bancária ao Stripe Connect Express para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber payouts automáticos sem complicação.'}
-        </p>
+        <div className="space-y-4 max-w-2xl text-center md:text-left">
+          {badge}
+          
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h2>
+          <p className="text-slate-500 text-sm leading-relaxed font-semibold">
+            {desc}
+          </p>
 
-        <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            Segurança Stripe Connect
-          </div>
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
-            PIX & Cartão automáticos
+          {status !== 'NOT_CONNECTED' && (
+            <div className="text-xs font-bold text-slate-500 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 w-fit">
+              <span>ID da Conta Stripe Conectada:</span>
+              <code className="bg-slate-100 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[11px] font-black">{stripeStatus.stripe_account_id}</code>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Segurança Stripe Connect
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
+              PIX & Cartão automáticos
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="shrink-0 w-full md:w-auto text-center">
-        <button
-          onClick={handleConnectStripe}
-          disabled={connectingStripe}
-          className="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-emerald-600/10 flex items-center justify-center gap-2 hover:-translate-y-0.5"
-        >
-          {connectingStripe ? (
-            <>
-              <Loader2 className="w-4.5 h-4.5 animate-spin" />
-              <span>Configurando Conta...</span>
-            </>
-          ) : (
-            <>
-              <span>Conectar Gateway Stripe</span>
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
-        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">Configuração Express de 2 minutos</p>
+        <div className="shrink-0 w-full md:w-auto text-center">
+          <button
+            onClick={handleConnectStripe}
+            disabled={connectingStripe}
+            className={`w-full md:w-auto bg-gradient-to-r ${bgGradient} text-white font-extrabold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg flex items-center justify-center gap-2 hover:-translate-y-0.5`}
+          >
+            {connectingStripe ? (
+              <>
+                <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                <span>Processando...</span>
+              </>
+            ) : (
+              <>
+                <span>{buttonText}</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+          <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">Configuração Express de 2 minutos</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 select-none font-sans">
       
       {/* Dynamic Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-200">
-        <div>
+        <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2.5">
             <DollarSign className="w-7 h-7 text-tenant-primary" /> Centro de Receitas Flowike
           </h1>
-          <p className="text-slate-500 mt-1 text-sm font-medium">Controle suas vendas, planos de alunos, payouts automáticos e créditos de IA.</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-1">
+            <p className="text-slate-500 text-sm font-medium">Controle suas vendas, planos de alunos, payouts automáticos e créditos de IA.</p>
+            {stripeStatus.status !== 'NOT_CONNECTED' && (
+              <div className="flex items-center gap-2 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 shadow-sm">
+                <span className="text-slate-400 font-medium">Stripe Connect:</span>
+                <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-800 font-black">{stripeStatus.stripe_account_id}</code>
+                {stripeStatus.status === 'ACTIVE' && (
+                  <span className="flex items-center gap-1 bg-emerald-50 border border-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ativo
+                  </span>
+                )}
+                {stripeStatus.status === 'PENDING' && (
+                  <span className="flex items-center gap-1 bg-amber-50 border border-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Em Análise
+                  </span>
+                )}
+                {stripeStatus.status === 'RESTRICTED' && (
+                  <span className="flex items-center gap-1 bg-rose-50 border border-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" /> Restrita
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         
-        {isStripeActive && (
-          <button 
-            onClick={() => setShowProductModal(true)}
-            className="flex items-center gap-1.5 bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-2.5 px-4 rounded-tenant-btn shadow-sm text-xs hover:-translate-y-0.5 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Criar Produto / Plano
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {stripeStatus.status !== 'NOT_CONNECTED' && stripeStatus.status !== 'ACTIVE' && (
+            <button
+              onClick={handleConnectStripe}
+              disabled={connectingStripe}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2.5 px-4 rounded-tenant-btn shadow-sm text-xs hover:-translate-y-0.5 transition-all w-full sm:w-auto justify-center"
+            >
+              {connectingStripe ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>{stripeStatus.status === 'RESTRICTED' ? 'Completar Cadastro Stripe' : 'Verificar Cadastro Stripe'}</span>
+                </>
+              )}
+            </button>
+          )}
+          {isStripeActive && (
+            <button 
+              onClick={() => setShowProductModal(true)}
+              className="flex items-center gap-1.5 bg-tenant-primary hover:bg-tenant-primary-hover text-white font-bold py-2.5 px-4 rounded-tenant-btn shadow-sm text-xs hover:-translate-y-0.5 transition-all w-full sm:w-auto justify-center"
+            >
+              <Plus className="w-4 h-4" /> Criar Produto / Plano
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Panel Tabs Menu */}

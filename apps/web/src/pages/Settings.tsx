@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 import { syncPendingSessions, pullGoogleEvents } from '../lib/googleSync'
 import { useNavigate } from 'react-router-dom'
 import { usePlanFeatures } from '../hooks/usePlanFeatures'
-import { Loader2, ChevronRight } from 'lucide-react'
+import { Loader2, ChevronRight, CheckCircle, AlertTriangle, CreditCard, Clock } from 'lucide-react'
 
 export default function Settings() {
   const { setAccessToken } = useGoogleStore()
@@ -23,6 +23,40 @@ export default function Settings() {
   
   const [rates, setRates] = useState<Record<string, number>>({ usd: 1.0, brl: 5.0, eur: 0.9 })
   const [selectedCurrency, setSelectedCurrency] = useState<'usd' | 'brl' | 'eur'>('usd')
+
+  const [stripeStatus, setStripeStatus] = useState<any>({
+    status: 'NOT_CONNECTED',
+    details_submitted: false,
+    charges_enabled: false,
+    payouts_enabled: false,
+    stripe_account_id: ''
+  })
+  const [loadingStripe, setLoadingStripe] = useState(true)
+
+  useEffect(() => {
+    const fetchStripeStatus = async () => {
+      if (!session?.user?.id) return
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+
+        const statusRes = await fetch('/api/payments/connect', {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        })
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          setStripeStatus(statusData)
+        }
+      } catch (err) {
+        console.error('Error fetching Stripe status in Settings:', err)
+      } finally {
+        setLoadingStripe(false)
+      }
+    }
+    fetchStripeStatus()
+  }, [session])
 
   useEffect(() => {
     const fetchRates = async () => {
@@ -441,6 +475,57 @@ export default function Settings() {
               Conectar Conta Google
             </button>
           )}
+        </section>
+
+        {/* Gateway de Pagamentos (Stripe) */}
+        <section className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow">
+          <div className="mb-4 sm:mb-0 space-y-1">
+            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
+              Gateway de Pagamentos (Stripe)
+              {loadingStripe ? (
+                <span className="text-xs text-slate-400 font-semibold">Verificando...</span>
+              ) : (
+                <>
+                  {stripeStatus.status === 'ACTIVE' && (
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                      <CheckCircle className="w-3 h-3 text-emerald-600 animate-pulse" /> Conectado
+                    </span>
+                  )}
+                  {stripeStatus.status === 'PENDING' && (
+                    <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                      <Clock className="w-3 h-3 text-amber-600 animate-spin" /> Em Análise
+                    </span>
+                  )}
+                  {stripeStatus.status === 'RESTRICTED' && (
+                    <span className="inline-flex items-center gap-1.5 bg-rose-50 border border-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                      <AlertTriangle className="w-3 h-3 text-rose-600" /> Ação Requerida
+                    </span>
+                  )}
+                  {stripeStatus.status === 'NOT_CONNECTED' && (
+                    <span className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                      Desconectado
+                    </span>
+                  )}
+                </>
+              )}
+            </h3>
+            <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
+              Integração com o Stripe Express. Crie planos e pacotes de aulas para faturamento automático de seus alunos via Cartão ou PIX.
+            </p>
+            {!loadingStripe && stripeStatus.status !== 'NOT_CONNECTED' && (
+              <div className="pt-1 text-xs font-bold text-slate-500 flex items-center gap-1.5 flex-wrap">
+                <span>Conta Stripe Vinculada:</span>
+                <code className="bg-slate-100 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[11px] font-black">{stripeStatus.stripe_account_id}</code>
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={() => navigate('/dashboard/finance')}
+            className="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center shadow-sm shrink-0 gap-1.5 text-sm"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Gerenciar no Financeiro</span>
+          </button>
         </section>
 
         {/* Personalização de Marca (White-Label) */}

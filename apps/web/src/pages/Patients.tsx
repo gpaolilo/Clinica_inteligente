@@ -56,7 +56,7 @@ export default function Patients() {
   }
 
   const handleResetPassword = async (email: string | null) => {
-    if (!email) return alert('Cliente não possui e-mail cadastrado.')
+    if (!email) return alert((role === 'TEACHER' ? 'Aluno' : 'Paciente') + ' não possui e-mail cadastrado.')
     setLoading(true)
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/login`
@@ -70,11 +70,11 @@ export default function Patients() {
   }
 
   const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o cliente ${name}?`)) {
+    if (window.confirm(`Tem certeza que deseja excluir o ${role === 'TEACHER' ? 'aluno' : 'paciente'} ${name}?`)) {
       setLoading(true)
       const { error } = await supabase.from('patients').delete().eq('id', id)
       if (error) {
-        alert('Erro ao excluir cliente. Pode haver dados atrelados a ele. (' + error.message + ')')
+        alert('Erro ao excluir ' + (role === 'TEACHER' ? 'aluno' : 'paciente') + '. Pode haver dados atrelados a ele. (' + error.message + ')')
         setLoading(false)
       } else {
         fetchPatients()
@@ -102,14 +102,14 @@ export default function Patients() {
 
       <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Carregando pacientes...</div>
+          <div className="p-8 text-center text-slate-500">Carregando {role === 'TEACHER' ? 'alunos' : 'pacientes'}...</div>
         ) : patients.length === 0 ? (
           <div className="p-12 text-center">
             <svg className="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            <p className="text-slate-600 font-medium">Nenhum paciente cadastrado</p>
-            <p className="text-slate-500 text-sm mt-1">Sua lista de acompanhamentos está vazia.</p>
+            <p className="text-slate-600 font-medium">Nenhum {role === 'TEACHER' ? 'aluno' : 'paciente'} cadastrado</p>
+            <p className="text-slate-500 text-sm mt-1">Sua lista de {role === 'TEACHER' ? 'alunos está vazia' : 'acompanhamentos está vazia'}.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -119,7 +119,7 @@ export default function Patients() {
                   <th className="px-6 py-4">Nome completo</th>
                   <th className="px-6 py-4">Contato Telefônico</th>
                   <th className="px-6 py-4">Ativação da Conta</th>
-                  <th className="px-6 py-4">Status do Acompanhamento</th>
+                  <th className="px-6 py-4">{role === 'TEACHER' ? 'Status do Aluno' : 'Status do Acompanhamento'}</th>
                   <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
               </thead>

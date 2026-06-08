@@ -35,8 +35,10 @@ export default function Login() {
       }
     })
     
-    if (window.location.hash.includes('type=recovery')) {
+    if (window.location.hash.includes('type=recovery') || window.location.hash.includes('type=invite') || window.location.hash.includes('type=signup')) {
       setView('UPDATE_PASSWORD')
+      setError(null)
+      setMessage('Defina sua nova senha abaixo.')
     }
 
     return () => {

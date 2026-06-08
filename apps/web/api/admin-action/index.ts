@@ -125,14 +125,41 @@ export default async function handler(req: any, res: any) {
     if (body.email && body.role && !body.requestId && !body.studentRequestId && body.action !== 'create_student_request') {
       const { email, name, role } = body
       const baseUrl = process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'
-      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: { 
-          full_name: name, 
-          role: role 
-        },
-        redirectTo: `${baseUrl}/login`
-      })
-      if (error) throw error
+      
+      let actionLink = ''
+      let inviteUser: any = null
+
+      try {
+        const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'invite',
+          email: email,
+          options: {
+            data: { 
+              full_name: name, 
+              role: role 
+            },
+            redirectTo: `${baseUrl}/login`
+          }
+        })
+        if (error) {
+          // If already exists or error, try recovery link
+          const { data: recData, error: recError } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email: email,
+            options: {
+              redirectTo: `${baseUrl}/login`
+            }
+          })
+          if (recError) throw error
+          actionLink = recData.properties.action_link
+          inviteUser = recData.user
+        } else {
+          actionLink = data.properties.action_link
+          inviteUser = data.user
+        }
+      } catch (err: any) {
+        throw err
+      }
 
       // Log the email invite to system_email_logs
       const inviteEmailBody = `
@@ -143,11 +170,11 @@ export default async function handler(req: any, res: any) {
         Seu convite para se cadastrar como ${role === 'TEACHER' ? 'Professor' : role === 'PSYCHOLOGIST' ? 'Psicólogo' : role === 'STUDENT' ? 'Aluno' : 'Paciente'} na plataforma Flowike foi gerado.
         
         Clique no link abaixo para criar sua senha e ter acesso à sua conta:
-        ${baseUrl}/login
+        ${actionLink}
       `
       await logSystemEmail(email, 'Você foi convidado para o Flowike! 🚀', inviteEmailBody)
 
-      return res.status(200).json({ success: true, user: data.user })
+      return res.status(200).json({ success: true, user: inviteUser, actionLink })
     }
 
     // --- Action C: TEACHER APPROVAL ---
@@ -318,13 +345,43 @@ export default async function handler(req: any, res: any) {
 
         if (!userId) {
           const baseUrl = process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'
-          const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(request.student_email, {
-            data: { 
-              full_name: request.student_name, 
-              role: 'STUDENT'
-            },
-            redirectTo: `${baseUrl}/login`
-          })
+          let actionLink = `${baseUrl}/login`
+          let inviteData: any = null
+          let inviteError: any = null
+
+          try {
+            const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+              type: 'invite',
+              email: request.student_email,
+              options: {
+                data: { 
+                  full_name: request.student_name, 
+                  role: 'STUDENT'
+                },
+                redirectTo: `${baseUrl}/login`
+              }
+            })
+            if (error) {
+              const { data: recData, error: recError } = await supabaseAdmin.auth.admin.generateLink({
+                type: 'recovery',
+                email: request.student_email,
+                options: {
+                  redirectTo: `${baseUrl}/login`
+                }
+              })
+              if (!recError) {
+                actionLink = recData.properties.action_link
+                inviteData = recData
+              } else {
+                inviteError = error
+              }
+            } else {
+              actionLink = data.properties.action_link
+              inviteData = data
+            }
+          } catch (err) {
+            console.error('Error generating link for enrollment approve:', err)
+          }
 
           if (!inviteError && inviteData?.user) {
             userId = inviteData.user.id
@@ -333,22 +390,38 @@ export default async function handler(req: any, res: any) {
               .update({ user_id: userId })
               .eq('id', patientId)
           }
-        }
 
-        emailTriggered = `
-          TO: ${request.student_email}
-          SUBJECT: Matrícula Confirmada no Flowike! 🎓
-          CONTENT:
-          Olá ${request.student_name},
-          Sua solicitação de matrícula para o curso do professor foi aprovada e confirmada!
-          
-          Você já pode acessar sua conta de estudante. Se for seu primeiro acesso, use o link de convite enviado ou defina sua senha no login.
-          
-          Acesse o link abaixo:
-          ${process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'}/login
-          
-          Bons estudos!
-        `
+          emailTriggered = `
+            TO: ${request.student_email}
+            SUBJECT: Matrícula Confirmada no Flowike! 🎓
+            CONTENT:
+            Olá ${request.student_name},
+            Sua solicitação de matrícula para o curso do professor foi aprovada e confirmada!
+            
+            Você já pode acessar sua conta de estudante. Se for seu primeiro acesso, use o link de convite enviado ou defina sua senha no login.
+            
+            Acesse o link abaixo:
+            ${actionLink}
+            
+            Bons estudos!
+          `
+        } else {
+          const baseUrl = process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'
+          emailTriggered = `
+            TO: ${request.student_email}
+            SUBJECT: Matrícula Confirmada no Flowike! 🎓
+            CONTENT:
+            Olá ${request.student_name},
+            Sua solicitação de matrícula para o curso do professor foi aprovada e confirmada!
+            
+            Você já pode acessar sua conta de estudante.
+            
+            Acesse o link abaixo:
+            ${baseUrl}/login
+            
+            Bons estudos!
+          `
+        }
         await logSystemEmail(request.student_email, 'Matrícula Confirmada no Flowike! 🎓', emailTriggered)
       } else {
         const { error: updateReqError } = await supabaseAdmin

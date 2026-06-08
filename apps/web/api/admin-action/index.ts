@@ -36,15 +36,20 @@ export default async function handler(req: any, res: any) {
       .eq('id', adminUser.id)
       .single()
 
-    if (profileError || adminProfile?.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Forbidden: Admins only' })
+    if (profileError || !adminProfile) {
+      return res.status(403).json({ error: 'Forbidden: User profile not found' })
     }
+
+    const callerRole = adminProfile.role
 
     // 2. Identify the action based on request body fields
     const body = req.body
 
     // --- Action A: DELETE USER ---
     if (body.userId && !body.email && !body.requestId && !body.studentRequestId && body.action !== 'create_student_request') {
+      if (callerRole !== 'ADMIN') {
+        return res.status(403).json({ error: 'Forbidden: Admins only' })
+      }
       const { userId } = body
 
       // A1. Get user email and role from Auth/Profiles for log cleanup
@@ -124,6 +129,19 @@ export default async function handler(req: any, res: any) {
     // --- Action B: INVITE USER ---
     if (body.email && body.role && !body.requestId && !body.studentRequestId && body.action !== 'create_student_request') {
       const { email, name, role } = body
+      
+      // Authorization check for Action B
+      if (callerRole !== 'ADMIN') {
+        if (callerRole === 'TEACHER' && role !== 'STUDENT') {
+          return res.status(403).json({ error: 'Forbidden: Teachers can only invite students' })
+        }
+        if (callerRole === 'PSYCHOLOGIST' && role !== 'PATIENT') {
+          return res.status(403).json({ error: 'Forbidden: Psychologists can only invite patients' })
+        }
+        if (callerRole !== 'TEACHER' && callerRole !== 'PSYCHOLOGIST') {
+          return res.status(403).json({ error: 'Forbidden: Unauthorized to invite users' })
+        }
+      }
       const baseUrl = process.env.VITE_APP_URL || 'https://clinica-inteligente-web-chi.vercel.app'
       
       let actionLink = ''
@@ -179,6 +197,9 @@ export default async function handler(req: any, res: any) {
 
     // --- Action C: TEACHER APPROVAL ---
     if (body.requestId && body.action && !body.studentRequestId) {
+      if (callerRole !== 'ADMIN') {
+        return res.status(403).json({ error: 'Forbidden: Admins only' })
+      }
       const { requestId, action, adminNotes, rejectionMessage } = body
       
       const { data: request, error: fetchReqError } = await supabaseAdmin
@@ -287,6 +308,16 @@ export default async function handler(req: any, res: any) {
     // --- Action D: STUDENT ENROLLMENT ACTIONS ---
     if (body.studentRequestId && body.action) {
       const { studentRequestId, action, rejectionMessage } = body
+      
+      // Admins can review all, teachers can review their own requests
+      if (callerRole !== 'ADMIN') {
+        if (callerRole !== 'TEACHER') {
+          return res.status(403).json({ error: 'Forbidden: Only admins or teachers can review enrollment requests' })
+        }
+        if (request.teacher_id !== adminUser.id) {
+          return res.status(403).json({ error: 'Forbidden: You can only review enrollment requests for your own academy' })
+        }
+      }
       
       const { data: request, error: fetchReqError } = await supabaseAdmin
         .from('student_enrollment_requests')
@@ -487,6 +518,13 @@ export default async function handler(req: any, res: any) {
       if (error) throw error
 
       return res.status(200).json({ success: true, request: data })
+    }
+
+    // Plan actions and costs are admin only
+    if (body.action === 'create_plan' || body.action === 'edit_plan' || body.action === 'archive_plan' || body.action === 'duplicate_plan' || body.action === 'update_feature_costs') {
+      if (callerRole !== 'ADMIN') {
+        return res.status(403).json({ error: 'Forbidden: Admins only' })
+      }
     }
 
     // --- Action F: CREATE PLAN ---

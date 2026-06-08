@@ -147,7 +147,10 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
 
       const apiRes = await fetch('/api/invite-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           email: email,
           name: name,
@@ -190,7 +193,10 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
         try {
           const apiRes = await fetch('/api/invite-user', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token || ''}`
+            },
             body: JSON.stringify({
               email: email,
               name: name,
@@ -308,33 +314,33 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
               </div>
 
               {clientType === 'ALUNO' && (
-                <div className="p-5 bg-blue-50/40 border border-blue-100 rounded-2xl mt-6">
-                  <h4 className="text-sm font-bold text-blue-900 mb-1 flex items-center gap-1.5">
-                    <svg className="w-4.5 h-4.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    Acesso à Plataforma (Área do Aluno)
-                  </h4>
-                  <p className="text-xs text-slate-500 mb-4 font-medium">
+                    <span className="text-xs font-bold text-slate-700">Acesso à Plataforma (Área do Aluno)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
                     Gere o link de convite ou envie por e-mail para o aluno cadastrar a senha e acessar a plataforma.
                   </p>
 
                   {patient?.user_id ? (
-                    <div className="flex items-center gap-2 text-emerald-800 text-xs font-semibold bg-emerald-50/80 p-3 rounded-xl border border-emerald-100">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-semibold bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       Conta vinculada ao e-mail: {email}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {inviteLink ? (
-                        <div className="bg-white p-4 border border-blue-200/60 rounded-xl space-y-3 shadow-sm">
+                        <div className="bg-white p-3 border border-slate-250 rounded-xl space-y-2.5 shadow-sm">
                           <span className="block text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Link de Convite Gerado:</span>
                           <div className="flex items-center gap-2">
                             <input 
                               type="text" 
                               readOnly 
                               value={inviteLink} 
-                              className="flex-1 bg-slate-50 border border-slate-200 text-xs font-semibold px-3 py-2 rounded-lg text-slate-650 outline-none select-all"
+                              className="flex-1 bg-slate-50 border border-slate-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-slate-650 outline-none select-all"
                             />
                             <button
                               type="button"
@@ -342,7 +348,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                                 navigator.clipboard.writeText(inviteLink)
                                 alert('Link copiado!')
                               }}
-                              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-lg text-xs transition-colors shrink-0"
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shrink-0"
                             >
                               Copiar
                             </button>
@@ -355,7 +361,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                               )}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-1 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold text-xs py-2 px-3 rounded-lg text-center transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                              className="flex-1 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold text-xs py-1.5 px-3 rounded-lg text-center transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                             >
                               <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.498 1.45 5.435 1.451 5.463 0 9.909-4.444 9.912-9.902.001-2.644-1.025-5.13-2.887-6.996C17.245 1.844 14.76 .818 12.115.818c-5.466 0-9.913 4.444-9.917 9.903-.001 1.994.521 3.94 1.512 5.642l-.991 3.616 3.738-.981zM17.47 15.1c-.266-.134-1.57-.775-1.815-.865-.245-.09-.423-.134-.6.134-.179.266-.692.865-.848 1.044-.156.179-.311.2-.577.067-.266-.134-1.122-.413-2.138-1.321-.79-.705-1.324-1.575-1.48-1.84-.156-.266-.017-.4-.15-.533-.12-.12-.266-.312-.4-.467-.134-.156-.179-.266-.266-.445-.089-.178-.044-.334.022-.467.067-.134.6-1.314.689-1.575.089-.265.044-.49-.022-.622-.067-.134-.6-1.567-.823-2.106-.217-.522-.456-.45-.63-.459-.161-.008-.347-.01-.532-.01s-.488.07-.743.347c-.256.278-1.023 1.002-1.023 2.445 0 1.442 1.05 2.836 1.196 3.037.147.2.2 2.074.45 2.378.1.12.186.225.267.311.134.133.256.255.385.378.363.347.79.752 1.258 1.12.568.448 1.196.793 1.83.993.424.134.805.21 1.082.253.332.052.723.041 1.004-.015.39-.079 1.197-.49 1.365-.964.167-.473.167-.88.118-.964-.05-.084-.18-.134-.446-.268z"/>
@@ -365,41 +371,91 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                             <button
                               type="button"
                               onClick={() => setInviteLink(null)}
-                              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs py-2 px-3 rounded-lg transition-colors shrink-0"
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs py-1.5 px-3 rounded-lg transition-colors shrink-0"
                             >
                               Voltar
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <div className="flex flex-col sm:flex-row gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <button
                             type="button"
                             disabled={inviteLoading || !email}
                             onClick={() => handleInvite('EMAIL')}
-                            className="flex-1 bg-dark hover:bg-black text-neon font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                            className="bg-dark hover:bg-black text-neon font-bold py-2 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            {inviteLoading ? 'Enviando...' : 'Enviar Convite por E-mail'}
+                            {inviteLoading ? 'Enviando...' : 'Enviar por E-mail'}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={inviteLoading || !email}
+                            onClick={async () => {
+                              if (!email) return
+                              setInviteLoading(true)
+                              try {
+                                const savedId = await ensureSaved()
+                                if (!savedId) return
+                                const apiRes = await fetch('/api/invite-user', {
+                                  method: 'POST',
+                                  headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session?.access_token || ''}`
+                                  },
+                                  body: JSON.stringify({
+                                    email: email,
+                                    name: name,
+                                    role: 'STUDENT'
+                                  })
+                                })
+                                if (apiRes.ok) {
+                                  const apiData = await apiRes.json()
+                                  if (apiData.user?.id) {
+                                    await supabase.from('patients').update({ user_id: apiData.user.id }).eq('id', savedId)
+                                  }
+                                  if (apiData.actionLink) {
+                                    navigator.clipboard.writeText(apiData.actionLink)
+                                    alert('Link de convite copiado para a área de transferência!')
+                                  } else {
+                                    alert('Convite enviado por e-mail, mas não foi possível gerar o link de cópia.')
+                                  }
+                                } else {
+                                  const err = await apiRes.text()
+                                  alert('Erro ao gerar convite: ' + err)
+                                }
+                              } catch (err: any) {
+                                alert('Erro: ' + err.message)
+                              } finally {
+                                setInviteLoading(false)
+                              }
+                            }}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                          >
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                            </svg>
+                            Copiar Link
                           </button>
 
                           <button
                             type="button"
                             disabled={inviteLoading || !email}
                             onClick={() => handleInvite('WHATSAPP')}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                             </svg>
-                            Gerar Link WhatsApp
+                            Enviar WhatsApp
                           </button>
                         </div>
                       )}
                       {!email && (
-                        <p className="text-[10px] text-rose-500 font-bold mt-1">
+                        <p className="text-[10px] text-rose-500 font-bold">
                           * Preencha o e-mail do aluno para liberar o envio do convite.
                         </p>
                       )}
@@ -410,7 +466,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
             </form>
           )}
 
-          {activeTab === 'NOTES' && (
+              {activeTab === 'NOTES' && (
             <div className="p-6 space-y-4">
               {loadingData ? (
                 <div className="text-center text-slate-500 py-8">Carregando dados...</div>

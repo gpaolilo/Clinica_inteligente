@@ -180,7 +180,7 @@ export default async function handler(req: any, res: any) {
         }
       }
 
-      // If mock account detected, bypass Stripe account links creation
+      // If mock account detected, bypass Stripe account sessions creation
       if (stripeAccountId.startsWith('acct_mock_')) {
         const mockRedirectUrl = source === 'onboarding'
           ? `${baseUrl}/onboarding?stripe=success_mock`
@@ -188,19 +188,30 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({ url: mockRedirectUrl, isMock: true, stripe_account_id: stripeAccountId })
       }
 
-      // Generate account link for Express onboarding redirect
+      // Generate account session for Embedded Onboarding
       try {
-        const accountLink = await stripe.accountLinks.create({
+        const accountSession = await stripe.accountSessions.create({
           account: stripeAccountId,
-          refresh_url,
-          return_url,
-          type: 'account_onboarding',
+          components: {
+            account_onboarding: { 
+              enabled: true,
+              features: {
+                external_account_collection: true,
+              }
+            },
+          },
         })
 
-        return res.status(200).json({ url: accountLink.url, stripe_account_id: stripeAccountId })
+        const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51MockPublishableKey'
+
+        return res.status(200).json({ 
+          clientSecret: accountSession.client_secret, 
+          publishableKey,
+          stripe_account_id: stripeAccountId,
+          isMock: false
+        })
       } catch (err: any) {
-        console.error('Stripe Account Link Creation Error:', err)
-        // If Stripe fails (e.g. mock key), fallback with local mock onboarding redirect
+        console.error('Stripe Account Session Creation Error:', err)
         const mockRedirectUrl = source === 'onboarding'
           ? `${baseUrl}/onboarding?stripe=success_mock`
           : `${baseUrl}/dashboard/finance?stripe=success_mock`

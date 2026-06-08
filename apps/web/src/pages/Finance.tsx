@@ -10,6 +10,32 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts'
 
+export const STRIPE_SUPPORTED_BANKS = [
+  { code: '001', name: '001 - Banco do Brasil S.A.' },
+  { code: '033', name: '033 - Banco Santander (Brasil) S.A.' },
+  { code: '041', name: '041 - Banco do Estado do Rio Grande do Sul (Banrisul)' },
+  { code: '077', name: '077 - Banco Inter S.A.' },
+  { code: '104', name: '104 - Caixa Econômica Federal' },
+  { code: '197', name: '197 - Stone Pagamentos S.A.' },
+  { code: '208', name: '208 - Banco BTG Pactual S.A.' },
+  { code: '212', name: '212 - Banco Original S.A.' },
+  { code: '237', name: '237 - Banco Bradesco S.A.' },
+  { code: '260', name: '260 - Nu Pagamentos S.A. (Nubank)' },
+  { code: '290', name: '290 - Pagseguro Internet S.A. (PagBank)' },
+  { code: '323', name: '323 - Mercado Pago Representações Ltda.' },
+  { code: '336', name: '336 - C6 Bank S.A.' },
+  { code: '341', name: '341 - Itaú Unibanco S.A.' },
+  { code: '380', name: '380 - PicPay Serviços S.A.' },
+  { code: '389', name: '389 - Banco Mercantil do Brasil S.A.' },
+  { code: '422', name: '422 - Banco Safra S.A.' },
+  { code: '536', name: '536 - Neon Pagamentos S.A.' },
+  { code: '623', name: '623 - Banco Pan S.A.' },
+  { code: '655', name: '655 - Banco Votorantim S.A. (BV)' },
+  { code: '707', name: '707 - Banco Daycoval S.A.' },
+  { code: '748', name: '748 - Banco Cooperativo Sicredi S.A.' },
+  { code: '756', name: '756 - Banco Cooperativo do Brasil S.A. (Sicoob)' }
+]
+
 export default function Finance() {
   const { session } = useAuthStore()
   
@@ -45,6 +71,8 @@ export default function Finance() {
     address_state: '',
     address_postal_code: ''
   })
+
+  const [showCustomBankInput, setShowCustomBankInput] = useState(false)
 
   // Wallet stats
   const [stats, setStats] = useState({
@@ -144,6 +172,12 @@ export default function Finance() {
             address_state: statusData.address_state || '',
             address_postal_code: statusData.address_postal_code || ''
           })
+
+          if (statusData.bank_name && !STRIPE_SUPPORTED_BANKS.some(b => b.name === statusData.bank_name)) {
+            setShowCustomBankInput(true)
+          } else {
+            setShowCustomBankInput(false)
+          }
         }
       }
 
@@ -733,14 +767,37 @@ export default function Finance() {
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Banco *</label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    placeholder="ex: Banco do Brasil ou 001"
                     className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
-                    value={bankSetup.bank_name}
-                    onChange={e => setBankSetup(p => ({ ...p, bank_name: e.target.value }))}
-                  />
+                    value={showCustomBankInput ? 'other' : bankSetup.bank_name}
+                    onChange={e => {
+                      const val = e.target.value
+                      if (val === 'other') {
+                        setShowCustomBankInput(true)
+                        setBankSetup(p => ({ ...p, bank_name: '' }))
+                      } else {
+                        setShowCustomBankInput(false)
+                        setBankSetup(p => ({ ...p, bank_name: val }))
+                      }
+                    }}
+                  >
+                    <option value="" disabled>Selecione um banco...</option>
+                    {STRIPE_SUPPORTED_BANKS.map(b => (
+                      <option key={b.code} value={b.name}>{b.name}</option>
+                    ))}
+                    <option value="other">Outro Banco (Especificar)</option>
+                  </select>
+                  {showCustomBankInput && (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Nome ou Código do Banco (ex: 001)"
+                      className="mt-2 w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                      value={bankSetup.bank_name}
+                      onChange={e => setBankSetup(p => ({ ...p, bank_name: e.target.value }))}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Agência *</label>

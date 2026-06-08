@@ -197,7 +197,7 @@ export default async function handler(req: any, res: any) {
           type: 'account_onboarding',
         })
 
-        return res.status(200).json({ url: accountLink.url })
+        return res.status(200).json({ url: accountLink.url, stripe_account_id: stripeAccountId })
       } catch (err: any) {
         console.error('Stripe Account Link Creation Error:', err)
         // If Stripe fails (e.g. mock key), fallback with local mock onboarding redirect

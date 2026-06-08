@@ -242,11 +242,34 @@ export default function Finance() {
 
     setConnectingStripe(true)
     try {
-      const mockAccountId = stripeStatus.stripe_account_id || 'acct_mock_' + session.user.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
+      // Get the Stripe connected account ID from backend first
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const res = await fetch('/api/payments/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ source: 'dashboard' })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Erro ao criar conta de pagamento no Stripe.')
+      }
+
+      const resData = await res.json()
+      const stripeAccountId = resData.stripe_account_id
+
+      if (!stripeAccountId) {
+        throw new Error('Identificador da conta do Stripe não foi retornado pelo servidor.')
+      }
       
       const { error: upsertErr } = await supabase.from('stripe_connected_accounts').upsert({
         teacher_id: session.user.id,
-        stripe_account_id: mockAccountId,
+        stripe_account_id: stripeAccountId,
         status: 'ACTIVE',
         details_submitted: true,
         charges_enabled: true,
@@ -274,7 +297,7 @@ export default function Finance() {
       if (upsertErr) throw upsertErr
 
       await supabase.from('psychologists').update({
-        stripe_account_id: mockAccountId,
+        stripe_account_id: stripeAccountId,
         stripe_onboarding_completed: true,
         stripe_charges_enabled: true,
         stripe_payouts_enabled: true

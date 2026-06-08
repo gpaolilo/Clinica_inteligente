@@ -282,6 +282,27 @@ export default function Onboarding() {
         callbackProcessed.current = true
         setIsFinalizing(true)
         try {
+          if (stripeParam === 'success_mock') {
+            const mockAccountId = 'acct_mock_' + user.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
+            
+            await supabase.from('stripe_connected_accounts').upsert({
+              teacher_id: user.id,
+              stripe_account_id: mockAccountId,
+              status: 'ACTIVE',
+              details_submitted: true,
+              charges_enabled: true,
+              payouts_enabled: true,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'teacher_id' })
+            
+            await supabase.from('psychologists').update({
+              stripe_account_id: mockAccountId,
+              stripe_onboarding_completed: true,
+              stripe_charges_enabled: true,
+              stripe_payouts_enabled: true
+            }).eq('id', user.id)
+          }
+
           const { data: profile } = await supabase
             .from('academy_profiles')
             .select('*')

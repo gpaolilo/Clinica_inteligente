@@ -138,22 +138,25 @@ export default function RevenueCenter() {
         const data = await res.json()
         if (data.isMock) {
           alert('Simulando onboarding do Stripe Connect Express...')
-          // Simulate webhook for stripe connection completed
-          await fetch('/api/payments/webhook', {
-            method: 'POST',
-            body: JSON.stringify({
-              type: 'account.updated',
-              data: {
-                object: {
-                  id: data.stripe_account_id || 'acct_mock_' + Math.random().toString(36).substring(2, 8),
-                  details_submitted: true,
-                  charges_enabled: true,
-                  payouts_enabled: true
-                }
-              },
-              account: data.stripe_account_id
-            })
-          })
+          const mockAccountId = data.stripe_account_id || 'acct_mock_' + user?.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
+          
+          await supabase.from('stripe_connected_accounts').upsert({
+            teacher_id: user?.id,
+            stripe_account_id: mockAccountId,
+            status: 'ACTIVE',
+            details_submitted: true,
+            charges_enabled: true,
+            payouts_enabled: true,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'teacher_id' })
+          
+          await supabase.from('psychologists').update({
+            stripe_account_id: mockAccountId,
+            stripe_onboarding_completed: true,
+            stripe_charges_enabled: true,
+            stripe_payouts_enabled: true
+          }).eq('id', user?.id)
+
           setStripeConnected(true)
         } else if (data.url) {
           window.location.href = data.url

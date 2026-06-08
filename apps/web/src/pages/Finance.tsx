@@ -200,16 +200,21 @@ export default function Finance() {
         if (data.url) {
           if (data.isMock) {
             alert('Simulando Stripe Connect Express Onboarding...')
+            const mockAccountId = data.stripe_account_id || 'acct_mock_' + session?.user?.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
+            
             // Auto complete onboarding for mock sandbox testing
             await supabase.from('stripe_connected_accounts').upsert({
               teacher_id: session?.user?.id,
+              stripe_account_id: mockAccountId,
               status: 'ACTIVE',
               details_submitted: true,
               charges_enabled: true,
-              payouts_enabled: true
+              payouts_enabled: true,
+              updated_at: new Date().toISOString()
             }, { onConflict: 'teacher_id' })
             
             await supabase.from('psychologists').update({
+              stripe_account_id: mockAccountId,
               stripe_onboarding_completed: true,
               stripe_charges_enabled: true,
               stripe_payouts_enabled: true

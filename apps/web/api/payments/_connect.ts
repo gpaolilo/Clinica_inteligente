@@ -197,7 +197,7 @@ export default async function handler(req: any, res: any) {
         const mockRedirectUrl = source === 'onboarding'
           ? `${baseUrl}/onboarding?stripe=success_mock`
           : `${baseUrl}/dashboard/finance?stripe=success_mock`
-        return res.status(200).json({ url: mockRedirectUrl, isMock: true })
+        return res.status(200).json({ url: mockRedirectUrl, isMock: true, stripe_account_id: stripeAccountId })
       }
 
       // Generate account link for Express onboarding redirect
@@ -216,7 +216,7 @@ export default async function handler(req: any, res: any) {
         const mockRedirectUrl = source === 'onboarding'
           ? `${baseUrl}/onboarding?stripe=success_mock`
           : `${baseUrl}/dashboard/finance?stripe=success_mock`
-        return res.status(200).json({ url: mockRedirectUrl, isMock: true })
+        return res.status(200).json({ url: mockRedirectUrl, isMock: true, stripe_account_id: stripeAccountId })
       }
     }
 

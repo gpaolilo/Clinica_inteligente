@@ -216,9 +216,6 @@ export default async function handler(req: any, res: any) {
             },
             payouts: {
               enabled: true,
-              features: {
-                instant_payouts: true,
-              }
             },
             payments: {
               enabled: true,

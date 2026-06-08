@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../_lib/supabase.js'
 import Stripe from 'stripe'
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51MockSecretKey'
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || 'sk_test_51MockSecretKey'
 const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2023-10-16' as any,
 })

@@ -2,7 +2,7 @@ import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 import Stripe from 'stripe'
 
 // Initialize Stripe with secret key or mock fallback
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51MockSecretKey'
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || 'sk_test_51MockSecretKey'
 const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2023-10-16' as any,
 })
@@ -123,52 +123,24 @@ export default async function handler(req: any, res: any) {
         .maybeSingle()
 
       let stripeAccountId = connectedAccount?.stripe_account_id
+      const isMockKey = stripeSecretKey.startsWith('sk_test_51Mock')
 
-      // Create new connected Express account if none exists
-      if (!stripeAccountId) {
-        try {
-          const account = await stripe.accounts.create({
-            type: 'express',
-            country: 'BR', // Default country matching PIX / local usage
-            email: user.email,
-            capabilities: {
-              card_payments: { requested: true },
-              transfers: { requested: true },
-            },
-            business_profile: {
-              product_description: 'Aulas particulares e cursos de educação online via Flowike.',
-            }
-          })
-          stripeAccountId = account.id
+      // Override if current account is mock but real Stripe key was provided
+      const shouldCreateNewAccount = !stripeAccountId || (stripeAccountId.startsWith('acct_mock_') && !isMockKey)
 
-          // Save to local database
-          await supabaseAdmin
-            .from('stripe_connected_accounts')
-            .insert([{
-              teacher_id: teacherId,
-              stripe_account_id: stripeAccountId,
-              status: 'PENDING'
-            }])
-
-          await supabaseAdmin
-            .from('psychologists')
-            .update({
-              stripe_account_id: stripeAccountId,
-              stripe_onboarding_completed: false
-            })
-            .eq('id', teacherId)
-        } catch (err: any) {
-          console.warn('Stripe Account Creation failed (using mock fallback):', err.message)
+      if (shouldCreateNewAccount) {
+        if (isMockKey) {
           stripeAccountId = `acct_mock_${teacherId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`
 
           // Save mock account to local database
           await supabaseAdmin
             .from('stripe_connected_accounts')
-            .insert([{
+            .upsert({
               teacher_id: teacherId,
               stripe_account_id: stripeAccountId,
-              status: 'PENDING'
-            }])
+              status: 'PENDING',
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'teacher_id' })
 
           await supabaseAdmin
             .from('psychologists')
@@ -177,6 +149,43 @@ export default async function handler(req: any, res: any) {
               stripe_onboarding_completed: false
             })
             .eq('id', teacherId)
+        } else {
+          try {
+            const account = await stripe.accounts.create({
+              type: 'express',
+              country: 'BR', // Default country matching PIX / local usage
+              email: user.email,
+              capabilities: {
+                card_payments: { requested: true },
+                transfers: { requested: true },
+              },
+              business_profile: {
+                product_description: 'Aulas particulares e cursos de educação online via Flowike.',
+              }
+            })
+            stripeAccountId = account.id
+
+            // Save real account to local database
+            await supabaseAdmin
+              .from('stripe_connected_accounts')
+              .upsert({
+                teacher_id: teacherId,
+                stripe_account_id: stripeAccountId,
+                status: 'PENDING',
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'teacher_id' })
+
+            await supabaseAdmin
+              .from('psychologists')
+              .update({
+                stripe_account_id: stripeAccountId,
+                stripe_onboarding_completed: false
+              })
+              .eq('id', teacherId)
+          } catch (err: any) {
+            console.error('Stripe Account Creation failed:', err)
+            return res.status(err.statusCode || 400).json({ error: `Stripe API Error: ${err.message}` })
+          }
         }
       }
 
@@ -234,10 +243,14 @@ export default async function handler(req: any, res: any) {
         })
       } catch (err: any) {
         console.error('Stripe Account Session Creation Error:', err)
-        const mockRedirectUrl = source === 'onboarding'
-          ? `${baseUrl}/onboarding?stripe=success_mock`
-          : `${baseUrl}/dashboard/finance?stripe=success_mock`
-        return res.status(200).json({ url: mockRedirectUrl, isMock: true, stripe_account_id: stripeAccountId })
+        if (stripeAccountId.startsWith('acct_mock_') || isMockKey) {
+          const mockRedirectUrl = source === 'onboarding'
+            ? `${baseUrl}/onboarding?stripe=success_mock`
+            : `${baseUrl}/dashboard/finance?stripe=success_mock`
+          return res.status(200).json({ url: mockRedirectUrl, isMock: true, stripe_account_id: stripeAccountId })
+        } else {
+          return res.status(err.statusCode || 400).json({ error: `Stripe API Error: ${err.message}` })
+        }
       }
     }
 

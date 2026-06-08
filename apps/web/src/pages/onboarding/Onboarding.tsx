@@ -480,7 +480,7 @@ export default function Onboarding() {
 
             setCurrentStepIndex(3) // Move to identity step
           } else {
-            alert('Aguardando confirmação de pagamento do Stripe. Se o pagamento foi concluído, por favor recarregue a página.')
+            alert('Aguardando confirmação de pagamento. Se o pagamento foi concluído, por favor recarregue a página.')
           }
         } catch (err) {
           console.error('Error handling billing callback:', err)
@@ -1084,14 +1084,14 @@ export default function Onboarding() {
 
       if (!res.ok) {
         const errData = await res.json()
-        throw new Error(errData.error || 'Erro ao criar conta de pagamento no Stripe.')
+        throw new Error(errData.error || 'Erro ao criar conta de pagamento.')
       }
 
       const resData = await res.json()
       const stripeAccountId = resData.stripe_account_id
 
       if (!stripeAccountId) {
-        throw new Error('Identificador da conta do Stripe não foi retornado pelo servidor.')
+        throw new Error('Identificador da conta de pagamentos não foi retornado pelo servidor.')
       }
       
       const { error: upsertErr } = await supabase.from('stripe_connected_accounts').upsert({
@@ -2113,14 +2113,14 @@ export default function Onboarding() {
                       <p className="text-slate-500 text-xs mt-1 font-semibold max-w-md">
                         {isEmbeddedMock 
                           ? 'Configure a conta bancária ou PIX onde você deseja receber as mensalidades e pagamentos de seus alunos.'
-                          : 'Conclua a verificação segura do Stripe Connect para ativar seus recebimentos direto na conta.'}
+                          : 'Conclua a verificação segura de pagamentos para ativar seus recebimentos direto na conta.'}
                       </p>
                     </div>
 
                     {loadingStripeSession ? (
                       <div className="flex flex-col items-center justify-center py-12 gap-3">
                         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                        <span className="text-xs font-semibold text-slate-455">Inicializando Stripe Connect...</span>
+                        <span className="text-xs font-semibold text-slate-455">Inicializando conexão de pagamentos...</span>
                       </div>
                     ) : !isEmbeddedMock && stripeConnectInstance ? (
                       <div className="w-full select-text min-h-[400px] border border-slate-200 rounded-2xl bg-white overflow-hidden p-2">
@@ -2168,10 +2168,10 @@ export default function Onboarding() {
                                     }, { onConflict: 'teacher_id' })
 
                                     await refreshBranding()
-                                    alert('Onboarding do Stripe concluído com sucesso!')
+                                    alert('Configuração de pagamentos concluída com sucesso!')
                                     window.location.href = '/dashboard?stripe=connected'
                                   } else {
-                                    alert('Por favor, complete as informações no formulário do Stripe para ativar sua conta.')
+                                    alert('Por favor, complete as informações no formulário de pagamentos para ativar sua conta.')
                                   }
                                 }
                               } catch (err) {

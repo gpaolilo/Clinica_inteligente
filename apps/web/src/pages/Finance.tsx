@@ -263,10 +263,10 @@ export default function Finance() {
       const stripeParam = queryParams.get('stripe')
       
       if (stripeParam === 'success' || stripeParam === 'success_mock') {
-        alert('Sua conta Stripe foi integrada com sucesso!')
+        alert('Sua conta de pagamentos foi integrada com sucesso!')
         window.history.replaceState({}, document.title, window.location.pathname)
       } else if (stripeParam === 'refresh') {
-        alert('Configuração do Stripe atualizada ou reiniciada.')
+        alert('Configuração de pagamentos atualizada ou reiniciada.')
         window.history.replaceState({}, document.title, window.location.pathname)
       }
       fetchDashboardData()
@@ -295,7 +295,7 @@ export default function Finance() {
             })
 
             if (!res.ok) {
-              throw new Error('Erro ao criar sessão do Stripe no servidor.')
+              throw new Error('Erro ao criar sessão de pagamentos no servidor.')
             }
 
             const data = await res.json()
@@ -360,14 +360,14 @@ export default function Finance() {
 
       if (!res.ok) {
         const errData = await res.json()
-        throw new Error(errData.error || 'Erro ao criar conta de pagamento no Stripe.')
+        throw new Error(errData.error || 'Erro ao criar conta de pagamento.')
       }
 
       const resData = await res.json()
       const stripeAccountId = resData.stripe_account_id
 
       if (!stripeAccountId) {
-        throw new Error('Identificador da conta do Stripe não foi retornado pelo servidor.')
+        throw new Error('Identificador da conta de pagamentos não foi retornado pelo servidor.')
       }
       
       const { error: upsertErr } = await supabase.from('stripe_connected_accounts').upsert({
@@ -436,7 +436,7 @@ export default function Finance() {
         const data = await res.json()
         if (data.url) {
           if (data.isMock) {
-            alert('Simulando Stripe Connect Express Onboarding...')
+            alert('Simulando integração de dados de pagamento...')
             const mockAccountId = data.stripe_account_id || 'acct_mock_' + session?.user?.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
             
             // Auto complete onboarding for mock sandbox testing
@@ -464,7 +464,7 @@ export default function Finance() {
         }
       }
     } catch (err: any) {
-      alert('Erro ao conectar com o Stripe: ' + err.message)
+      alert('Erro ao conectar dados de pagamento: ' + err.message)
     } finally {
       setConnectingStripe(false)
     }
@@ -669,7 +669,7 @@ export default function Finance() {
           <div className="flex justify-between items-center pb-4 border-b border-slate-100">
             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-tenant-primary animate-pulse" />
-              Completar Verificação da Conta Stripe
+              Completar Verificação da Conta de Pagamento
             </h3>
             <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700">
               Ação Requerida
@@ -963,32 +963,32 @@ export default function Finance() {
     }
 
     let title = "Comece a faturar com sua própria marca 🚀"
-    let desc = message || "Conecte sua conta bancária ao Stripe Connect Express para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber payouts automáticos sem complicação."
+    let desc = message || "Conecte sua conta bancária ao portal de pagamentos para criar produtos de ensino, vender assinaturas mensais recorrentes para seus alunos e receber transferências automáticas sem complicação."
     let badge = (
       <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-full text-xs font-bold">
         <Settings className="w-3.5 h-3.5 text-slate-500" /> Pagamentos Desconectados
       </div>
     )
-    let buttonText = "Conectar Gateway Stripe"
+    let buttonText = "Conectar Gateway de Pagamentos"
 
     if (status === 'PENDING') {
-      title = "Sua conta Stripe está em análise ⏳"
-      desc = "O Stripe está processando o cadastro da sua conta bancária. Isso costuma demorar apenas alguns minutos. Assim que a análise for concluída, você poderá receber pagamentos de seus alunos normalmente."
+      title = "Sua conta de pagamentos está em análise ⏳"
+      desc = "O portal está processando o cadastro da sua conta bancária. Isso costuma demorar apenas alguns minutos. Assim que a análise for concluída, você poderá receber pagamentos de seus alunos normalmente."
       badge = (
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold animate-pulse">
           <Clock className="w-3.5 h-3.5 text-amber-600" /> Conexão Pendente
         </div>
       )
-      buttonText = "Verificar Status no Stripe"
+      buttonText = "Verificar Status de Pagamento"
     } else if (status === 'RESTRICTED') {
-      title = "Ações requeridas na sua conta Stripe ⚠️"
-      desc = "Para começar ou continuar recebendo pagamentos, o Stripe precisa que você complemente os dados cadastrais ou envie algum documento de verificação."
+      title = "Ações requeridas na sua conta de pagamentos ⚠️"
+      desc = "Para começar ou continuar recebendo pagamentos, o portal de pagamentos precisa que você complemente os dados cadastrais ou envie algum documento de verificação."
       badge = (
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 border border-rose-200 text-rose-800 rounded-full text-xs font-bold">
           <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Pendências Cadastrais (Restrita)
         </div>
       )
-      buttonText = "Completar Cadastro no Stripe"
+      buttonText = "Completar Cadastro de Pagamentos"
     }
 
     return (
@@ -1005,7 +1005,7 @@ export default function Finance() {
 
           {status !== 'NOT_CONNECTED' && (
             <div className="text-xs font-bold text-slate-500 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 w-fit">
-              <span>ID da Conta Stripe Conectada:</span>
+              <span>Identificador dos Dados de Pagamento:</span>
               <code className="bg-slate-100 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[11px] font-black">{stripeStatus.stripe_account_id}</code>
             </div>
           )}
@@ -1013,7 +1013,7 @@ export default function Finance() {
           <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              Segurança Stripe Connect
+              Pagamentos Seguros & Criptografados
             </div>
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -1063,10 +1063,10 @@ export default function Finance() {
             <DollarSign className="w-7 h-7 text-tenant-primary" /> Centro de Receitas Flowike
           </h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-1">
-            <p className="text-slate-500 text-sm font-medium">Controle suas vendas, planos de alunos, payouts automáticos e créditos de IA.</p>
+            <p className="text-slate-500 text-sm font-medium">Controle suas vendas, planos de alunos, transferências automáticas e créditos de IA.</p>
             {stripeStatus.status !== 'NOT_CONNECTED' && (
               <div className="flex items-center gap-2 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 shadow-sm">
-                <span className="text-slate-400 font-medium">Stripe Connect:</span>
+                <span className="text-slate-400 font-medium">Dados de Pagamento:</span>
                 <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-800 font-black">{stripeStatus.stripe_account_id}</code>
                 {stripeStatus.status === 'ACTIVE' && (
                   <span className="flex items-center gap-1 bg-emerald-50 border border-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[9px] font-bold">
@@ -1100,7 +1100,7 @@ export default function Finance() {
               ) : (
                 <>
                   <AlertTriangle className="w-4 h-4" />
-                  <span>{stripeStatus.status === 'RESTRICTED' ? 'Completar Cadastro Stripe' : 'Verificar Cadastro Stripe'}</span>
+                  <span>{stripeStatus.status === 'RESTRICTED' ? 'Completar Cadastro de Pagamentos' : 'Verificar Cadastro de Pagamentos'}</span>
                 </>
               )}
             </button>
@@ -1153,7 +1153,7 @@ export default function Finance() {
       {/* RENDER ACTIVE TAB */}
       {activeTab === 'revenue' && (
         !isStripeActive ? (
-          renderStripeConnectCTA('Conecte sua conta do Stripe para visualizar suas métricas financeiras, payouts e comissões.')
+          renderStripeConnectCTA('Conecte seus dados de pagamento para visualizar suas métricas financeiras, transferências e comissões.')
         ) : (
           <div className="space-y-6">
             
@@ -1178,7 +1178,7 @@ export default function Finance() {
                       : 'border-transparent text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  <CreditCard className="w-3.5 h-3.5" /> Gerenciar Conta Stripe (Embedded)
+                  <CreditCard className="w-3.5 h-3.5" /> Configurar Dados de Pagamento
                 </button>
               </div>
             )}
@@ -1187,7 +1187,7 @@ export default function Finance() {
             {loadingStripeSession && revenueSubTab === 'stripe' && (
               <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white border border-slate-200 rounded-3xl">
                 <Loader2 className="w-8 h-8 animate-spin text-tenant-primary" />
-                <span className="text-xs font-semibold text-slate-500">Buscando dados de gerenciamento da sua conta Stripe...</span>
+                <span className="text-xs font-semibold text-slate-500">Buscando informações da sua conta de pagamentos...</span>
               </div>
             )}
 
@@ -1202,7 +1202,7 @@ export default function Finance() {
                           <Settings className="w-4 h-4 text-tenant-primary" />
                           Configurações & Dados Cadastrais
                         </h3>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase">Stripe Connect</span>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase">Dados de Pagamento</span>
                       </div>
                       <div className="flex-1 overflow-hidden select-text">
                         <ConnectAccountManagement />
@@ -1213,9 +1213,9 @@ export default function Finance() {
                       <div className="pb-3 border-b border-slate-100 mb-4 flex justify-between items-center">
                         <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                           <CreditCard className="w-4 h-4 text-tenant-primary" />
-                          Dados de Depósito & Payouts
+                          Dados de Depósito & Recebimentos
                         </h3>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase">Stripe Connect</span>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase">Dados de Pagamento</span>
                       </div>
                       <div className="flex-1 overflow-hidden select-text">
                         <ConnectPayouts />
@@ -1247,7 +1247,7 @@ export default function Finance() {
                   </div>
 
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxas Stripe</span>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxas de Intermediação</span>
                     <span className="text-xl sm:text-2xl font-black text-amber-500">$ {stats.stripeFees.toFixed(2)}</span>
                   </div>
                 </div>
@@ -1271,7 +1271,7 @@ export default function Finance() {
 
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Disponível para Payout</span>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Disponível para Recebimento</span>
                       <span className="text-xl sm:text-2xl font-black text-emerald-600">$ {stats.pendingPayouts.toFixed(2)}</span>
                     </div>
                     <ShieldCheck className="w-8 h-8 text-slate-200" />
@@ -1279,7 +1279,7 @@ export default function Finance() {
 
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ciclo Payouts</span>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ciclo de Recebimento</span>
                       <span className="text-xl sm:text-2xl font-black text-slate-750">Automático</span>
                     </div>
                     <Calendar className="w-8 h-8 text-slate-200" />
@@ -1316,11 +1316,11 @@ export default function Finance() {
 
                   {/* Payout History Area */}
                   <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Payouts Recentes</h3>
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Transferências Recentes</h3>
                     <div className="flex-1 overflow-y-auto max-h-60 space-y-3.5 pr-1">
                       {stats.payoutHistory.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-center text-slate-400 text-xs font-semibold py-12">
-                          Nenhum payout efetuado na conta bancária ainda.
+                          Nenhuma transferência efetuada na conta bancária ainda.
                         </div>
                       ) : (
                         stats.payoutHistory.map((p: any) => (
@@ -1350,7 +1350,7 @@ export default function Finance() {
                     <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                       <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                         <CreditCard className="w-4.5 h-4.5 text-emerald-600 animate-pulse" />
-                        Conta de Recebimentos & Payouts (Ativa)
+                        Conta de Recebimentos & Transferências (Ativa)
                       </h3>
                       <button
                         onClick={() => setShowSetupForm(true)}
@@ -1396,7 +1396,7 @@ export default function Finance() {
       {/* PRODUCTS TAB */}
       {activeTab === 'products' && (
         !isStripeActive ? (
-          renderStripeConnectCTA('Conecte sua conta do Stripe para gerenciar seu catálogo de aulas e criar planos para seus alunos.')
+          renderStripeConnectCTA('Conecte seus dados de pagamento para gerenciar seu catálogo de aulas e criar planos para seus alunos.')
         ) : (
           <div className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">

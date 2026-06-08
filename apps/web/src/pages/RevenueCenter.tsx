@@ -137,7 +137,7 @@ export default function RevenueCenter() {
       if (res.ok) {
         const data = await res.json()
         if (data.isMock) {
-          alert('Simulando onboarding do Stripe Connect Express...')
+          alert('Simulando onboarding dos dados de pagamento...')
           const mockAccountId = data.stripe_account_id || 'acct_mock_' + user?.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
           
           await supabase.from('stripe_connected_accounts').upsert({
@@ -163,7 +163,7 @@ export default function RevenueCenter() {
         }
       }
     } catch (err: any) {
-      alert('Erro ao conectar com Stripe: ' + err.message)
+      alert('Erro ao conectar dados de pagamento: ' + err.message)
     } finally {
       setConnectingStripe(false)
     }
@@ -189,10 +189,10 @@ export default function RevenueCenter() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none" />
           <div className="space-y-2">
             <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-yellow-300 animate-spin-slow" /> Habilite seus Recebimentos via Stripe
+              <Sparkles className="w-6 h-6 text-yellow-300 animate-spin-slow" /> Habilite seus Recebimentos
             </h2>
             <p className="text-indigo-100 text-sm max-w-xl font-medium">
-              Conecte sua conta do Stripe Connect Express em menos de 2 minutos para receber pagamentos de seus alunos diretamente via Cartão, Apple Pay, Google Pay e PIX.
+              Conecte seus dados de pagamento em menos de 2 minutos para receber pagamentos de seus alunos diretamente via Cartão, Apple Pay, Google Pay e PIX.
             </p>
           </div>
           <button
@@ -216,7 +216,7 @@ export default function RevenueCenter() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Centro de Receita</h1>
-          <p className="text-slate-550 mt-1 text-sm font-medium">Acompanhe seu faturamento, assinaturas ativas e transferências do Stripe.</p>
+          <p className="text-slate-550 mt-1 text-sm font-medium">Acompanhe seu faturamento, assinaturas ativas e transferências.</p>
         </div>
         <div className="bg-white px-4 py-2 border border-slate-200 rounded-2xl flex items-center gap-2 shadow-sm shrink-0">
           <Calendar className="w-4 h-4 text-slate-400" />
@@ -290,7 +290,7 @@ export default function RevenueCenter() {
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between h-40">
           <div className="flex justify-between items-start">
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Saldo para Payout (Stripe)</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Saldo para Recebimento</span>
               <span className="text-3xl font-black text-slate-850 block mt-1">${stats.payoutBalance.toFixed(2)}</span>
             </div>
             <div className="bg-rose-50 text-rose-600 p-2.5 rounded-xl">

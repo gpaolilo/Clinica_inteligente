@@ -477,11 +477,11 @@ export default function Settings() {
           )}
         </section>
 
-        {/* Gateway de Pagamentos (Stripe) */}
+        {/* Gateway de Pagamentos */}
         <section className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow">
           <div className="mb-4 sm:mb-0 space-y-1">
             <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
-              Gateway de Pagamentos (Stripe)
+              Dados de Pagamento (Gateway)
               {loadingStripe ? (
                 <span className="text-xs text-slate-400 font-semibold">Verificando...</span>
               ) : (
@@ -510,12 +510,12 @@ export default function Settings() {
               )}
             </h3>
             <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
-              Integração com o Stripe Express. Crie planos e pacotes de aulas para faturamento automático de seus alunos via Cartão ou PIX.
+              Integração com gateway de pagamentos. Crie planos e pacotes de aulas para faturamento automático de seus alunos via Cartão ou PIX.
             </p>
             {!loadingStripe && stripeStatus.status !== 'NOT_CONNECTED' && (
               <div className="pt-2 text-xs text-slate-500 font-semibold space-y-1 bg-slate-50 border border-slate-100 rounded-xl p-3 w-fit">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span>Conta Stripe Vinculada:</span>
+                  <span>Conta de Recebimento Vinculada:</span>
                   <code className="bg-slate-100 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[11px] font-black">{stripeStatus.stripe_account_id}</code>
                 </div>
                 {stripeStatus.holder_name && (

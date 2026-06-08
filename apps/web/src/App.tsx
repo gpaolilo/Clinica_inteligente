@@ -8,6 +8,7 @@ import { TenantThemeProvider } from './components/branding/TenantThemeProvider'
 import DashboardLayout from './layouts/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
+import PatientDetails from './pages/PatientDetails'
 import Agenda from './pages/Agenda'
 import ActiveSession from './pages/ActiveSession'
 import Settings from './pages/Settings'
@@ -135,6 +136,7 @@ export default function App() {
         <Route path="/dashboard" element={<RoleGuard allowedRoles={['TEACHER', 'PSYCHOLOGIST']}><DashboardLayout /></RoleGuard>}>
           <Route index element={<Dashboard />} />
           <Route path="patients" element={<Patients />} />
+          <Route path="patients/:id" element={<PatientDetails />} />
           <Route path="agenda" element={<Agenda />} />
           <Route path="session/:id" element={<ActiveSession />} />
           <Route path="settings" element={<Settings />} />

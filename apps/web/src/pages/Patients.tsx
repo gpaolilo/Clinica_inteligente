@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import PatientModal from '../components/patients/PatientModal'
 import { useAuthStore } from '../stores/authStore'
+import { MoreVertical, Calendar, Key, FileText, Trash2 } from 'lucide-react'
 
 interface Patient {
   id: string
@@ -13,11 +14,16 @@ interface Patient {
   lgpd_consent: boolean
   client_type: 'PACIENTE' | 'ALUNO'
   user_id?: string
+  student_level?: string | null
+  student_goal?: string | null
+  class_balance?: number | null
 }
 
 export default function Patients() {
   const { session, role } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -118,7 +124,11 @@ export default function Patients() {
                 <tr>
                   <th className="px-6 py-4">Nome completo</th>
                   <th className="px-6 py-4">Contato Telefônico</th>
-                  <th className="px-6 py-4">Ativação da Conta</th>
+                  {role === 'TEACHER' ? (
+                    <th className="px-6 py-4">Nível</th>
+                  ) : (
+                    <th className="px-6 py-4">Ativação da Conta</th>
+                  )}
                   <th className="px-6 py-4">{role === 'TEACHER' ? 'Status do Aluno' : 'Status do Acompanhamento'}</th>
                   <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
@@ -144,7 +154,11 @@ export default function Patients() {
                       <span className="text-xs text-slate-400 ml-6">{p.email || 'Sem e-mail'}</span>
                     </td>
                     <td className="px-6 py-4">
-                      {p.user_id ? (
+                      {role === 'TEACHER' ? (
+                        <span className="text-slate-700 font-bold bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md text-xs">
+                          {p.student_level || '-'}
+                        </span>
+                      ) : p.user_id ? (
                         <span className="inline-flex items-center text-emerald-700 text-xs font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
                           <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Conta Vinculada
                         </span>
@@ -163,26 +177,79 @@ export default function Patients() {
                         {p.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <a 
-                        href={`/dashboard/agenda?new=true&patient_id=${p.id}`}
-                        className="mr-4 text-emerald-600 hover:text-emerald-800 font-medium text-sm transition-colors"
-                      >
-                        Agendar
-                      </a>
-                      <button 
-                        onClick={() => handleResetPassword(p.email)} 
-                        disabled={!p.email}
-                        className="mr-4 text-indigo-600 hover:text-indigo-800 font-medium text-sm transition-colors disabled:opacity-50"
-                      >
-                        Reset Senha
-                      </button>
-                      <button onClick={() => openModal(p)} className="mr-4 text-primary-600 hover:text-primary-800 font-medium text-sm transition-colors">
-                        Detalhes
-                      </button>
-                      <button onClick={() => handleDelete(p.id, p.name)} className="text-rose-600 hover:text-rose-800 font-medium text-sm transition-colors">
-                        Excluir
-                      </button>
+                    <td className="px-6 py-4 text-right relative">
+                      <div className="flex justify-end items-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveDropdown(activeDropdown === p.id ? null : p.id)
+                          }}
+                          className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-850 transition-colors"
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                        
+                        {activeDropdown === p.id && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-20 cursor-default"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setActiveDropdown(null)
+                              }}
+                            />
+                            <div className="absolute right-6 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-30 font-semibold text-slate-700 text-left text-xs animate-in fade-in slide-in-from-top-1 duration-100">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDropdown(null)
+                                  window.location.href = `/dashboard/agenda?new=true&patient_id=${p.id}`
+                                }}
+                                className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                              >
+                                <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+                                Agendar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDropdown(null)
+                                  handleResetPassword(p.email)
+                                }}
+                                disabled={!p.email}
+                                className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors disabled:opacity-50"
+                              >
+                                <Key className="w-3.5 h-3.5 text-indigo-500" />
+                                Reset Senha
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDropdown(null)
+                                  navigate(`/dashboard/patients/${p.id}`)
+                                }}
+                                className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                                Detalhes
+                              </button>
+                              <div className="h-px bg-slate-100 my-1" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDropdown(null)
+                                  handleDelete(p.id, p.name)
+                                }}
+                                className="w-full text-left px-3.5 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                Excluir
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -145,10 +145,10 @@ export default function DashboardLayout() {
         <div className="pt-4 mt-4 border-t border-slate-100 space-y-2 px-2">
           <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase block mb-1">Ações Rápidas</span>
           <Link to="/dashboard/agenda?new=true" className="flex items-center justify-center w-full px-3 py-2 text-xs font-semibold bg-tenant-primary text-white rounded-tenant-btn hover:bg-tenant-primary-hover transition-all shadow-sm">
-            + Nova Sessão
+            + Nova Aula
           </Link>
           <Link to="/dashboard/patients?new=true" className="flex items-center justify-center w-full px-3 py-2 text-xs font-semibold bg-tenant-secondary text-white rounded-tenant-btn hover:bg-tenant-primary-dark transition-all shadow-sm">
-            + Novo Cliente
+            + Novo Aluno
           </Link>
         </div>
       </nav>
@@ -309,10 +309,10 @@ export default function DashboardLayout() {
             <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-4 px-2">AÇÕES RÁPIDAS</h3>
             <div className="space-y-3">
               <Link to="/dashboard/agenda?new=true" className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold bg-tenant-primary text-white rounded-tenant-btn hover:bg-tenant-primary/95 transition-all shadow-sm">
-                + Nova Sessão
+                + Nova Aula
               </Link>
               <Link to="/dashboard/patients?new=true" className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold bg-tenant-secondary text-white rounded-tenant-btn hover:bg-tenant-secondary/95 transition-all shadow-sm">
-                + Novo Cliente
+                + Novo Aluno
               </Link>
             </div>
           </aside>

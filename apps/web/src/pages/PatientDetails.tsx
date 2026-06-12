@@ -55,6 +55,7 @@ export default function PatientDetails() {
   const [studentLevel, setStudentLevel] = useState('')
   const [studentGoal, setStudentGoal] = useState('')
   const [classBalance, setClassBalance] = useState(0)
+  const [aiCreditsToAdd, setAiCreditsToAdd] = useState(0)
 
   // Invite manager states
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -312,6 +313,64 @@ export default function PatientDetails() {
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
+
+    if (!session) {
+      setSaving(false)
+      return
+    }
+    const psychologist_id = session.user.id
+    let initialAiCredits = patient?.ai_credits_balance || 0
+    const creditsToTransfer = parseInt(aiCreditsToAdd.toString(), 10) || 0
+
+    if (patient.client_type === 'ALUNO' && creditsToTransfer > 0) {
+      // 1. Fetch teacher wallet balance to verify
+      const { data: wallet, error: walletErr } = await supabase
+        .from('teacher_wallets')
+        .select('current_balance')
+        .eq('teacher_id', psychologist_id)
+        .maybeSingle()
+
+      if (walletErr || !wallet) {
+        alert('Erro ao consultar carteira de créditos do professor. Certifique-se de possuir uma carteira ativa.')
+        setSaving(false)
+        return
+      }
+
+      if (wallet.current_balance < creditsToTransfer) {
+        alert(`Saldo de créditos de IA insuficiente na sua carteira. Você possui apenas ${wallet.current_balance} créditos, mas tentou transferir ${creditsToTransfer}.`)
+        setSaving(false)
+        return
+      }
+
+      // 2. Deduct from teacher's wallet
+      const { error: deductErr } = await supabase
+        .from('teacher_wallets')
+        .update({ 
+          current_balance: wallet.current_balance - creditsToTransfer,
+          updated_at: new Date().toISOString()
+        })
+        .eq('teacher_id', psychologist_id)
+
+      if (deductErr) {
+        alert('Erro ao deduzir créditos de sua carteira: ' + deductErr.message)
+        setSaving(false)
+        return
+      }
+
+      // 3. Log credit transaction for teacher
+      await supabase
+        .from('credit_transactions')
+        .insert([{
+          teacher_id: psychologist_id,
+          type: 'consumption',
+          amount: -creditsToTransfer,
+          source: 'student_transfer',
+          description: `Transferência de créditos de IA para o aluno: ${name}`
+        }])
+
+      initialAiCredits += creditsToTransfer
+    }
+
     const payload = {
       name,
       email,
@@ -319,7 +378,8 @@ export default function PatientDetails() {
       status,
       student_level: patient.client_type === 'ALUNO' ? studentLevel : null,
       student_goal: patient.client_type === 'ALUNO' ? studentGoal : null,
-      class_balance: parseFloat(classBalance.toString()) || 0
+      class_balance: parseFloat(classBalance.toString()) || 0,
+      ai_credits_balance: initialAiCredits
     }
 
     try {
@@ -330,6 +390,7 @@ export default function PatientDetails() {
 
       if (error) throw error
       alert('Cadastro atualizado com sucesso!')
+      setAiCreditsToAdd(0)
       loadData()
     } catch (err: any) {
       alert('Erro ao atualizar cadastro: ' + err.message)
@@ -1059,6 +1120,33 @@ export default function PatientDetails() {
                         onChange={e => setClassBalance(parseFloat(e.target.value) || 0)} 
                         className="w-full sm:w-1/3 px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all text-slate-800 font-bold" 
                       />
+                    </div>
+                  )}
+
+                  {patient.client_type === 'ALUNO' && (
+                    <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-2xl space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-indigo-900">Saldo de Créditos de IA do Aluno</label>
+                        <span className="text-lg font-black text-slate-800 block mt-1">
+                          {patient.ai_credits_balance || 0} <span className="text-xs font-bold text-slate-400">créditos</span>
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-indigo-950 uppercase">
+                          Transferir mais créditos para o Aluno
+                        </label>
+                        <input 
+                          type="number" 
+                          min="0" 
+                          value={aiCreditsToAdd} 
+                          onChange={e => setAiCreditsToAdd(parseInt(e.target.value) || 0)} 
+                          className="w-full sm:w-1/3 px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none font-bold text-slate-700 transition-all bg-white" 
+                        />
+                        <p className="text-[10px] text-slate-450">
+                          O valor inserido será deduzido do saldo da sua Carteira de IA.
+                        </p>
+                      </div>
                     </div>
                   )}
 

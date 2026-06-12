@@ -17,6 +17,7 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
   const [studentLevel, setStudentLevel] = useState(patient?.student_level || '')
   const [studentGoal, setStudentGoal] = useState(patient?.student_goal || '')
   const [classBalance, setClassBalance] = useState(patient?.class_balance || 0)
+  const [aiCreditsToAdd, setAiCreditsToAdd] = useState(0)
 
   const [notes, setNotes] = useState<any[]>([])
   const [insights, setInsights] = useState<any[]>([])
@@ -99,6 +100,55 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
     if (!session) return null;
     const psychologist_id = session.user.id;
     
+    let initialAiCredits = patient?.ai_credits_balance || 0;
+    const creditsToTransfer = parseInt(aiCreditsToAdd.toString(), 10) || 0;
+
+    if (clientType === 'ALUNO' && creditsToTransfer > 0) {
+      // 1. Fetch teacher wallet balance to verify
+      const { data: wallet, error: walletErr } = await supabase
+        .from('teacher_wallets')
+        .select('current_balance')
+        .eq('teacher_id', psychologist_id)
+        .maybeSingle()
+
+      if (walletErr || !wallet) {
+        alert('Erro ao consultar carteira de créditos do professor. Certifique-se de possuir uma carteira ativa.')
+        return null
+      }
+
+      if (wallet.current_balance < creditsToTransfer) {
+        alert(`Saldo de créditos de IA insuficiente na sua carteira. Você possui apenas ${wallet.current_balance} créditos, mas tentou transferir ${creditsToTransfer}.`)
+        return null
+      }
+
+      // 2. Deduct from teacher's wallet
+      const { error: deductErr } = await supabase
+        .from('teacher_wallets')
+        .update({ 
+          current_balance: wallet.current_balance - creditsToTransfer,
+          updated_at: new Date().toISOString()
+        })
+        .eq('teacher_id', psychologist_id)
+
+      if (deductErr) {
+        alert('Erro ao deduzir créditos de sua carteira: ' + deductErr.message)
+        return null
+      }
+
+      // 3. Log credit transaction for teacher
+      await supabase
+        .from('credit_transactions')
+        .insert([{
+          teacher_id: psychologist_id,
+          type: 'consumption',
+          amount: -creditsToTransfer,
+          source: 'student_transfer',
+          description: `Transferência de créditos de IA para o aluno: ${name}`
+        }])
+
+      initialAiCredits += creditsToTransfer;
+    }
+
     const payload = { 
       name, 
       email, 
@@ -107,7 +157,8 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
       client_type: clientType,
       student_level: clientType === 'ALUNO' ? studentLevel : null,
       student_goal: clientType === 'ALUNO' ? studentGoal : null,
-      class_balance: parseFloat(classBalance.toString()) || 0
+      class_balance: parseFloat(classBalance.toString()) || 0,
+      ai_credits_balance: initialAiCredits
     }
 
     if (localPatientId) {
@@ -315,6 +366,37 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Saldo de Aulas (Créditos)</label>
                   <p className="text-xs text-slate-500 mb-2">Quantas aulas o aluno tem disponíveis para agendar?</p>
                   <input type="number" step="0.5" min="0" value={classBalance} onChange={e => setClassBalance(e.target.value)} className="w-full md:w-1/3 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all" />
+                </div>
+              )}
+
+              {clientType === 'ALUNO' && (
+                <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-xl space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-indigo-900">Saldo de Créditos de IA do Aluno</label>
+                    {patient ? (
+                      <span className="text-lg font-black text-slate-800 block mt-1">
+                        {patient.ai_credits_balance || 0} <span className="text-xs font-bold text-slate-400">créditos</span>
+                      </span>
+                    ) : (
+                      <p className="text-xs text-slate-500 mt-1">Defina o saldo inicial de créditos de IA que o aluno receberá.</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-indigo-950 uppercase">
+                      {patient ? 'Transferir mais créditos para o Aluno' : 'Créditos IA a Conceder'}
+                    </label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      value={aiCreditsToAdd} 
+                      onChange={e => setAiCreditsToAdd(parseInt(e.target.value) || 0)} 
+                      className="w-full md:w-1/3 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none font-bold text-slate-700 transition-all" 
+                    />
+                    <p className="text-[10px] text-slate-450">
+                      O valor inserido será deduzido do saldo da sua Carteira de IA.
+                    </p>
+                  </div>
                 </div>
               )}
 

@@ -105,7 +105,8 @@ export default function Finance() {
     description: '',
     type: 'SINGLE_CLASS',
     price: '',
-    classes_included: '1'
+    classes_included: '1',
+    ai_credits_included: '0'
   })
   const [savingProduct, setSavingProduct] = useState(false)
 
@@ -418,6 +419,7 @@ export default function Finance() {
           type: newProduct.type,
           price: parseFloat(newProduct.price),
           classes_included: parseInt(newProduct.classes_included, 10),
+          ai_credits_included: parseInt(newProduct.ai_credits_included || '0', 10),
           active: true
         }])
         .select('*')
@@ -442,7 +444,8 @@ export default function Finance() {
         description: '',
         type: 'SINGLE_CLASS',
         price: '',
-        classes_included: '1'
+        classes_included: '1',
+        ai_credits_included: '0'
       })
       fetchDashboardData()
     } catch (err: any) {
@@ -1298,9 +1301,16 @@ export default function Finance() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-450 font-medium mt-1">{prod.description || 'Nenhuma descrição fornecida.'}</p>
-                      <span className="block text-[10px] text-slate-400 font-bold mt-2">
-                        Créditos de Aula incluídos: <span className="text-slate-800 font-extrabold">{prod.classes_included} aulas</span>
-                      </span>
+                      <div className="flex gap-4 mt-2">
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          Créditos de Aula: <span className="text-slate-800 font-extrabold">{prod.classes_included} aulas</span>
+                        </span>
+                        {prod.ai_credits_included > 0 && (
+                          <span className="text-[10px] text-slate-400 font-bold">
+                            Créditos de IA: <span className="text-tenant-primary font-bold">{prod.ai_credits_included} créditos</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="text-right">
@@ -1372,14 +1382,27 @@ export default function Finance() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Aulas incluídas no Saldo</label>
-                <input 
-                  type="number" 
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all"
-                  value={newProduct.classes_included}
-                  onChange={e => setNewProduct(prev => ({ ...prev, classes_included: e.target.value }))}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Aulas incluídas no Saldo</label>
+                  <input 
+                    type="number" 
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={newProduct.classes_included}
+                    onChange={e => setNewProduct(prev => ({ ...prev, classes_included: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Créditos de IA inclusos</label>
+                  <input 
+                    type="number" 
+                    placeholder="ex: 100"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-tenant-primary transition-all text-slate-800"
+                    value={newProduct.ai_credits_included}
+                    onChange={e => setNewProduct(prev => ({ ...prev, ai_credits_included: e.target.value }))}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 pt-3 border-t border-slate-100">

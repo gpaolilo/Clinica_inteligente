@@ -11,6 +11,7 @@ export default function ClientBilling() {
   const [payments, setPayments] = useState<any[]>([])
   const [subscriptions, setSubscriptions] = useState<any[]>([])
   const [classBalance, setClassBalance] = useState(0)
+  const [aiCreditsBalance, setAiCreditsBalance] = useState(0)
 
   // Products and checkout states
   const [products, setProducts] = useState<any[]>([])
@@ -49,6 +50,7 @@ export default function ClientBilling() {
 
       if (patient) {
         setClassBalance(patient.class_balance || 0)
+        setAiCreditsBalance(patient.ai_credits_balance || 0)
         setTeacher(patient.psychologists)
 
         if (patient.psychologists?.stripe_charges_enabled) {
@@ -172,6 +174,14 @@ export default function ClientBilling() {
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Saldo de Aulas</span>
             <span className="text-3xl font-black text-slate-850 block mt-1">{classBalance} <span className="text-tenant-primary text-sm font-bold">aulas</span></span>
             <p className="text-[10px] text-slate-400 mt-2 font-semibold">Consumido automaticamente ao realizar agendamentos.</p>
+          </div>
+
+          {/* AI Credits Widget */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-tenant-primary/5 rounded-full blur-2xl pointer-events-none" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Saldo de Créditos de IA</span>
+            <span className="text-3xl font-black text-slate-850 block mt-1">{aiCreditsBalance} <span className="text-tenant-primary text-sm font-bold">créditos</span></span>
+            <p className="text-[10px] text-slate-400 mt-2 font-semibold">Consumido ao realizar práticas de conversação e homework com IA.</p>
           </div>
 
           {/* Active Subscriptions widget */}
@@ -335,6 +345,11 @@ export default function ClientBilling() {
                   </div>
                   <h4 className="font-extrabold text-slate-800 text-sm sm:text-base mt-2">{prod.name}</h4>
                   <p className="text-xs text-slate-450 font-medium mt-1 leading-relaxed">{prod.description || `${prod.classes_included} aulas inclusas.`}</p>
+                  {prod.ai_credits_included > 0 && (
+                    <span className="inline-block bg-tenant-primary/10 text-tenant-primary font-bold px-2 py-0.5 rounded text-[10px] mt-2">
+                      + {prod.ai_credits_included} Créditos de IA inclusos
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-slate-100">

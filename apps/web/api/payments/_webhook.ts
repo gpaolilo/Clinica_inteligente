@@ -80,22 +80,34 @@ export default async function handler(req: any, res: any) {
           const classesIncluded = parseInt(metadata.classes_included || '1', 10)
           const priceAmount = parseFloat(metadata.price_amount || '0')
 
+          // Fetch product details from DB
+          const { data: prod } = await supabaseAdmin
+            .from('teacher_products')
+            .select('product_type, ai_credits_included')
+            .eq('id', productId)
+            .maybeSingle()
+
+          const aiCreditsIncluded = prod?.ai_credits_included || 0
+
           // Find student (patient) in local database to update status and activate
           const { data: student } = await supabaseAdmin
             .from('patients')
-            .select('id, status, class_balance')
+            .select('id, status, class_balance, ai_credits_balance, name')
             .eq('user_id', payerId)
             .eq('psychologist_id', payeeId)
             .maybeSingle()
 
           if (student) {
             const newBalance = (student.class_balance || 0) + classesIncluded
-            // Update student status to active (enforces seat limit via trigger)
+            const newAiBalance = (student.ai_credits_balance || 0) + aiCreditsIncluded
+
+            // Update student status to active (enforces seat limit via trigger) and balances
             const { error: patientErr } = await supabaseAdmin
               .from('patients')
               .update({ 
                 status: 'ACTIVE',
-                class_balance: newBalance 
+                class_balance: newBalance,
+                ai_credits_balance: newAiBalance
               })
               .eq('id', student.id)
 
@@ -125,15 +137,46 @@ export default async function handler(req: any, res: any) {
                   constraint: 'student_seats_teacher_id_student_id_key',
                   set: { active: true, assigned_at: new Date().toISOString() }
                 })
+
+              // If AI credits are bundled in this purchase, deduct them from the teacher's wallet
+              if (aiCreditsIncluded > 0) {
+                const { data: teacherWallet } = await supabaseAdmin
+                  .from('teacher_wallets')
+                  .select('current_balance')
+                  .eq('teacher_id', payeeId)
+                  .maybeSingle()
+
+                if (teacherWallet) {
+                  const nextBalance = (teacherWallet.current_balance || 0) - aiCreditsIncluded
+                  await supabaseAdmin
+                    .from('teacher_wallets')
+                    .update({
+                      current_balance: nextBalance,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('teacher_id', payeeId)
+                }
+
+                // Log a deduction transaction for the teacher
+                const { data: payment } = await supabaseAdmin
+                  .from('payments')
+                  .select('id')
+                  .eq('stripe_payment_intent_id', session.payment_intent as string || session.id)
+                  .maybeSingle()
+
+                await supabaseAdmin
+                  .from('credit_transactions')
+                  .insert([{
+                    teacher_id: payeeId,
+                    type: 'consumption',
+                    amount: -aiCreditsIncluded,
+                    source: 'credits_sale',
+                    reference_id: payment?.id || session.id,
+                    description: `Venda de ${aiCreditsIncluded} créditos de IA para o aluno ${student.name || ''}`
+                  }])
+              }
             }
           }
-
-          // Fetch product type from product
-          const { data: prod } = await supabaseAdmin
-            .from('teacher_products')
-            .select('product_type')
-            .eq('id', productId)
-            .maybeSingle()
 
           if (prod && prod.product_type === 'MONTHLY_SUBSCRIPTION') {
             // Save to student_subscriptions

@@ -30,7 +30,7 @@ export default function ClientDashboard() {
     // 1. Encontrar o registro do paciente vinculado a este usuário
     const { data: patient } = await supabase
       .from('patients')
-      .select('id, psychologist_id, name')
+      .select('id, psychologist_id, name, class_balance, ai_credits_balance')
       .eq('user_id', session.user.id)
       .single()
 
@@ -247,7 +247,7 @@ export default function ClientDashboard() {
                   <div className="space-y-2 text-center md:text-left">
                     <h2 className="text-xl font-bold text-slate-800">Nenhuma aula agendada</h2>
                     <p className="text-slate-500 text-sm max-w-md font-medium">
-                      Você tem <span className="text-tenant-primary font-bold">{patientRecord?.class_balance || 0} aulas disponíveis</span> em seu saldo. Agende sua próxima aula para continuar evoluindo.
+                      Você tem <span className="text-tenant-primary font-bold">{patientRecord?.class_balance || 0} aulas</span> e <span className="text-tenant-primary font-bold">{patientRecord?.ai_credits_balance || 0} créditos de IA</span> em seu saldo. Agende sua próxima aula para continuar evoluindo.
                     </p>
                   </div>
                   <button 

@@ -34,13 +34,32 @@ export default function DashboardLayout() {
 
   const initial = user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || 'U'
 
-  const navLinks = [
+  interface NavItem {
+    to: string
+    label: string
+    icon: any
+    exact?: boolean
+  }
+
+  interface NavGroup {
+    label: string
+    icon: any
+    children: { to: string; label: string }[]
+  }
+
+  const navLinks: (NavItem | NavGroup)[] = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { to: '/dashboard/patients', label: 'Alunos', icon: Users },
     { to: '/dashboard/agenda', label: 'Agenda', icon: CalendarDays },
     { to: '/dashboard/finance', label: 'Financeiro', icon: DollarSign },
-    { to: '/dashboard/ai-credits', label: 'Carteira IA', icon: Brain },
-    { to: '/dashboard/ai-analytics', label: 'Análise de IA', icon: Brain },
+    { 
+      label: 'Análise de IA', 
+      icon: Brain,
+      children: [
+        { to: '/dashboard/ai-analytics', label: 'Métricas de Uso' },
+        { to: '/dashboard/ai-credits', label: 'Carteira IA' }
+      ]
+    },
     { to: '/dashboard/availability', label: 'Disponibilidade', icon: Clock },
     { to: '/dashboard/brand-studio', label: 'Estúdio de Marca', icon: Palette }
   ]
@@ -80,20 +99,46 @@ export default function DashboardLayout() {
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
         {navLinks.map((link) => {
-          const isActive = link.exact 
-            ? location.pathname === link.to || location.pathname === `${link.to}/`
-            : location.pathname.startsWith(link.to)
-            
-          return (
-            <Link 
-              key={link.label}
-              to={link.to} 
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-tenant-btn text-sm font-semibold transition-colors ${isActive ? 'bg-tenant-primary/10 text-tenant-primary' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-            >
-              <link.icon className={`w-5 h-5 ${isActive ? 'text-tenant-primary' : 'text-slate-400'}`} />
-              {link.label}
-            </Link>
-          )
+          if ('children' in link && link.children) {
+            return (
+              <div key={link.label} className="space-y-1 mt-2">
+                <div className="flex items-center gap-2.5 px-3 py-2 text-xs font-extrabold text-slate-450 uppercase tracking-wider">
+                  <link.icon className="w-4 h-4 text-slate-400" />
+                  <span>{link.label}</span>
+                </div>
+                <div className="pl-4 border-l border-slate-100 ml-5.5 space-y-1 flex flex-col">
+                  {link.children.map(child => {
+                    const isChildActive = location.pathname.startsWith(child.to)
+                    return (
+                      <Link 
+                        key={child.label}
+                        to={child.to} 
+                        className={`flex items-center px-3 py-2 rounded-tenant-btn text-xs font-semibold transition-colors ${isChildActive ? 'bg-tenant-primary/10 text-tenant-primary font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+                      >
+                        {child.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          } else {
+            const item = link as NavItem
+            const isActive = item.exact 
+              ? location.pathname === item.to || location.pathname === `${item.to}/`
+              : location.pathname.startsWith(item.to)
+              
+            return (
+              <Link 
+                key={item.label}
+                to={item.to} 
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-tenant-btn text-sm font-semibold transition-colors ${isActive ? 'bg-tenant-primary/10 text-tenant-primary font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              >
+                <item.icon className={`w-5 h-5 ${isActive ? 'text-tenant-primary' : 'text-slate-400'}`} />
+                {item.label}
+              </Link>
+            )
+          }
         })}
 
         {/* Quick Actions inside Nav */}
@@ -211,20 +256,50 @@ export default function DashboardLayout() {
           <aside className="bg-white rounded-3xl border border-slate-100 flex flex-col py-6 px-4 shadow-sm z-10 transition-all overflow-y-auto no-scrollbar">
             <nav className="space-y-1">
               {navLinks.map((link) => {
-                const isActive = link.exact 
-                  ? location.pathname === link.to || location.pathname === `${link.to}/`
-                  : location.pathname.startsWith(link.to)
+                if ('children' in link && link.children) {
+                  return (
+                    <div key={link.label} className="space-y-1">
+                      <div className="flex items-center px-3.5 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1">
+                        <link.icon className="w-4 h-4 mr-2.5 text-slate-400" />
+                        <span>{link.label}</span>
+                      </div>
+                      <div className="pl-4 border-l border-slate-100 ml-5.5 space-y-1 flex flex-col">
+                        {link.children.map(child => {
+                          const isChildActive = location.pathname.startsWith(child.to)
+                          return (
+                            <Link
+                              key={child.label}
+                              to={child.to}
+                              className={`flex items-center px-3 py-1.5 text-xs rounded-tenant-btn transition-colors ${
+                                isChildActive 
+                                  ? 'bg-tenant-primary/10 text-tenant-primary font-bold' 
+                                  : 'text-slate-500 hover:bg-slate-805 font-semibold'
+                              }`}
+                            >
+                              {child.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                } else {
+                  const item = link as NavItem
+                  const isActive = item.exact 
+                    ? location.pathname === item.to || location.pathname === `${item.to}/`
+                    : location.pathname.startsWith(item.to)
 
-                return (
-                  <Link 
-                    key={link.label}
-                    to={link.to} 
-                    className={getLinkClass(link.to, link.exact)}
-                  >
-                    <link.icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-tenant-primary' : 'text-slate-400'}`} />
-                    {link.label}
-                  </Link>
-                )
+                  return (
+                    <Link 
+                      key={item.label}
+                      to={item.to} 
+                      className={getLinkClass(item.to, item.exact)}
+                    >
+                      <item.icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-tenant-primary' : 'text-slate-400'}`} />
+                      {item.label}
+                    </Link>
+                  )
+                }
               })}
             </nav>
           </aside>

@@ -78,9 +78,9 @@ export default function AiAnalyticsCenter() {
         }
 
         setUsageStats({
-          burnRate: parseFloat(burnRateCalc.toFixed(1)) || 140, // fallback placeholders if empty
-          daysRemaining: daysRemainingCalc || 24,
-          forecastUsage: Math.round(forecastUsageCalc) || 4200
+          burnRate: isNaN(burnRateCalc) ? 0 : parseFloat(burnRateCalc.toFixed(1)),
+          daysRemaining: isNaN(daysRemainingCalc) ? 0 : daysRemainingCalc,
+          forecastUsage: isNaN(forecastUsageCalc) ? 0 : Math.round(forecastUsageCalc)
         })
 
         // Group usage by features
@@ -111,35 +111,9 @@ export default function AiAnalyticsCenter() {
         const featureData = Object.entries(featureMap).map(([name, creditos]) => ({ name, creditos }))
         const studentData = Object.entries(studentMap).map(([name, creditos]) => ({ name, creditos }))
 
-        // If empty, generate standard simulation curves to wow the user
-        const mockTimeline = [
-          { day: '26/05', creditos: 180 },
-          { day: '27/05', creditos: 220 },
-          { day: '28/05', creditos: 140 },
-          { day: '29/05', creditos: 260 },
-          { day: '30/05', creditos: 320 },
-          { day: '31/05', creditos: 190 },
-          { day: '01/06', creditos: logs && logs.length > 0 ? logs.reduce((acc, l) => acc + l.credits_consumed, 0) : 240 }
-        ]
-        setUsageTimeline(timelineData.length > 0 ? timelineData : mockTimeline)
-
-        const mockFeatures = [
-          { name: 'Homework', creditos: 820 },
-          { name: 'Insights', creditos: 1240 },
-          { name: 'Cenários', creditos: 650 },
-          { name: 'Transcrição', creditos: 480 },
-          { name: 'Vocabulário', creditos: 340 }
-        ]
-        setUsageByFeature(featureData.length > 0 ? featureData : mockFeatures)
-
-        const mockStudents = [
-          { name: 'Alex Johnson', creditos: 640 },
-          { name: 'Sofia Silva', creditos: 520 },
-          { name: 'Gabriel Paolilo', creditos: 410 },
-          { name: 'Elena Rostova', creditos: 380 },
-          { name: 'Outros Alunos', creditos: 750 }
-        ]
-        setUsageByStudent(studentData.length > 0 ? studentData : mockStudents)
+        setUsageTimeline(timelineData)
+        setUsageByFeature(featureData)
+        setUsageByStudent(studentData)
 
       } catch (err) {
         console.error('Error fetching AI analytics data:', err)
@@ -186,14 +160,14 @@ export default function AiAnalyticsCenter() {
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Créditos Restantes</span>
-              <span className="text-3xl font-black text-slate-850 block mt-1">{wallet.currentBalance || 8000}</span>
+              <span className="text-3xl font-black text-slate-850 block mt-1">{wallet.currentBalance ?? 0}</span>
             </div>
             <div className="bg-indigo-50 text-indigo-600 p-2.5 rounded-xl">
               <Zap className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-center gap-2 mt-4 text-[10px] text-slate-450 font-bold">
-            <span>Alocação mensal: <strong>{wallet.monthlyAllocation || 8000}</strong></span>
+            <span>Alocação mensal: <strong>{wallet.monthlyAllocation ?? 0}</strong></span>
           </div>
         </div>
 
@@ -255,42 +229,56 @@ export default function AiAnalyticsCenter() {
           <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
             <BarChart3 className="w-4.5 h-4.5 text-tenant-primary" /> Histórico de Consumo de Créditos
           </h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={usageTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="day" stroke="#94a3b8" fontSize={10} fontWeight="bold" />
-                <YAxis stroke="#94a3b8" fontSize={10} fontWeight="bold" />
-                <Tooltip />
-                <Area type="monotone" dataKey="creditos" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorUsage)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-72 relative">
+            {usageTimeline.length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-xs font-semibold gap-2">
+                <Activity className="w-8 h-8 text-slate-300" />
+                <span>Nenhum histórico de consumo registrado</span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={usageTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={10} fontWeight="bold" />
+                  <YAxis stroke="#94a3b8" fontSize={10} fontWeight="bold" />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="creditos" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorUsage)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Usage by Feature Distribution Chart */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
           <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider">Consumo por Funcionalidade</h3>
-          <div className="h-64 flex-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={usageByFeature} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" stroke="#94a3b8" fontSize={9} fontWeight="bold" />
-                <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={10} fontWeight="bold" width={90} />
-                <Tooltip />
-                <Bar dataKey="creditos" fill="#4f46e5" radius={[0, 8, 8, 0]} barSize={12}>
-                  {usageByFeature.map((_entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-64 flex-1 relative">
+            {usageByFeature.length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-xs font-semibold gap-2">
+                <Brain className="w-8 h-8 text-slate-300" />
+                <span>Nenhum consumo por funcionalidade</span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={usageByFeature} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" stroke="#94a3b8" fontSize={9} fontWeight="bold" />
+                  <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={10} fontWeight="bold" width={90} />
+                  <Tooltip />
+                  <Bar dataKey="creditos" fill="#4f46e5" radius={[0, 8, 8, 0]} barSize={12}>
+                    {usageByFeature.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -302,20 +290,26 @@ export default function AiAnalyticsCenter() {
           <Users className="w-4.5 h-4.5 text-tenant-primary" /> Uso de Créditos IA por Aluno
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {usageByStudent.map((student, index) => (
-            <div key={index} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center">
-              <div>
-                <span className="block text-xs font-black text-slate-800">{student.name}</span>
-                <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Aluno Ativo</span>
+        {usageByStudent.length === 0 ? (
+          <div className="p-8 text-center text-slate-450 font-semibold text-xs">
+            Nenhum consumo registrado por aluno até o momento.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {usageByStudent.map((student, index) => (
+              <div key={index} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center">
+                <div>
+                  <span className="block text-xs font-black text-slate-800">{student.name}</span>
+                  <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Aluno Ativo</span>
+                </div>
+                <div className="text-right">
+                  <span className="block text-sm font-black text-indigo-700">{student.creditos}</span>
+                  <span className="text-[9px] text-slate-400 font-bold block">créditos consumidos</span>
+                </div>
               </div>
-              <div className="text-right">
-                <span className="block text-sm font-black text-indigo-700">{student.creditos}</span>
-                <span className="text-[9px] text-slate-400 font-bold block">créditos consumidos</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>

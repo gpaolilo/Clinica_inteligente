@@ -44,7 +44,6 @@ import ReviewPending from './pages/onboarding/ReviewPending'
 import ReviewRejected from './pages/onboarding/ReviewRejected'
 
 // Páginas de Monetização e Analytics
-import RevenueCenter from './pages/RevenueCenter'
 import AiAnalyticsCenter from './pages/AiAnalyticsCenter'
 import AdminPlans from './pages/admin/AdminPlans'
 import AdminCosts from './pages/admin/AdminCosts'
@@ -144,7 +143,6 @@ export default function App() {
           <Route path="finance" element={<Finance />} />
           <Route path="ai-credits" element={<AiCreditsStore />} />
           <Route path="ai-analytics" element={<AiAnalyticsCenter />} />
-          <Route path="revenue" element={<RevenueCenter />} />
           <Route path="profile" element={<Profile />} />
           <Route path="brand-studio" element={<BrandStudioPage />} />
         </Route>

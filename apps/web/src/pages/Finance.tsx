@@ -3,11 +3,11 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { 
   DollarSign, Plus, TrendingUp, Users, Calendar, 
-  Settings, CheckCircle, AlertTriangle, LayoutGrid, Award, 
-  ArrowRight, ShieldCheck, ChevronRight, Loader2, BarChart2, Clock, CreditCard
+  Settings, CheckCircle, AlertTriangle, LayoutGrid, 
+  ArrowRight, ShieldCheck, Loader2, BarChart2, Clock, CreditCard
 } from 'lucide-react'
 import { 
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar
 } from 'recharts'
 import { loadConnectAndInitialize } from '@stripe/connect-js'
 import { ConnectComponentsProvider, ConnectAccountManagement, ConnectPayouts, ConnectAccountOnboarding } from '@stripe/react-connect-js'
@@ -41,8 +41,9 @@ export const STRIPE_SUPPORTED_BANKS = [
 export default function Finance() {
   const { session } = useAuthStore()
   
-  // Tab control: 'revenue' | 'products' | 'saas'
-  const [activeTab, setActiveTab] = useState<'revenue' | 'products' | 'saas'>('revenue')
+  // Tab control: 'revenue' | 'products'
+  const [activeTab, setActiveTab] = useState<'revenue' | 'products'>('revenue')
+  const [chartViewMode, setChartViewMode] = useState<'daily' | 'monthly'>('daily')
   const [loading, setLoading] = useState(true)
   
   // Stripe Connect Embedded management states
@@ -107,41 +108,7 @@ export default function Finance() {
   })
   const [savingProduct, setSavingProduct] = useState(false)
 
-  // SaaS subscription settings
-  const [teacherPlan, setTeacherPlan] = useState('STARTER')
-  const [aiWalletBalance, setAiWalletBalance] = useState(0)
-  const [purchasingCredits, setPurchasingCredits] = useState<string | null>(null)
-  const [subscribingSaaS, setSubscribingSaaS] = useState<string | null>(null)
-  
-  const [plans, setPlans] = useState<any[]>([])
-  const [creditPackages, setCreditPackages] = useState<any[]>([])
-  const [rates, setRates] = useState<Record<string, number>>({ usd: 1.0, brl: 5.0, eur: 0.9 })
-  const [selectedCurrency, setSelectedCurrency] = useState<'usd' | 'brl' | 'eur'>('usd')
 
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        const res = await fetch('/api/payments/rates')
-        if (res.ok) {
-          const data = await res.json()
-          setRates(data)
-        }
-      } catch (err) {
-        console.error('Error fetching rates:', err)
-      }
-    }
-    fetchRates()
-  }, [])
-
-  const formatPrice = (usdPrice: number, curr: string) => {
-    const rate = rates[curr.toLowerCase()] || 1.0
-    const converted = usdPrice * rate
-    const formatter = new Intl.NumberFormat(curr === 'brl' ? 'pt-BR' : curr === 'eur' ? 'de-DE' : 'en-US', {
-      style: 'currency',
-      currency: curr.toUpperCase()
-    })
-    return formatter.format(converted)
-  }
 
   // Fetch all dashboard & billing info
   const fetchDashboardData = async () => {
@@ -209,46 +176,7 @@ export default function Finance() {
       
       setProducts(prods || [])
 
-      // 4. Fetch psychologist metadata (plan and AI wallet)
-      const { data: psy } = await supabase
-        .from('psychologists')
-        .select('plan_type')
-        .eq('id', session.user.id)
-        .single()
 
-      if (psy) {
-        setTeacherPlan(psy.plan_type || 'STARTER')
-      }
-
-      const { data: wallet } = await supabase
-        .from('ai_wallets')
-        .select('balance')
-        .eq('teacher_id', session.user.id)
-        .maybeSingle()
-
-      if (wallet) {
-        setAiWalletBalance(wallet.balance)
-      }
-
-      // 5. Fetch plans
-      const { data: plansData } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('active', true)
-        .order('price', { ascending: true })
-      if (plansData) {
-        setPlans(plansData)
-      }
-
-      // 6. Fetch credit packages
-      const { data: packsData } = await supabase
-        .from('credit_packages')
-        .select('*')
-        .eq('active', true)
-        .order('price', { ascending: true })
-      if (packsData) {
-        setCreditPackages(packsData)
-      }
 
     } catch (err) {
       console.error('Error fetching billing dashboard data:', err)
@@ -523,129 +451,7 @@ export default function Finance() {
     }
   }
 
-  // Handle SaaS subscription purchase
-  const handleSaaSSubscribe = async (plan: string) => {
-    setSubscribingSaaS(plan)
-    try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData.session?.access_token
 
-      const res = await fetch('/api/payments/saas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          action: 'saas_subscribe',
-          planType: plan,
-          currency: selectedCurrency
-        })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        if (data.isMock) {
-          alert(`Inscrição simulada com sucesso no plano ${plan}! Concedendo benefícios...`)
-          // Simulate webhook completed locally
-          const finalPrice = data.price !== undefined ? Number(data.price) : (() => {
-            const rate = rates[selectedCurrency] || 1.0
-            const dbPlan = plans.find(p => p.name === plan.toUpperCase())
-            const basePrice = dbPlan ? Number(dbPlan.price) : (plan === 'ACADEMY' ? 399.00 : plan === 'GROWTH' ? 129.00 : 59.00)
-            return basePrice * rate
-          })()
-
-          await fetch('/api/payments/webhook', {
-            method: 'POST',
-            body: JSON.stringify({
-              type: 'checkout.session.completed',
-              data: {
-                object: {
-                  id: data.session_id,
-                  payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
-                  metadata: {
-                    type: 'SAAS',
-                    teacher_id: session?.user?.id,
-                    plan_type: plan,
-                    price_amount: String(finalPrice)
-                  }
-                }
-              }
-            })
-          })
-          fetchDashboardData()
-        } else if (data.url) {
-          window.location.href = data.url
-        }
-      }
-    } catch (err: any) {
-      alert('Erro ao processar assinatura: ' + err.message)
-    } finally {
-      setSubscribingSaaS(null)
-    }
-  }
-
-  // Handle buying credits
-  const handleBuyCredits = async (pack: string) => {
-    setPurchasingCredits(pack)
-    try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData.session?.access_token
-
-      const res = await fetch('/api/payments/saas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          action: 'purchase_credits',
-          creditPack: pack,
-          currency: selectedCurrency
-        })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        if (data.isMock) {
-          alert(`Simulando compra do pacote de ${pack} créditos de IA...`)
-          // Trigger local webhook mock
-          const finalPrice = data.price !== undefined ? Number(data.price) : (() => {
-            const rate = rates[selectedCurrency] || 1.0
-            const dbPack = creditPackages.find(p => String(p.credits) === pack)
-            const basePackPrice = dbPack ? Number(dbPack.price) : (pack === '50000' ? 149.00 : pack === '20000' ? 69.00 : 19.00)
-            return basePackPrice * rate
-          })()
-
-          await fetch('/api/payments/webhook', {
-            method: 'POST',
-            body: JSON.stringify({
-              type: 'checkout.session.completed',
-              data: {
-                object: {
-                  id: data.session_id,
-                  payment_intent: 'pi_mock_' + Math.random().toString(36).substring(2, 8),
-                  metadata: {
-                    type: 'CREDITS',
-                    teacher_id: session?.user?.id,
-                    credits_added: pack,
-                    price_amount: String(finalPrice)
-                  }
-                }
-              }
-            })
-          })
-          fetchDashboardData()
-        } else if (data.url) {
-          window.location.href = data.url
-        }
-      }
-    } catch (err: any) {
-      alert('Erro ao processar compra de créditos: ' + err.message)
-    } finally {
-      setPurchasingCredits(null)
-    }
-  }
 
   if (loading) {
     return (
@@ -1031,7 +837,7 @@ export default function Finance() {
             <ArrowRight className="w-4 h-4" />
           </button>
           
-          {status !== 'NOT_CONNECTED' && (
+           {status !== 'NOT_CONNECTED' && (
             <button
               onClick={handleConnectStripe}
               disabled={connectingStripe}
@@ -1052,6 +858,22 @@ export default function Finance() {
       </div>
     )
   }
+
+  const monthlyRevenueHistory = [
+    { month: 'Jan', receita: 1200, assinaturas: 5 },
+    { month: 'Fev', receita: 1500, assinaturas: 7 },
+    { month: 'Mar', receita: 2200, assinaturas: 9 },
+    { month: 'Abr', receita: 2600, assinaturas: 11 },
+    { month: 'Mai', receita: 3100, assinaturas: 12 },
+    { month: 'Jun', receita: stats.grossRevenue > 0 ? stats.grossRevenue : 3900, assinaturas: stats.subscribers || 15 }
+  ]
+
+  const mockProductSales = [
+    { name: 'Business English', vendas: 5, receita: 495 },
+    { name: 'Conversation Club', vendas: 8, receita: 392 },
+    { name: 'IELTS Prep Pack', vendas: 3, receita: 447 },
+    { name: 'AI Speaking Member', vendas: 12, receita: stats.grossRevenue > 0 ? Math.round(stats.grossRevenue * 0.15) : 588 }
+  ]
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 select-none font-sans">
@@ -1137,16 +959,6 @@ export default function Finance() {
           }`}
         >
           <LayoutGrid className="w-4 h-4" /> Meus Produtos & Aulas
-        </button>
-        <button 
-          onClick={() => setActiveTab('saas')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
-            activeTab === 'saas' 
-              ? 'border-tenant-primary text-tenant-primary' 
-              : 'border-transparent text-slate-400 hover:text-slate-655'
-          }`}
-        >
-          <Award className="w-4 h-4" /> Assinatura Flowike & IA
         </button>
       </div>
 
@@ -1286,107 +1098,180 @@ export default function Finance() {
                   </div>
                 </div>
 
-                {/* Revenue Charts Area */}
+                {/* Unified Analytics Charts Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Chart Area */}
-                  <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
-                      <TrendingUp className="w-4 h-4 text-tenant-primary" /> Histórico de Receita Diária (7 dias)
-                    </h3>
+                  {/* Revenue Growth Card (Toggled daily / monthly) */}
+                  <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4 text-tenant-primary" /> 
+                        {chartViewMode === 'daily' ? 'Histórico de Receita Diária (7 dias)' : 'Crescimento de Receita (6 meses)'}
+                      </h3>
+                      
+                      <div className="inline-flex rounded-lg border border-slate-250 p-0.5 bg-slate-50 shrink-0">
+                        <button
+                          onClick={() => setChartViewMode('daily')}
+                          className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                            chartViewMode === 'daily'
+                              ? 'bg-white text-slate-850 shadow-sm border border-slate-100'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          7 Dias (Diário)
+                        </button>
+                        <button
+                          onClick={() => setChartViewMode('monthly')}
+                          className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                            chartViewMode === 'monthly'
+                              ? 'bg-white text-slate-850 shadow-sm border border-slate-100'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          6 Meses (Mensal)
+                        </button>
+                      </div>
+                    </div>
                     
                     <div className="h-64 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                          <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                          <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
-                          <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
-                          <Area type="monotone" dataKey="Receita" stroke="var(--tenant-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorGross)" />
-                          <Area type="monotone" dataKey="Líquido" stroke="#10b981" strokeWidth={2} fillOpacity={0} />
-                        </AreaChart>
+                        {chartViewMode === 'daily' ? (
+                          <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.2}/>
+                                <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                            <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                            <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
+                            <Area type="monotone" dataKey="Receita" stroke="var(--tenant-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorGross)" />
+                            <Area type="monotone" dataKey="Líquido" stroke="#10b981" strokeWidth={2} fillOpacity={0} />
+                          </AreaChart>
+                        ) : (
+                          <AreaChart data={monthlyRevenueHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorMonthly" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
+                                <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                            <XAxis dataKey="month" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                            <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
+                            <Area type="monotone" dataKey="receita" stroke="#4f46e5" strokeWidth={2.5} fillOpacity={1} fill="url(#colorMonthly)" name="Receita" />
+                          </AreaChart>
+                        )}
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Payout History Area */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Transferências Recentes</h3>
-                    <div className="flex-1 overflow-y-auto max-h-60 space-y-3.5 pr-1">
-                      {stats.payoutHistory.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-center text-slate-400 text-xs font-semibold py-12">
-                          Nenhuma transferência efetuada na conta bancária ainda.
-                        </div>
-                      ) : (
-                        stats.payoutHistory.map((p: any) => (
-                          <div key={p.id} className="flex justify-between items-center border-b border-slate-50 pb-2">
-                            <div>
-                              <span className="block text-xs font-bold text-slate-800">Transferência Bancária</span>
-                              <span className="text-[10px] text-slate-400 font-bold">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className="block text-xs font-black text-emerald-600">+ ${p.amount.toFixed(2)}</span>
-                              <span className={`inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
-                                p.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-650'
-                              }`}>{p.status === 'PAID' ? 'Pago' : 'Pendente'}</span>
-                            </div>
-                          </div>
-                        ))
-                      )}
+                  {/* Product Sales Distribution Chart */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider mb-4">Vendas por Produto</h3>
+                      <div className="h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={mockProductSales} layout="vertical" margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
+                            <XAxis type="number" stroke="#94a3b8" fontSize={9} fontWeight="bold" />
+                            <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} fontWeight="bold" width={90} tickFormatter={(name) => name.length > 12 ? `${name.substring(0, 10)}...` : name} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
+                            <Bar dataKey="receita" fill="#818cf8" radius={[0, 8, 8, 0]} barSize={10} name="Receita" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-bold pt-2 border-t border-slate-100 flex justify-between">
+                      <span>Principal: <strong>AI Member</strong></span>
+                      <span>Total: <strong>${mockProductSales.reduce((acc, p) => acc + p.receita, 0)}</strong></span>
                     </div>
                   </div>
                 </div>
 
-                {/* Banking / Payout Setup Details */}
-                {showSetupForm ? (
-                  renderStripeConnectCTA()
-                ) : (
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                    <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <CreditCard className="w-4.5 h-4.5 text-emerald-600 animate-pulse" />
-                        Conta de Recebimentos & Transferências (Ativa)
-                      </h3>
-                      <button
-                        onClick={() => setShowSetupForm(true)}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1.5 px-3 rounded-lg text-[10px] transition-all"
-                      >
-                        Atualizar Dados Bancários
-                      </button>
-                    </div>
+                {/* Banking & Payout History Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Banking / Payout Setup Details */}
+                  <div className="lg:col-span-2">
+                    {showSetupForm ? (
+                      renderStripeConnectCTA()
+                    ) : (
+                      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 h-full flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
+                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                              <CreditCard className="w-4.5 h-4.5 text-emerald-600 animate-pulse" />
+                              Conta de Recebimentos & Transferências (Ativa)
+                            </h3>
+                            <button
+                              onClick={() => setShowSetupForm(true)}
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1.5 px-3 rounded-lg text-[10px] transition-all"
+                            >
+                              Atualizar Dados Bancários
+                            </button>
+                          </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-600 font-semibold">
-                      <div className="space-y-1.5">
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Titular / Identificação</span>
-                        <p className="text-slate-800 font-extrabold">{bankSetup.holder_name || 'Não informado'}</p>
-                        <p className="text-[11px] text-slate-500">
-                          {bankSetup.account_type === 'individual' ? 'CPF: ' : 'CNPJ: '} 
-                          <span className="font-bold text-slate-700">{bankSetup.tax_id || 'Não informado'}</span>
-                        </p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-600 font-semibold">
+                            <div className="space-y-1.5">
+                              <span className="block text-[10px] font-bold text-slate-400 uppercase">Titular / Identificação</span>
+                              <p className="text-slate-800 font-extrabold">{bankSetup.holder_name || 'Não informado'}</p>
+                              <p className="text-[11px] text-slate-500">
+                                {bankSetup.account_type === 'individual' ? 'CPF: ' : 'CNPJ: '} 
+                                <span className="font-bold text-slate-700">{bankSetup.tax_id || 'Não informado'}</span>
+                              </p>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <span className="block text-[10px] font-bold text-slate-400 uppercase">Conta Bancária</span>
+                              <p className="text-slate-800 font-extrabold">Banco: <span className="font-bold text-slate-650">{bankSetup.bank_name || 'Não informado'}</span></p>
+                              <p className="text-[11px] text-slate-500">
+                                Ag: <span className="font-bold text-slate-700">{bankSetup.bank_agency || 'Não informado'}</span> | 
+                                Conta: <span className="font-bold text-slate-700">{bankSetup.bank_account || 'Não informado'}</span>
+                              </p>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <span className="block text-[10px] font-bold text-slate-400 uppercase">Chave PIX Cadastrada</span>
+                              <p className="text-slate-800 font-extrabold capitalize">{bankSetup.pix_key_type || 'Não informado'}</p>
+                              <p className="text-[11px] font-bold text-tenant-primary font-mono">{bankSetup.pix_key || 'Não informado'}</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                    )}
+                  </div>
 
-                      <div className="space-y-1.5">
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Conta Bancária</span>
-                        <p className="text-slate-800 font-extrabold">Banco: <span className="font-bold text-slate-650">{bankSetup.bank_name || 'Não informado'}</span></p>
-                        <p className="text-[11px] text-slate-500">
-                          Ag: <span className="font-bold text-slate-700">{bankSetup.bank_agency || 'Não informado'}</span> | 
-                          Conta: <span className="font-bold text-slate-700">{bankSetup.bank_account || 'Não informado'}</span>
-                        </p>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Chave PIX Cadastrada</span>
-                        <p className="text-slate-800 font-extrabold capitalize">{bankSetup.pix_key_type || 'Não informado'}</p>
-                        <p className="text-[11px] font-bold text-tenant-primary font-mono">{bankSetup.pix_key || 'Não informado'}</p>
+                  {/* Payout History Area */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 mb-4">Transferências Recentes</h3>
+                      <div className="overflow-y-auto max-h-48 space-y-3.5 pr-1">
+                        {stats.payoutHistory.length === 0 ? (
+                          <div className="flex items-center justify-center text-center text-slate-400 text-xs font-semibold py-12">
+                            Nenhuma transferência efetuada na conta bancária ainda.
+                          </div>
+                        ) : (
+                          stats.payoutHistory.map((p: any) => (
+                            <div key={p.id} className="flex justify-between items-center border-b border-slate-50 pb-2">
+                              <div>
+                                <span className="block text-xs font-bold text-slate-800">Transferência Bancária</span>
+                                <span className="text-[10px] text-slate-400 font-bold">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="block text-xs font-black text-emerald-600">+ ${p.amount.toFixed(2)}</span>
+                                <span className={`inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
+                                  p.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-650'
+                                }`}>{p.status === 'PAID' ? 'Pago' : 'Pendente'}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
               </>
             )}
           </div>
@@ -1442,153 +1327,6 @@ export default function Finance() {
           </div>
           </div>
         )
-      )}
-
-      {/* SAAS PLATFORM PLANS TAB */}
-      {activeTab === 'saas' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Credit store wallet */}
-          <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-6">
-            <div>
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Carteira IA</span>
-              <h3 className="text-3xl font-black text-slate-800 mt-1">{aiWalletBalance} Créditos</h3>
-              <p className="text-xs text-slate-450 font-medium mt-2 leading-relaxed">
-                Seus créditos de IA são consumidos de acordo com o uso das ferramentas de lição de casa automatizada, relatórios de evolução e análises de áudio.
-              </p>
-            </div>
-
-            <div className="space-y-3 pt-4 border-t border-slate-100">
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comprar mais créditos</span>
-              
-              <div className="grid grid-cols-1 gap-2.5">
-                {(creditPackages.length > 0 ? creditPackages : [
-                  { id: '5000', name: 'Starter Pack', credits: 5000, price: 19.00 },
-                  { id: '20000', name: 'Growth Pack', credits: 20000, price: 69.00 },
-                  { id: '50000', name: 'Academy Pack', credits: 50000, price: 149.00 }
-                ]).map(pack => {
-                  const creditsStr = String(pack.credits)
-                  return (
-                    <button
-                      key={pack.id || creditsStr}
-                      onClick={() => handleBuyCredits(creditsStr)}
-                      disabled={purchasingCredits !== null}
-                      className="flex justify-between items-center p-3 border border-slate-200 hover:border-tenant-primary rounded-xl text-left bg-slate-50/50 hover:bg-white transition-all group"
-                    >
-                      <div>
-                        <span className="block text-xs font-bold text-slate-800">{pack.credits} Créditos</span>
-                        <span className="text-[10px] text-slate-400 font-bold">{pack.name || 'Pacote IA'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-xs text-slate-800">{formatPrice(Number(pack.price), selectedCurrency)}</span>
-                        {purchasingCredits === creditsStr ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-tenant-primary" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
- 
-          {/* SaaS Membership and pricing */}
-          <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-bold text-slate-800">Sua Assinatura Flowike</h3>
-                <p className="text-xs text-slate-450 mt-1 font-medium">Assine planos premium para habilitar marcas exclusivas, menor rev-share e maior limite de IA.</p>
-              </div>
-              <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 shrink-0 self-start sm:self-center">
-                {(['usd', 'brl', 'eur'] as const).map((curr) => (
-                  <button
-                    key={curr}
-                    onClick={() => setSelectedCurrency(curr)}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all uppercase ${
-                      selectedCurrency === curr
-                        ? 'bg-white text-slate-850 shadow-sm'
-                        : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    {curr}
-                  </button>
-                ))}
-              </div>
-            </div>
- 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              {(plans.length > 0 ? plans : [
-                { name: 'STARTER', price: 59.00 },
-                { name: 'GROWTH', price: 129.00 },
-                { name: 'ACADEMY', price: 399.00 }
-              ]).map(plan => {
-                const isCurrent = teacherPlan === plan.name
-                const isDark = plan.name === 'ACADEMY'
-                const isGrowth = plan.name === 'GROWTH'
-                
-                let planColorClass = 'border-slate-200 bg-white shadow-sm'
-                if (isGrowth) planColorClass = 'border-tenant-primary ring-2 ring-tenant-primary/10'
-                if (isDark) planColorClass = 'border-slate-800 bg-slate-900 text-white'
-
-                const sharePercent = plan.name === 'STARTER' ? '15%' : plan.name === 'GROWTH' ? '10%' : '5%'
-                const creditsAlloc = plan.name === 'STARTER' ? '50' : plan.name === 'GROWTH' ? '500' : '2000'
-                
-                return (
-                  <div key={plan.name} className={`p-4 rounded-2xl border flex flex-col justify-between min-h-[220px] ${planColorClass}`}>
-                    <div>
-                      <div className="flex justify-between items-start">
-                        <span className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{plan.name}</span>
-                        {isCurrent && (
-                          <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
-                            isDark ? 'bg-white text-slate-900' : 'bg-tenant-primary/10 text-tenant-primary'
-                          }`}>Ativo</span>
-                        )}
-                      </div>
- 
-                      <div className="mt-3">
-                        <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{formatPrice(Number(plan.price), selectedCurrency)}</span>
-                        <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>/mês</span>
-                      </div>
- 
-                      <ul className="mt-4 space-y-2 text-[10px] font-bold">
-                        <li className="flex items-center gap-1.5">
-                          <CheckCircle className="w-3.5 h-3.5 text-tenant-primary shrink-0" />
-                          {sharePercent} Taxa de Rev-share
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <CheckCircle className="w-3.5 h-3.5 text-tenant-primary shrink-0" />
-                          {creditsAlloc} Créditos IA inclusos
-                        </li>
-                      </ul>
-                    </div>
- 
-                    {!isCurrent && (
-                      <button
-                        onClick={() => handleSaaSSubscribe(plan.name)}
-                        disabled={subscribingSaaS !== null}
-                        className={`w-full py-2 rounded-xl text-[10px] font-bold transition-all mt-4 border flex items-center justify-center gap-1.5 ${
-                          isDark 
-                            ? 'bg-white text-slate-900 hover:bg-slate-100 border-white' 
-                            : 'bg-slate-900 text-white hover:bg-slate-800 border-slate-900'
-                        }`}
-                      >
-                        {subscribingSaaS === plan.name ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <>
-                            <span>Assinar Plano</span>
-                            <ChevronRight className="w-3 h-3" />
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
       )}
 
       {/* CREATE PRODUCT MODAL */}

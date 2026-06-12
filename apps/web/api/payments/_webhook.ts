@@ -58,6 +58,8 @@ export default async function handler(req: any, res: any) {
         const metadata = session.metadata || {}
         const type = metadata.type // 'PRODUCT', 'SAAS', 'CREDITS'
 
+        const productId = metadata.product_id
+
         console.log(`Checkout Completed: Type = ${type}, SessionId = ${session.id}`)
 
         // Update payment record status in local DB
@@ -65,6 +67,7 @@ export default async function handler(req: any, res: any) {
           .from('payments')
           .update({
             status: 'SUCCEEDED',
+            ...(productId ? { product_id: productId } : {}),
             stripe_payment_intent_id: session.payment_intent as string || session.id
           })
           .eq('stripe_payment_intent_id', session.id)

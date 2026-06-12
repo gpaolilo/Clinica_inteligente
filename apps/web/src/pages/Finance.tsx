@@ -92,7 +92,9 @@ export default function Finance() {
     subscribers: 0,
     mrr: 0,
     payoutHistory: [] as any[],
-    chartData: [] as any[]
+    chartData: [] as any[],
+    monthlyRevenueHistory: [] as any[],
+    productSales: [] as any[]
   })
 
   // Product catalog states
@@ -858,21 +860,24 @@ export default function Finance() {
     )
   }
 
-  const monthlyRevenueHistory = [
-    { month: 'Jan', receita: 1200, assinaturas: 5 },
-    { month: 'Fev', receita: 1500, assinaturas: 7 },
-    { month: 'Mar', receita: 2200, assinaturas: 9 },
-    { month: 'Abr', receita: 2600, assinaturas: 11 },
-    { month: 'Mai', receita: 3100, assinaturas: 12 },
-    { month: 'Jun', receita: stats.grossRevenue > 0 ? stats.grossRevenue : 3900, assinaturas: stats.subscribers || 15 }
-  ]
+  const monthlyRevenueHistory = stats.monthlyRevenueHistory && stats.monthlyRevenueHistory.length > 0
+    ? stats.monthlyRevenueHistory
+    : [
+        { month: 'Jan', receita: 0, assinaturas: 0 },
+        { month: 'Fev', receita: 0, assinaturas: 0 },
+        { month: 'Mar', receita: 0, assinaturas: 0 },
+        { month: 'Abr', receita: 0, assinaturas: 0 },
+        { month: 'Mai', receita: 0, assinaturas: 0 },
+        { month: 'Jun', receita: 0, assinaturas: 0 }
+      ]
 
-  const mockProductSales = [
-    { name: 'Business English', vendas: 5, receita: 495 },
-    { name: 'Conversation Club', vendas: 8, receita: 392 },
-    { name: 'IELTS Prep Pack', vendas: 3, receita: 447 },
-    { name: 'AI Speaking Member', vendas: 12, receita: stats.grossRevenue > 0 ? Math.round(stats.grossRevenue * 0.15) : 588 }
-  ]
+  const productSales = stats.productSales && stats.productSales.length > 0
+    ? stats.productSales
+    : []
+
+  const topProduct = productSales.length > 0
+    ? [...productSales].sort((a, b) => b.receita - a.receita)[0]?.name
+    : 'Nenhum'
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 select-none font-sans">
@@ -1111,7 +1116,7 @@ export default function Finance() {
                   <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider mb-4">Vendas por Produto</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={mockProductSales} layout="vertical" margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                      <BarChart data={productSales} layout="vertical" margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
                         <XAxis type="number" stroke="#94a3b8" fontSize={9} fontWeight="bold" />
                         <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} fontWeight="bold" width={90} tickFormatter={(name) => name.length > 12 ? `${name.substring(0, 10)}...` : name} />
@@ -1122,8 +1127,8 @@ export default function Finance() {
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-400 font-bold pt-2 border-t border-slate-100 flex justify-between">
-                  <span>Principal: <strong>AI Member</strong></span>
-                  <span>Total: <strong>${mockProductSales.reduce((acc, p) => acc + p.receita, 0)}</strong></span>
+                  <span>Principal: <strong>{topProduct}</strong></span>
+                  <span>Total: <strong>${productSales.reduce((acc, p) => acc + p.receita, 0)}</strong></span>
                 </div>
               </div>
             </div>

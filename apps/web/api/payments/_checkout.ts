@@ -146,6 +146,7 @@ export default async function handler(req: any, res: any) {
         .insert([{
           payer_id: studentUser.id,
           payee_id: teacher.id,
+          product_id: productId,
           amount: product.price,
           status: 'PENDING',
           type: 'PRODUCT',
@@ -164,6 +165,7 @@ export default async function handler(req: any, res: any) {
         .insert([{
           payer_id: studentUser.id,
           payee_id: teacher.id,
+          product_id: productId,
           amount: product.price,
           status: 'PENDING',
           type: 'PRODUCT',

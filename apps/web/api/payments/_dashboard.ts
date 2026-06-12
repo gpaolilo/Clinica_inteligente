@@ -202,6 +202,91 @@ export default async function handler(req: any, res: any) {
         })
       }
 
+      // 5. Calculate monthly revenue history for the last 6 months
+      const monthlyRevenueHistory: any[] = []
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+      
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date()
+        d.setMonth(d.getMonth() - i)
+        const year = d.getFullYear()
+        const monthIndex = d.getMonth()
+        const monthLabel = monthNames[monthIndex]
+        
+        let monthGross = 0
+        const monthPayers = new Set<string>()
+        
+        if (payments) {
+          payments.forEach(p => {
+            const payDate = new Date(p.created_at)
+            if (payDate.getFullYear() === year && payDate.getMonth() === monthIndex) {
+              monthGross += Number(p.amount)
+              if (p.payer_id) {
+                monthPayers.add(p.payer_id)
+              }
+            }
+          })
+        }
+        
+        monthlyRevenueHistory.push({
+          month: monthLabel,
+          receita: monthGross,
+          assinaturas: monthPayers.size
+        })
+      }
+
+      // 6. Calculate product sales statistics
+      const { data: teacherProds } = await supabaseAdmin
+        .from('teacher_products')
+        .select('id, name')
+        .eq('teacher_id', teacherId)
+
+      const productSalesMap: { [key: string]: { name: string; vendas: number; receita: number } } = {}
+      
+      if (teacherProds) {
+        teacherProds.forEach(tp => {
+          productSalesMap[tp.id] = {
+            name: tp.name,
+            vendas: 0,
+            receita: 0
+          }
+        })
+      }
+      
+      if (payments) {
+        payments.forEach(p => {
+          if (p.type === 'PRODUCT') {
+            const prodId = p.product_id
+            const amount = Number(p.amount)
+            if (prodId && productSalesMap[prodId]) {
+              productSalesMap[prodId].vendas += 1
+              productSalesMap[prodId].receita += amount
+            } else if (prodId) {
+              productSalesMap[prodId] = {
+                name: `Produto (${prodId.slice(0, 8)})`,
+                vendas: 1,
+                receita: amount
+              }
+            } else {
+              const legacyKey = 'legacy_product'
+              if (!productSalesMap[legacyKey]) {
+                productSalesMap[legacyKey] = {
+                  name: 'Aulas / Outros',
+                  vendas: 0,
+                  receita: 0
+                }
+              }
+              productSalesMap[legacyKey].vendas += 1
+              productSalesMap[legacyKey].receita += amount
+            }
+          }
+        })
+      }
+      
+      const productSalesList = Object.values(productSalesMap).filter(
+        p => p.vendas > 0 || (teacherProds && teacherProds.some(tp => tp.name === p.name))
+      )
+
       return res.status(200).json({
         grossRevenue,
         netRevenue,
@@ -211,7 +296,9 @@ export default async function handler(req: any, res: any) {
         subscribers: subscribersCount,
         mrr: teacherMRR,
         payoutHistory: payoutsList || [],
-        chartData
+        chartData,
+        monthlyRevenueHistory,
+        productSales: productSalesList
       })
     }
 

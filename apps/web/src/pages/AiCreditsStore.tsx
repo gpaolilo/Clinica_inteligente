@@ -47,18 +47,18 @@ export default function AiCreditsStore() {
     try {
       // 1. Fetch AI wallet balance
       const { data: wallet } = await supabase
-        .from('ai_wallets')
-        .select('balance')
+        .from('teacher_wallets')
+        .select('current_balance')
         .eq('teacher_id', session.user.id)
         .maybeSingle()
 
       if (wallet) {
-        setBalance(wallet.balance)
+        setBalance(wallet.current_balance || 0)
       }
 
       // 2. Fetch AI usage transactions
       const { data: txs } = await supabase
-        .from('ai_transactions')
+        .from('credit_transactions')
         .select('*')
         .eq('teacher_id', session.user.id)
         .order('created_at', { ascending: false })
@@ -274,22 +274,24 @@ export default function AiCreditsStore() {
             ) : (
               <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto no-scrollbar">
                 {transactions.map(tx => {
-                  const isPurchase = tx.credits_used < 0
-                  const absCredits = Math.abs(tx.credits_used)
+                  const isAddition = tx.amount > 0
+                  const absCredits = Math.abs(tx.amount)
                   
                   return (
                     <div key={tx.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
                       <div>
                         <span className="block text-xs font-bold text-slate-800">
-                          {tx.action === 'PURCHASE' ? 'Recarga de Créditos' :
-                           tx.action === 'HOMEWORK' ? 'Geração de Lição de Casa' :
-                           tx.action === 'SESSION' ? 'Processamento de Áudio' :
-                           tx.action === 'INSIGHTS' ? 'Geração de Insights IA' : tx.action}
+                          {tx.description || (
+                            tx.type === 'purchase' ? 'Recarga de Créditos' :
+                            tx.type === 'allocation' ? 'Créditos Mensais do Plano' :
+                            tx.type === 'consumption' ? 'Consumo de Recursos IA' :
+                            tx.type === 'refund' ? 'Reembolso de Créditos' : 'Ajuste de Saldo'
+                          )}
                         </span>
                         <span className="text-[10px] text-slate-400 font-bold">{new Date(tx.created_at).toLocaleDateString('pt-BR')}</span>
                       </div>
-                      <span className={`text-xs font-black ${isPurchase ? 'text-emerald-600' : 'text-slate-600'}`}>
-                        {isPurchase ? `+${absCredits}` : `-${absCredits}`}
+                      <span className={`text-xs font-black ${isAddition ? 'text-emerald-600' : 'text-slate-650'}`}>
+                        {isAddition ? `+${absCredits}` : `-${absCredits}`}
                       </span>
                     </div>
                   )

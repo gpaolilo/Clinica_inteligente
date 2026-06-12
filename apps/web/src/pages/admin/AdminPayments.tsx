@@ -104,7 +104,7 @@ export default function AdminPayments() {
       // 7. Fetch psychologists and their AI wallets
       const { data: psyData } = await supabase
         .from('psychologists')
-        .select('*, ai_wallets(balance)')
+        .select('*, teacher_wallets(current_balance)')
         .order('full_name')
       setPsychologists(psyData || [])
 
@@ -117,7 +117,7 @@ export default function AdminPayments() {
 
       // 9. Fetch AI transactions
       const { data: aiTxData } = await supabase
-        .from('ai_transactions')
+        .from('credit_transactions')
         .select('*, psychologists(full_name, email)')
         .order('created_at', { ascending: false })
       setAiTransactions(aiTxData || [])
@@ -166,31 +166,42 @@ export default function AdminPayments() {
         else if (plan.toUpperCase() === 'ACADEMY') planCredits = 2000
       }
 
-      // 3. Update their ai_wallets balance to that plan's credits
+      // 3. Update their teacher_wallets balance to that plan's credits
       const { data: wallet } = await supabase
-        .from('ai_wallets')
-        .select('id')
+        .from('teacher_wallets')
+        .select('teacher_id')
         .eq('teacher_id', teacherId)
         .maybeSingle()
 
       if (wallet) {
         await supabase
-          .from('ai_wallets')
-          .update({ balance: planCredits })
+          .from('teacher_wallets')
+          .update({ 
+            current_balance: planCredits,
+            monthly_allocation: planCredits,
+            updated_at: new Date().toISOString()
+          })
           .eq('teacher_id', teacherId)
       } else {
         await supabase
-          .from('ai_wallets')
-          .insert([{ teacher_id: teacherId, balance: planCredits }])
+          .from('teacher_wallets')
+          .insert([{ 
+            teacher_id: teacherId, 
+            current_balance: planCredits,
+            monthly_allocation: planCredits,
+            updated_at: new Date().toISOString()
+          }])
       }
 
-      // 4. Log in ai_transactions
+      // 4. Log in credit_transactions
       await supabase
-        .from('ai_transactions')
+        .from('credit_transactions')
         .insert([{
           teacher_id: teacherId,
-          action: 'PURCHASE',
-          credits_used: -planCredits // Negative represents refill/grant
+          type: 'allocation',
+          amount: planCredits,
+          source: 'admin_plan_change',
+          description: `Alocação de créditos via troca de plano pelo administrador para o plano ${plan}`
         }])
 
       // 5. Check platform_subscriptions and update or insert active sub
@@ -235,32 +246,41 @@ export default function AdminPayments() {
 
     try {
       const { data: wallet } = await supabase
-        .from('ai_wallets')
-        .select('balance')
-        .eq('teacher_id', teacherId)
-        .maybeSingle()
+          .from('teacher_wallets')
+          .select('current_balance')
+          .eq('teacher_id', teacherId)
+          .maybeSingle()
 
-      const currentBalance = wallet ? wallet.balance : 0
+      const currentBalance = wallet ? wallet.current_balance : 0
       const newBalance = currentBalance + amount
 
       if (wallet) {
         await supabase
-          .from('ai_wallets')
-          .update({ balance: newBalance })
+          .from('teacher_wallets')
+          .update({ 
+            current_balance: newBalance,
+            updated_at: new Date().toISOString()
+          })
           .eq('teacher_id', teacherId)
       } else {
         await supabase
-          .from('ai_wallets')
-          .insert([{ teacher_id: teacherId, balance: newBalance }])
+          .from('teacher_wallets')
+          .insert([{ 
+            teacher_id: teacherId, 
+            current_balance: newBalance,
+            updated_at: new Date().toISOString()
+          }])
       }
 
-      // Log in ai_transactions
+      // Log in credit_transactions
       await supabase
-        .from('ai_transactions')
+        .from('credit_transactions')
         .insert([{
           teacher_id: teacherId,
-          action: 'PURCHASE',
-          credits_used: -amount // negative represents refill/credit addition
+          type: 'adjustment',
+          amount: amount,
+          source: 'admin_refill',
+          description: 'Refill manual de créditos concedido por administrador'
         }])
 
       setRefillCreditsInput(prev => ({ ...prev, [teacherId]: '' }))
@@ -434,50 +454,50 @@ export default function AdminPayments() {
 
   // Compute AI Usage KPIs
   const totalCreditsAvailable = psychologists.reduce((acc, p) => {
-    const bal = Array.isArray(p.ai_wallets)
-      ? (p.ai_wallets[0]?.balance ?? 0)
-      : (p.ai_wallets?.balance ?? 0)
+    const bal = Array.isArray(p.teacher_wallets)
+      ? (p.teacher_wallets[0]?.current_balance ?? 0)
+      : (p.teacher_wallets?.current_balance ?? 0)
     return acc + bal
   }, 0)
 
   const totalCreditsConsumed = aiTransactions
-    .filter(tx => tx.credits_used > 0)
-    .reduce((acc, tx) => acc + tx.credits_used, 0)
+    .filter(tx => tx.amount < 0)
+    .reduce((acc, tx) => acc + Math.abs(tx.amount), 0)
 
   const assemblyAiCreditsConsumed = aiTransactions
-    .filter(tx => tx.credits_used > 0 && tx.action === 'SESSION')
-    .reduce((acc, tx) => acc + tx.credits_used, 0)
+    .filter(tx => tx.amount < 0 && tx.source === 'audio_transcription')
+    .reduce((acc, tx) => acc + Math.abs(tx.amount), 0)
 
   const transcriptionCredits = assemblyAiCreditsConsumed
 
   const groqOpenAiCreditsConsumed = aiTransactions
-    .filter(tx => tx.credits_used > 0 && ['HOMEWORK', 'INSIGHTS', 'SCENARIO'].includes(tx.action))
-    .reduce((acc, tx) => acc + tx.credits_used, 0)
+    .filter(tx => tx.amount < 0 && ['homework_generation', 'writing_evaluation', 'insights_generation', 'scenario_practice'].includes(tx.source))
+    .reduce((acc, tx) => acc + Math.abs(tx.amount), 0)
 
   const homeworkCredits = aiTransactions
-    .filter(tx => tx.credits_used > 0 && tx.action === 'HOMEWORK')
-    .reduce((acc, tx) => acc + tx.credits_used, 0)
+    .filter(tx => tx.amount < 0 && tx.source === 'homework_generation')
+    .reduce((acc, tx) => acc + Math.abs(tx.amount), 0)
 
   const insightsCredits = aiTransactions
-    .filter(tx => tx.credits_used > 0 && tx.action === 'INSIGHTS')
-    .reduce((acc, tx) => acc + tx.credits_used, 0)
+    .filter(tx => tx.amount < 0 && tx.source === 'insights_generation')
+    .reduce((acc, tx) => acc + Math.abs(tx.amount), 0)
 
   const scenarioCredits = aiTransactions
-    .filter(tx => tx.credits_used > 0 && tx.action === 'SCENARIO')
-    .reduce((acc, tx) => acc + tx.credits_used, 0)
+    .filter(tx => tx.amount < 0 && tx.source === 'scenario_practice')
+    .reduce((acc, tx) => acc + Math.abs(tx.amount), 0)
 
   const userUsageStats = psychologists.map(p => {
-    const walletBal = Array.isArray(p.ai_wallets)
-      ? (p.ai_wallets[0]?.balance ?? 0)
-      : (p.ai_wallets?.balance ?? 0)
+    const walletBal = Array.isArray(p.teacher_wallets)
+      ? (p.teacher_wallets[0]?.current_balance ?? 0)
+      : (p.teacher_wallets?.current_balance ?? 0)
     
     const consumed = aiTransactions
-      .filter(tx => tx.teacher_id === p.id && tx.credits_used > 0)
-      .reduce((acc, tx) => acc + tx.credits_used, 0)
+      .filter(tx => tx.teacher_id === p.id && tx.amount < 0)
+      .reduce((acc, tx) => acc + Math.abs(tx.amount), 0)
     
     const refilled = aiTransactions
-      .filter(tx => tx.teacher_id === p.id && tx.credits_used < 0)
-      .reduce((acc, tx) => acc + Math.abs(tx.credits_used), 0)
+      .filter(tx => tx.teacher_id === p.id && tx.amount > 0)
+      .reduce((acc, tx) => acc + tx.amount, 0)
 
     return {
       id: p.id,
@@ -674,9 +694,9 @@ export default function AdminPayments() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {psychologists.map(teacher => {
-                    const walletBal = Array.isArray(teacher.ai_wallets)
-                      ? (teacher.ai_wallets[0]?.balance ?? 0)
-                      : (teacher.ai_wallets?.balance ?? 0)
+                    const walletBal = Array.isArray(teacher.teacher_wallets)
+                      ? (teacher.teacher_wallets[0]?.current_balance ?? 0)
+                      : (teacher.teacher_wallets?.current_balance ?? 0)
                     return (
                       <tr key={teacher.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">
@@ -1393,8 +1413,8 @@ export default function AdminPayments() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
                       {aiTransactions.map(tx => {
-                        const isPurchase = tx.credits_used < 0
-                        const absCredits = Math.abs(tx.credits_used)
+                        const isAddition = tx.amount > 0
+                        const absCredits = Math.abs(tx.amount)
                         return (
                           <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-6 py-4 font-bold text-slate-800">
@@ -1402,14 +1422,15 @@ export default function AdminPayments() {
                               <span className="text-[10px] text-slate-400 block font-normal">{tx.psychologists?.email}</span>
                             </td>
                             <td className="px-6 py-4 font-bold text-slate-650">
-                              {tx.action === 'PURCHASE' ? 'Recarga/Concessão de Créditos' :
-                               tx.action === 'HOMEWORK' ? 'Geração de Lição de Casa' :
-                               tx.action === 'SESSION' ? 'Processamento de Áudio/Transcrição' :
-                               tx.action === 'INSIGHTS' ? 'Análise e Insights da Sessão' :
-                               tx.action === 'SCENARIO' ? 'Simulador de Cenários' : tx.action}
+                              {tx.description || (
+                                tx.type === 'purchase' ? 'Recarga/Concessão de Créditos' :
+                                tx.type === 'allocation' ? 'Créditos Mensais do Plano' :
+                                tx.type === 'consumption' ? 'Consumo de Recursos IA' :
+                                tx.type === 'refund' ? 'Reembolso de Créditos' : 'Ajuste de Saldo'
+                              )}
                             </td>
-                            <td className={`px-6 py-4 text-center font-extrabold ${isPurchase ? 'text-emerald-600' : 'text-rose-500'}`}>
-                              {isPurchase ? `+${absCredits}` : `-${absCredits}`}
+                            <td className={`px-6 py-4 text-center font-extrabold ${isAddition ? 'text-emerald-600' : 'text-rose-500'}`}>
+                              {isAddition ? `+${absCredits}` : `-${absCredits}`}
                             </td>
                             <td className="px-6 py-4 text-slate-450">
                               {new Date(tx.created_at).toLocaleDateString('pt-BR')} às {new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}

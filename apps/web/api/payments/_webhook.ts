@@ -284,19 +284,28 @@ export default async function handler(req: any, res: any) {
                 updated_at: new Date().toISOString()
               })
               .eq('teacher_id', teacherId)
-
-            // Log AI transaction credit addition
+          } else {
             await supabaseAdmin
-              .from('credit_transactions')
-              .insert([{
+              .from('teacher_wallets')
+              .insert([{ 
                 teacher_id: teacherId,
-                type: 'allocation',
-                amount: creditsToGrant,
-                source: 'saas_plan_grant',
-                reference_id: session.id,
-                description: `Alocação mensal de créditos do plano ${planName}`
+                current_balance: creditsToGrant,
+                monthly_allocation: creditsToGrant,
+                updated_at: new Date().toISOString()
               }])
           }
+
+          // Log AI transaction credit addition
+          await supabaseAdmin
+            .from('credit_transactions')
+            .insert([{
+              teacher_id: teacherId,
+              type: 'allocation',
+              amount: creditsToGrant,
+              source: 'saas_plan_grant',
+              reference_id: session.id,
+              description: `Alocação mensal de créditos do plano ${planName}`
+            }])
 
           // Record platform SaaS revenue
           await supabaseAdmin
@@ -374,6 +383,113 @@ export default async function handler(req: any, res: any) {
             }])
         }
 
+        break
+      }
+
+      // --- Stripe Invoice Payment Succeeded (Subscription renewal) ---
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice
+        const subscriptionId = invoice.subscription as string
+
+        // If it's a subscription renewal invoice (billing_reason is subscription_cycle)
+        if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
+          console.log(`Subscription renewal invoice payment succeeded: Subscription = ${subscriptionId}`)
+
+          // Find the subscription in teacher_subscriptions
+          const { data: teacherSub } = await supabaseAdmin
+            .from('teacher_subscriptions')
+            .select('teacher_id, plan_id')
+            .eq('stripe_subscription_id', subscriptionId)
+            .maybeSingle()
+
+          if (teacherSub) {
+            const teacherId = teacherSub.teacher_id
+            const planId = teacherSub.plan_id
+
+            // Fetch the plan allocation credits
+            const { data: dbPlan } = await supabaseAdmin
+              .from('plans')
+              .select('name, included_credits')
+              .eq('id', planId)
+              .maybeSingle()
+
+            if (dbPlan) {
+              const creditsToGrant = dbPlan.included_credits || 8000
+              const planName = dbPlan.name || 'STARTER'
+
+              // Let's update or insert the teacher's wallet
+              const { data: wallet } = await supabaseAdmin
+                .from('teacher_wallets')
+                .select('current_balance')
+                .eq('teacher_id', teacherId)
+                .maybeSingle()
+
+              if (wallet) {
+                await supabaseAdmin
+                  .from('teacher_wallets')
+                  .update({ 
+                    current_balance: wallet.current_balance + creditsToGrant,
+                    monthly_allocation: creditsToGrant,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('teacher_id', teacherId)
+              } else {
+                await supabaseAdmin
+                  .from('teacher_wallets')
+                  .insert([{ 
+                    teacher_id: teacherId,
+                    current_balance: creditsToGrant,
+                    monthly_allocation: creditsToGrant,
+                    updated_at: new Date().toISOString()
+                  }])
+              }
+
+              // Log AI transaction credit addition
+              await supabaseAdmin
+                .from('credit_transactions')
+                .insert([{
+                  teacher_id: teacherId,
+                  type: 'allocation',
+                  amount: creditsToGrant,
+                  source: 'saas_recurring_grant',
+                  reference_id: invoice.id,
+                  description: `Renovação mensal de créditos do plano ${planName}`
+                }])
+
+              // Update the subscription's period end
+              const nextPeriodEnd = new Date()
+              nextPeriodEnd.setMonth(nextPeriodEnd.getMonth() + 1)
+              await supabaseAdmin
+                .from('teacher_subscriptions')
+                .update({
+                  status: 'ACTIVE',
+                  current_period_end: nextPeriodEnd.toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('stripe_subscription_id', subscriptionId)
+
+              // Record platform SaaS revenue
+              await supabaseAdmin
+                .from('platform_revenue')
+                .insert([{
+                  source_type: 'SAAS',
+                  amount: invoice.amount_paid / 100.0,
+                  stripe_payment_id: invoice.charge as string || invoice.id
+                }])
+
+              // Create platform invoice
+              await supabaseAdmin
+                .from('platform_invoices')
+                .insert([{
+                  teacher_id: teacherId,
+                  amount: invoice.amount_paid / 100.0,
+                  status: 'PAID',
+                  invoice_number: invoice.number || ('INV-' + Math.random().toString(36).substring(2, 8).toUpperCase()),
+                  pdf_url: invoice.invoice_pdf || ''
+                }])
+            }
+          }
+        }
         break
       }
 

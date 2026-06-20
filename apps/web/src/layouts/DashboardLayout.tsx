@@ -13,7 +13,8 @@ import {
   LogOut, 
   X, 
   User,
-  Brain
+  Brain,
+  Menu
 } from 'lucide-react'
 import { Header } from '../components/header/Header'
 
@@ -62,6 +63,13 @@ export default function DashboardLayout() {
     },
     { to: '/dashboard/availability', label: 'Disponibilidade', icon: Clock },
     { to: '/dashboard/brand-studio', label: 'Estúdio de Marca', icon: Palette }
+  ]
+
+  const bottomLinks = [
+    { to: '/dashboard', label: 'Início', icon: LayoutDashboard, exact: true },
+    { to: '/dashboard/patients', label: 'Alunos', icon: Users },
+    { to: '/dashboard/agenda', label: 'Agenda', icon: CalendarDays },
+    { to: '/dashboard/finance', label: 'Financeiro', icon: DollarSign },
   ]
 
   const getLinkClass = (path: string, exact = false) => {
@@ -248,7 +256,7 @@ export default function DashboardLayout() {
       {renderMobileMenu()}
 
       {/* Main Page Layout */}
-      <div className="flex-1 flex overflow-hidden px-0 sm:px-6 pb-4 sm:pb-6 pt-4 sm:pt-6 gap-6">
+      <div className="flex-1 flex overflow-hidden px-0 sm:px-6 pb-20 lg:pb-6 pt-4 sm:pt-6 gap-6">
         {/* Left Sidebars Container (Desktop layout with 2 floating cards) */}
         <div className="hidden lg:flex flex-col gap-6 w-60 h-full shrink-0">
           
@@ -322,6 +330,54 @@ export default function DashboardLayout() {
         <main className="flex-1 overflow-y-auto no-scrollbar relative rounded-none sm:rounded-3xl h-full">
           <Outlet />
         </main>
+      </div>
+
+      {/* Premium Mobile Bottom Navigation for Teachers */}
+      <div 
+        style={{
+          background: 'rgba(255, 255, 255, 0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.4)'
+        }}
+        className="lg:hidden fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around px-2 z-40 shadow-[0_-4px_20px_rgba(15,23,42,0.03)] pb-safe"
+      >
+        {bottomLinks.map((link) => {
+          const isActive = link.exact
+            ? location.pathname === link.to || location.pathname === `${link.to}/`
+            : location.pathname.startsWith(link.to)
+
+          return (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all ${
+                isActive 
+                  ? 'text-tenant-primary scale-105' 
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <link.icon className={`w-5.5 h-5.5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+              <span className={`text-[10px] mt-1 font-extrabold tracking-tight ${isActive ? 'font-black text-tenant-primary' : 'text-slate-400'}`}>
+                {link.label}
+              </span>
+            </Link>
+          )
+        })}
+
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all ${
+            isMobileMenuOpen 
+              ? 'text-tenant-primary scale-105' 
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Menu className={`w-5.5 h-5.5 ${isMobileMenuOpen ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+          <span className={`text-[10px] mt-1 font-extrabold tracking-tight ${isMobileMenuOpen ? 'font-black text-tenant-primary' : 'text-slate-400'}`}>
+            Mais
+          </span>
+        </button>
       </div>
     </div>
   )

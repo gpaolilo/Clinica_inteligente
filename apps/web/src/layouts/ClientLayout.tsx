@@ -7,7 +7,7 @@ import { Menu, X, LayoutDashboard, Brain, Activity, BookOpen, MessageSquare, Boo
 import { useTenantBranding } from '../hooks/useTenantBranding'
 
 export default function ClientLayout() {
-  const { signOut, role } = useAuthStore()
+  const { signOut, role, user } = useAuthStore()
   const { appName, logoUrl, loading: brandingLoading } = useTenantBranding()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -20,6 +20,8 @@ export default function ClientLayout() {
   if (brandingLoading) {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
   }
+
+  const initial = user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || 'U'
 
   const navLinks = role === 'STUDENT' ? [
     { to: '/client', label: 'Dashboard', icon: LayoutDashboard },
@@ -35,6 +37,13 @@ export default function ClientLayout() {
   ] : [
     { to: '/client', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/client/profile', label: 'Meu Perfil', icon: User },
+  ]
+
+  const bottomLinks = [
+    { to: '/client', label: 'Início', icon: LayoutDashboard },
+    { to: '/client/agenda', label: 'Agenda', icon: CalendarDays },
+    { to: '/client/homework', label: 'Exercícios', icon: BookOpen },
+    { to: '/client/insights', label: 'Progresso', icon: Brain },
   ]
 
   const SidebarContent = () => (
@@ -87,7 +96,7 @@ export default function ClientLayout() {
   )
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row pb-16 lg:pb-0">
       {/* Mobile Header */}
       <div className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between z-20">
         <div className="flex items-center space-x-3">
@@ -100,15 +109,15 @@ export default function ClientLayout() {
           )}
           <h1 className="font-bold text-tenant-text tracking-tight">{appName}</h1>
         </div>
-        <button 
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="p-2 text-slate-500 bg-slate-50 rounded-lg"
+        <Link 
+          to="/client/profile"
+          className="w-8 h-8 rounded-full bg-tenant-primary/10 border border-tenant-primary/20 flex items-center justify-center text-tenant-primary font-bold text-xs shadow-sm hover:scale-105 transition-transform"
         >
-          <Menu className="w-6 h-6" />
-        </button>
+          {initial}
+        </Link>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Sidebar Drawer Overlay */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
@@ -117,7 +126,7 @@ export default function ClientLayout() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+              className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-45 lg:hidden"
             />
             <motion.aside 
               initial={{ x: '-100%' }}
@@ -144,6 +153,54 @@ export default function ClientLayout() {
         </div>
         <GamificationOverlay />
       </main>
+
+      {/* Premium Mobile Bottom Navigation */}
+      <div 
+        style={{
+          background: 'rgba(255, 255, 255, 0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.4)'
+        }}
+        className="lg:hidden fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around px-2 z-40 shadow-[0_-4px_20px_rgba(15,23,42,0.03)] pb-safe"
+      >
+        {bottomLinks.map((link) => {
+          const isActive = link.to === '/client'
+            ? location.pathname === '/client' || location.pathname === '/client/'
+            : location.pathname.startsWith(link.to)
+
+          return (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all ${
+                isActive 
+                  ? 'text-tenant-primary scale-105' 
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <link.icon className={`w-5.5 h-5.5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+              <span className={`text-[10px] mt-1 font-extrabold tracking-tight ${isActive ? 'font-black text-tenant-primary' : 'text-slate-400'}`}>
+                {link.label}
+              </span>
+            </Link>
+          )
+        })}
+
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all ${
+            isMobileMenuOpen 
+              ? 'text-tenant-primary scale-105' 
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Menu className={`w-5.5 h-5.5 ${isMobileMenuOpen ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+          <span className={`text-[10px] mt-1 font-extrabold tracking-tight ${isMobileMenuOpen ? 'font-black text-tenant-primary' : 'text-slate-400'}`}>
+            Mais
+          </span>
+        </button>
+      </div>
     </div>
   )
 }

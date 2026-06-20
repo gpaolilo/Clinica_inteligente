@@ -174,6 +174,12 @@ export default function WeeklyCalendar() {
           </button>
         </div>
       </div>
+      
+      {/* Mobile Swipe Hint */}
+      <div className="sm:hidden flex items-center justify-center gap-1.5 text-xs text-tenant-primary font-bold bg-tenant-primary/10 border border-tenant-primary/20 rounded-xl px-4 py-2.5 mb-4 animate-pulse">
+        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+        <span>Deslize para o lado para navegar pelos dias da semana</span>
+      </div>
 
       <div className="overflow-x-auto">
         <div className="min-w-[800px] border border-slate-200 rounded-2xl bg-white overflow-hidden flex relative">

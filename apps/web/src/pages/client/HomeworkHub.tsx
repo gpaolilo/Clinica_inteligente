@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { BookOpen, CheckCircle, Clock, PlayCircle, Trophy, ArrowLeft, Send, Award, Sparkles, AlertCircle } from 'lucide-react'
+import clsx from 'clsx'
 
 const GlassCard = ({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
   <div 
@@ -119,10 +120,13 @@ export default function HomeworkHub() {
     const userAnswer = (answers[currentExerciseIdx] || '').trim().toLowerCase()
     const correctAnswer = (currentEx.answer || '').trim().toLowerCase()
     
+    // Escrita, fala, reflexão, bônus ou cenário são auto-aceitos (sem checagem estrita de strings)
+    const isAutomaticType = ['writing', 'speaking', 'reflection', 'bonus', 'scenario'].includes(currentEx.type)
+    
     // Comparação simples sem levar em conta acentos ou espaços extras
     const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g,"").replace(/\s+/g," ")
     
-    const isCorrect = normalize(userAnswer) === normalize(correctAnswer)
+    const isCorrect = isAutomaticType ? true : normalize(userAnswer) === normalize(correctAnswer)
 
     const newChecked = [...checkedExercises]
     newChecked[currentExerciseIdx] = true
@@ -331,20 +335,32 @@ export default function HomeworkHub() {
         >
           <GlassCard className="p-6 md:p-8 space-y-6">
             {/* Categoria */}
-            <div className="flex justify-between items-center">
-              <span className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider ${
-                currentEx.type === 'grammar' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                currentEx.type === 'vocabulary' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                'bg-blue-50 text-blue-600 border border-blue-100'
-              }`}>
-                {currentEx.type}
-              </span>
-              {isChecked && (
-                <span className={`text-xs font-bold flex items-center gap-1 ${isUserCorrect ? 'text-emerald-600' : 'text-rose-500'}`}>
-                  {isUserCorrect ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                  {isUserCorrect ? 'Correto' : 'Revisar'}
+            {/* Categoria & Seção */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-xs font-black uppercase tracking-wider">
+                  {currentEx.section || 'Atividade Adaptativa'}
                 </span>
-              )}
+                <span className={clsx(
+                  "px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider",
+                  currentEx.type === 'grammar' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                  currentEx.type === 'vocabulary' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                  'bg-blue-50 text-blue-600 border border-blue-100'
+                )}>
+                  {currentEx.type}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {isChecked && (
+                  <span className={`text-xs font-bold flex items-center gap-1 ${isUserCorrect ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {isUserCorrect ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    {isUserCorrect ? 'Concluído' : 'Revisar'}
+                  </span>
+                )}
+                <span className="text-[10px] text-slate-400 font-bold uppercase">
+                  {currentEx.time_estimate || 2} min • +{currentEx.xp_reward || 15} XP
+                </span>
+              </div>
             </div>
 
             {/* Pergunta */}
@@ -355,18 +371,54 @@ export default function HomeworkHub() {
             {/* Campo de Resposta */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Sua Resposta</label>
-              <textarea 
-                disabled={isChecked}
-                value={answers[currentExerciseIdx] || ''}
-                onChange={(e) => {
-                  const newAnswers = [...answers]
-                  newAnswers[currentExerciseIdx] = e.target.value
-                  setAnswers(newAnswers)
-                }}
-                rows={3}
-                placeholder="Escreva sua resposta em inglês aqui..."
-                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-[20px] focus:bg-white focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-slate-800 font-medium shadow-sm resize-none disabled:opacity-75 disabled:bg-slate-50/50"
-              />
+              {currentEx.type === 'speaking' ? (
+                <div className="bg-slate-50 border border-slate-200/60 rounded-[20px] p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row items-center gap-3 justify-center py-2">
+                    <button
+                      type="button"
+                      disabled={isChecked}
+                      onClick={() => {
+                        const newAnswers = [...answers]
+                        newAnswers[currentExerciseIdx] = "Gravação de áudio registrada e processada pela IA: " + currentEx.answer
+                        setAnswers(newAnswers)
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm disabled:opacity-50"
+                    >
+                      <PlayCircle className="w-4 h-4" /> Simular Gravação de Fala
+                    </button>
+                    <span className="text-xs text-slate-400 font-semibold">Ou digite sua resposta abaixo</span>
+                  </div>
+                  <textarea 
+                    disabled={isChecked}
+                    value={answers[currentExerciseIdx] || ''}
+                    onChange={(e) => {
+                      const newAnswers = [...answers]
+                      newAnswers[currentExerciseIdx] = e.target.value
+                      setAnswers(newAnswers)
+                    }}
+                    rows={2}
+                    placeholder="Transcreva ou escreva sua resposta aqui..."
+                    className="w-full px-5 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-tenant-primary outline-none transition-all text-slate-800 font-medium text-sm resize-none"
+                  />
+                </div>
+              ) : (
+                <textarea 
+                  disabled={isChecked}
+                  value={answers[currentExerciseIdx] || ''}
+                  onChange={(e) => {
+                    const newAnswers = [...answers]
+                    newAnswers[currentExerciseIdx] = e.target.value
+                    setAnswers(newAnswers)
+                  }}
+                  rows={currentEx.type === 'writing' ? 6 : 3}
+                  placeholder={
+                    currentEx.type === 'writing' ? "Escreva sua redação, email ou produção escrita aqui..." :
+                    currentEx.type === 'reflection' ? "Reflita e escreva sua opinião aqui..." :
+                    "Escreva sua resposta em inglês aqui..."
+                  }
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-[20px] focus:bg-white focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-slate-800 font-medium shadow-sm resize-none disabled:opacity-75 disabled:bg-slate-50/50"
+                />
+              )}
             </div>
 
             {/* Feedback / Correção */}
@@ -384,9 +436,11 @@ export default function HomeworkHub() {
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Feedback do Sistema</span>
                     <p className="text-slate-700 text-sm font-semibold">
-                      {isUserCorrect 
-                        ? 'Excelente! Resposta equivalente ao gabarito.' 
-                        : 'A resposta digitada divergiu do padrão. Você pode ajustar abaixo se considerar que estava correta.'}
+                      {['writing', 'speaking', 'reflection', 'bonus', 'scenario'].includes(currentEx.type)
+                        ? 'Excelente! Sua produção foi registrada e será computada nos seus relatórios de progresso.'
+                        : isUserCorrect 
+                          ? 'Excelente! Resposta equivalente ao gabarito.' 
+                          : 'A resposta digitada divergiu do padrão. Você pode ajustar abaixo se considerar que estava correta.'}
                     </p>
                   </div>
                 </div>
@@ -487,7 +541,7 @@ export default function HomeworkHub() {
                         </span>
                       ) : (
                         <span className="text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100 flex items-center gap-1">
-                          <Trophy className="w-3 h-3" /> Adaptativo
+                          <Trophy className="w-3 h-3 text-amber-550" /> +{hw.exercises?.reduce((sum: number, ex: any) => sum + (ex.xp_reward || 15), 0)} XP
                         </span>
                       )}
                       <span className="text-xs font-bold text-slate-400 flex items-center gap-1 ml-auto">
@@ -500,9 +554,17 @@ export default function HomeworkHub() {
                       Criado a partir da sua aula para fortalecer pontos específicos de gramática, vocabulário e conversação.
                     </p>
                     
-                    <div className="bg-slate-50 rounded-xl p-3 flex justify-between items-center mb-6 border border-slate-100">
-                      <span className="text-sm font-bold text-slate-500">Total de Questões</span>
-                      <span className="font-black text-slate-800 bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm">{exercisesCount}</span>
+                    <div className="grid grid-cols-2 gap-2 mb-6">
+                      <div className="bg-slate-50 rounded-xl p-3 flex justify-between items-center border border-slate-100">
+                        <span className="text-xs font-bold text-slate-500">Questões</span>
+                        <span className="font-black text-xs text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-100 shadow-sm">{exercisesCount}</span>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-3 flex justify-between items-center border border-slate-100">
+                        <span className="text-xs font-bold text-slate-500">Duração</span>
+                        <span className="font-black text-xs text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-100 shadow-sm">
+                          {hw.exercises?.reduce((sum: number, ex: any) => sum + (ex.time_estimate || 2), 0)} min
+                        </span>
+                      </div>
                     </div>
                   </div>
                   

@@ -31,8 +31,8 @@ export const StudentEngine = {
     return await fetchApi('analyze', { sessionId, patientId, psychologistId })
   },
 
-  generateHomework: async (sessionId: string, patientId: string, psychologistId: string) => {
-    return await fetchApi('generate-homework', { sessionId, patientId, psychologistId })
+  generateHomework: async (sessionId: string, patientId: string, psychologistId: string, config?: any) => {
+    return await fetchApi('generate-homework', { sessionId, patientId, psychologistId, ...config })
   },
 
   getProfile: async (patientId: string) => {

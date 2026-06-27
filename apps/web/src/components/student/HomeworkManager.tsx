@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { StudentEngine } from '../../lib/student-engine-client'
 import { BookOpen, RefreshCw, CheckCircle, Edit3, Loader2 } from 'lucide-react'
@@ -7,6 +7,32 @@ import clsx from 'clsx'
 export function HomeworkManager({ sessionId, patientId, psychologistId }: { sessionId: string, patientId: string, psychologistId: string }) {
   const [loading, setLoading] = useState(false)
   const [homework, setHomework] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchHomework = async () => {
+      setLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('homework_plans')
+          .select('*')
+          .eq('session_id', sessionId)
+          .maybeSingle()
+        
+        if (error) throw error
+        if (data) {
+          setHomework(data)
+        }
+      } catch (err) {
+        console.error("Failed to fetch existing homework:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (sessionId) {
+      fetchHomework()
+    }
+  }, [sessionId])
 
   const handleGenerate = async () => {
     setLoading(true)

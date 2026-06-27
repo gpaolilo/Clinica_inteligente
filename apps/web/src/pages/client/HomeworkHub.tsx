@@ -34,11 +34,15 @@ export default function HomeworkHub() {
     if (!session) return
     setLoading(true)
     
-    const { data: patient } = await supabase
+    const { data: patient, error: patientError } = await supabase
       .from('patients')
       .select('id')
       .eq('user_id', session.user.id)
       .single()
+
+    if (patientError) {
+      console.error("Error fetching patient profile for user_id:", session.user.id, patientError)
+    }
 
     if (!patient) {
       setLoading(false)

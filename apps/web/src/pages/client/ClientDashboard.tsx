@@ -22,6 +22,7 @@ export default function ClientDashboard() {
   const [gamification, setGamification] = useState<any>({ xp: 0, level: 1, current_streak: 0 })
   const [latestInsights, setLatestInsights] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [pendingHomeworks, setPendingHomeworks] = useState<any[]>([])
 
   const fetchData = async () => {
     if (!session) return
@@ -83,6 +84,24 @@ export default function ClientDashboard() {
       latest.vocabulary_score = Math.min(100, 50 + (vocabCount * 10))
 
       setLatestInsights(latest)
+    }
+
+    // 5. Buscar Deveres de Casa Pendentes
+    const { data: publishedPlans } = await supabase
+      .from('homework_plans')
+      .select('*, sessions(scheduled_date)')
+      .eq('patient_id', patient.id)
+      .eq('status', 'PUBLISHED')
+
+    const { data: resultsData } = await supabase
+      .from('homework_results')
+      .select('homework_plan_id')
+      .eq('patient_id', patient.id)
+
+    if (publishedPlans) {
+      const completedPlanIds = new Set(resultsData?.map((r: any) => r.homework_plan_id) || [])
+      const pending = publishedPlans.filter((plan: any) => !completedPlanIds.has(plan.id))
+      setPendingHomeworks(pending)
     }
 
     setLoading(false)
@@ -201,6 +220,61 @@ export default function ClientDashboard() {
       <div className="grid md:grid-cols-3 gap-6">
         {/* Next Session (Left Col) */}
         <div className="md:col-span-2 space-y-6">
+          {pendingHomeworks.length > 0 && (
+            <motion.div variants={itemVariants} className="space-y-4">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-emerald-600 animate-pulse" /> Exercícios de Fixação Pendentes
+                </h2>
+                <button 
+                  onClick={() => window.location.href='/client/homework'} 
+                  className="text-xs font-bold text-tenant-primary hover:text-tenant-primary-hover uppercase tracking-wider"
+                >
+                  Ver Todos
+                </button>
+              </div>
+              <div className="space-y-4">
+                {pendingHomeworks.map((plan) => {
+                  const dateStr = new Date(plan.sessions?.scheduled_date || plan.created_at).toLocaleDateString('pt-BR')
+                  const exercisesCount = plan.exercises?.length || 0
+                  const timeEstimateTotal = plan.exercises?.reduce((sum: number, ex: any) => sum + (ex.time_estimate || 2), 0) || 0
+                  const xpRewardTotal = plan.exercises?.reduce((sum: number, ex: any) => sum + (ex.xp_reward || 15), 0) || 0
+
+                  return (
+                    <GlassCard 
+                      key={plan.id} 
+                      className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-l-4 border-l-emerald-500 hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="bg-emerald-50/50 p-3 rounded-xl text-center min-w-[72px] border border-emerald-100/60">
+                          <p className="text-emerald-700 text-[10px] font-black uppercase tracking-wider">
+                            Tarefas
+                          </p>
+                          <p className="text-emerald-800 text-xl font-black mt-0.5">
+                            {exercisesCount}
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-base text-slate-850">Exercício Adaptativo • Aula de {dateStr}</h3>
+                          <p className="text-slate-400 flex items-center gap-3 mt-1 text-xs font-semibold">
+                            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {timeEstimateTotal} min</span>
+                            <span className="text-purple-655 font-bold">+{xpRewardTotal} XP</span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => window.location.href='/client/homework'}
+                        className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1 shadow-sm transition-all self-start sm:self-auto"
+                      >
+                        Praticar <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </GlassCard>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+
           {upcomingSessions.length > 0 ? (
             <motion.div variants={itemVariants}>
               <div className="flex justify-between items-center mb-4">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import PatientModal from '../components/patients/PatientModal'
@@ -24,10 +25,43 @@ export default function Patients() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
+  const [activePatient, setActivePatient] = useState<Patient | null>(null)
+  const [dropdownCoords, setDropdownCoords] = useState<{ top: number; left: number } | null>(null)
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
+
+  const handleDropdownClick = (e: React.MouseEvent<HTMLButtonElement>, patient: Patient) => {
+    e.stopPropagation()
+    if (activeDropdown === patient.id) {
+      setActiveDropdown(null)
+      setActivePatient(null)
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect()
+      // Position dropdown 6px below the button, aligned to the right of the button (w-44 is 176px)
+      setDropdownCoords({
+        top: rect.bottom + 6,
+        left: rect.right - 176
+      })
+      setActivePatient(patient)
+      setActiveDropdown(patient.id)
+    }
+  }
+
+  useEffect(() => {
+    if (!activeDropdown) return
+    const handleScrollOrResize = () => {
+      setActiveDropdown(null)
+      setActivePatient(null)
+    }
+    window.addEventListener('scroll', handleScrollOrResize, { passive: true })
+    window.addEventListener('resize', handleScrollOrResize)
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize)
+      window.removeEventListener('resize', handleScrollOrResize)
+    }
+  }, [activeDropdown])
   
   const fetchPatients = async () => {
     setLoading(true)
@@ -179,78 +213,15 @@ export default function Patients() {
                           {p.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right relative">
+                      <td className="px-6 py-4 text-right">
                         <div className="flex justify-end items-center">
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setActiveDropdown(activeDropdown === p.id ? null : p.id)
-                            }}
-                            className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-850 transition-colors"
+                            onClick={(e) => handleDropdownClick(e, p)}
+                            className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-800 transition-colors"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          
-                          {activeDropdown === p.id && (
-                            <>
-                              <div 
-                                className="fixed inset-0 z-20 cursor-default"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setActiveDropdown(null)
-                                }}
-                              />
-                              <div className="absolute right-6 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-30 font-semibold text-slate-700 text-left text-xs animate-in fade-in slide-in-from-top-1 duration-100">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveDropdown(null)
-                                    window.location.href = `/dashboard/agenda?new=true&patient_id=${p.id}`
-                                  }}
-                                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                                >
-                                  <Calendar className="w-3.5 h-3.5 text-emerald-500" />
-                                  Agendar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveDropdown(null)
-                                    handleResetPassword(p.email)
-                                  }}
-                                  disabled={!p.email}
-                                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors disabled:opacity-50"
-                                >
-                                  <Key className="w-3.5 h-3.5 text-indigo-500" />
-                                  Reset Senha
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveDropdown(null)
-                                    navigate(`/dashboard/patients/${p.id}`)
-                                  }}
-                                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                                >
-                                  <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                                  Detalhes
-                                </button>
-                                <div className="h-px bg-slate-100 my-1" />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveDropdown(null)
-                                    handleDelete(p.id, p.name)
-                                  }}
-                                  className="w-full text-left px-3.5 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2 transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                  Excluir
-                                </button>
-                              </div>
-                            </>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -280,77 +251,14 @@ export default function Patients() {
                       </div>
                     </div>
 
-                    <div className="relative">
+                    <div>
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveDropdown(activeDropdown === p.id ? null : p.id)
-                        }}
-                        className="p-1.5 hover:bg-slate-100 rounded-full text-slate-550 transition-colors"
+                        onClick={(e) => handleDropdownClick(e, p)}
+                        className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
                       >
                         <MoreVertical className="w-5 h-5" />
                       </button>
-                      
-                      {activeDropdown === p.id && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-20 cursor-default"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setActiveDropdown(null)
-                            }}
-                          />
-                          <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-30 font-semibold text-slate-700 text-left text-xs animate-in fade-in slide-in-from-top-1 duration-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveDropdown(null)
-                                window.location.href = `/dashboard/agenda?new=true&patient_id=${p.id}`
-                              }}
-                              className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                            >
-                              <Calendar className="w-3.5 h-3.5 text-emerald-500" />
-                              Agendar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveDropdown(null)
-                                handleResetPassword(p.email)
-                              }}
-                              disabled={!p.email}
-                              className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors disabled:opacity-50"
-                            >
-                              <Key className="w-3.5 h-3.5 text-indigo-500" />
-                              Reset Senha
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveDropdown(null)
-                                navigate(`/dashboard/patients/${p.id}`)
-                              }}
-                              className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                              Detalhes
-                            </button>
-                            <div className="h-px bg-slate-100 my-1" />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveDropdown(null)
-                                handleDelete(p.id, p.name)
-                              }}
-                              className="w-full text-left px-3.5 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                              Excluir
-                            </button>
-                          </div>
-                        </>
-                      )}
                     </div>
                   </div>
 
@@ -386,6 +294,81 @@ export default function Patients() {
           onClose={() => setIsModalOpen(false)} 
           onSaved={handleSaved} 
         />
+      )}
+
+      {activeDropdown && activePatient && dropdownCoords && createPortal(
+        <>
+          <div 
+            className="fixed inset-0 z-40 bg-transparent cursor-default"
+            onClick={(e) => {
+              e.stopPropagation()
+              setActiveDropdown(null)
+              setActivePatient(null)
+            }}
+          />
+          <div 
+            style={{ 
+              position: 'fixed',
+              top: `${dropdownCoords.top}px`, 
+              left: `${dropdownCoords.left}px` 
+            }}
+            className="w-44 bg-white border border-slate-100 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08),_0_4px_12px_rgba(0,0,0,0.03)] py-1.5 z-50 font-semibold text-slate-700 text-left text-xs animate-in fade-in slide-in-from-top-1 duration-100"
+          >
+            {role !== 'TEACHER' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveDropdown(null)
+                  setActivePatient(null)
+                  window.location.href = `/dashboard/agenda?new=true&patient_id=${activePatient.id}`
+                }}
+                className="group w-full text-left px-3.5 py-2 hover:bg-slate-50/80 flex items-center gap-2.5 transition-colors text-slate-600 hover:text-slate-900 font-medium"
+              >
+                <Calendar className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                Agendar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveDropdown(null)
+                setActivePatient(null)
+                handleResetPassword(activePatient.email)
+              }}
+              disabled={!activePatient.email}
+              className="group w-full text-left px-3.5 py-2 hover:bg-slate-50/80 flex items-center gap-2.5 transition-colors disabled:opacity-40 text-slate-600 hover:text-slate-900 font-medium"
+            >
+              <Key className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+              Reset Senha
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveDropdown(null)
+                setActivePatient(null)
+                navigate(`/dashboard/patients/${activePatient.id}`)
+              }}
+              className="group w-full text-left px-3.5 py-2 hover:bg-slate-50/80 flex items-center gap-2.5 transition-colors text-slate-600 hover:text-slate-900 font-medium"
+            >
+              <FileText className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+              Detalhes
+            </button>
+            <div className="h-px bg-slate-100/80 my-1 mx-2" />
+            <button
+              type="button"
+              onClick={() => {
+                setActiveDropdown(null)
+                setActivePatient(null)
+                handleDelete(activePatient.id, activePatient.name)
+              }}
+              className="group w-full text-left px-3.5 py-2 hover:bg-rose-50/80 text-rose-600 flex items-center gap-2.5 transition-colors font-medium"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400 group-hover:text-rose-600 transition-colors" />
+              Excluir
+            </button>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   )

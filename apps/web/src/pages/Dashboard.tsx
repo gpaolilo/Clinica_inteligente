@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
-import { Search, Calendar } from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 
 export default function Dashboard() {
@@ -24,6 +24,8 @@ export default function Dashboard() {
 
   const [upcomingToday, setUpcomingToday] = useState<any[]>([])
   const [studentGrowth, setStudentGrowth] = useState(0)
+  const [planType, setPlanType] = useState('Starter')
+  const [patientProductMap, setPatientProductMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -79,25 +81,74 @@ export default function Dashboard() {
         // 2. Próximas Aulas de Hoje (ou próximas gerais se hoje estiver vazio)
         const { data: todaySessions } = await supabase
           .from('sessions')
-          .select('*, patient:patients(name, student_level, student_goal)')
+          .select('*, patient:patients(name, user_id, student_level, student_goal)')
           .eq('status', 'SCHEDULED')
           .gte('scheduled_date', today.toISOString())
           .lt('scheduled_date', tomorrow.toISOString())
           .order('scheduled_date', { ascending: true })
 
+        let finalSessions = todaySessions || []
+        
         if (todaySessions && todaySessions.length > 0) {
           setUpcomingToday(todaySessions)
         } else {
           const { data: nextSessions } = await supabase
             .from('sessions')
-            .select('*, patient:patients(name, student_level, student_goal)')
+            .select('*, patient:patients(name, user_id, student_level, student_goal)')
             .eq('status', 'SCHEDULED')
             .gte('scheduled_date', new Date().toISOString())
             .order('scheduled_date', { ascending: true })
             .limit(3)
+          
           if (nextSessions) {
             setUpcomingToday(nextSessions)
+            finalSessions = nextSessions
           }
+        }
+
+        // Map purchased class names dynamically
+        const patientUserIds = Array.from(new Set(finalSessions.map((s: any) => s.patient?.user_id).filter(Boolean)))
+        if (patientUserIds.length > 0) {
+          const { data: payments } = await supabase
+            .from('payments')
+            .select('payer_id, product_id, created_at')
+            .in('payer_id', patientUserIds)
+            .eq('status', 'SUCCEEDED')
+            .eq('type', 'PRODUCT')
+            .order('created_at', { ascending: false })
+
+          const productIds = Array.from(new Set(payments?.map((p: any) => p.product_id).filter(Boolean) || []))
+          if (productIds.length > 0) {
+            const { data: products } = await supabase
+              .from('teacher_products')
+              .select('id, name')
+              .in('id', productIds)
+
+            const productMap = new Map()
+            products?.forEach((p: any) => productMap.set(p.id, p.name))
+
+            const newPatientProductMap = new Map<string, string>()
+            payments?.forEach((pay: any) => {
+              if (!newPatientProductMap.has(pay.payer_id) && pay.product_id) {
+                const prodName = productMap.get(pay.product_id)
+                if (prodName) {
+                  newPatientProductMap.set(pay.payer_id, prodName)
+                }
+              }
+            })
+            setPatientProductMap(newPatientProductMap)
+          }
+        }
+
+        // 3. Buscar o plano de assinatura do psicólogo
+        const { data: psychData } = await supabase
+          .from('psychologists')
+          .select('plan_type')
+          .eq('id', session!.user.id)
+          .maybeSingle()
+
+        if (psychData?.plan_type) {
+          setPlanType(psychData.plan_type)
         }
 
         // 3. Faturamento Financeiro
@@ -197,9 +248,9 @@ export default function Dashboard() {
           </h1>
           <p className="text-slate-500 mt-1 text-sm font-semibold">Here's what's happening today.</p>
         </div>
-        <button className="p-3 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-2xl shadow-sm text-slate-500 transition-colors">
-          <Search className="w-5 h-5" />
-        </button>
+        <div className="bg-indigo-50 border border-indigo-100/50 px-4.5 py-2 rounded-2xl flex items-center justify-center shrink-0">
+          <span className="text-xs font-black text-indigo-600 uppercase tracking-wider">{planType} Plan</span>
+        </div>
       </div>
 
       {/* KPI Cards Row */}
@@ -252,25 +303,32 @@ export default function Dashboard() {
           </h2>
           
           {upcomingToday.length > 0 ? (
-            <div className="divide-y divide-slate-100 flex-1 flex flex-col justify-center">
-              {upcomingToday.map((session, idx) => {
+            <div className="flex-1 flex flex-col justify-center">
+              {upcomingToday.map((session) => {
                 const dt = new Date(session.scheduled_date)
-                const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                const dateStr = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                const timeStr = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                 const name = session.patient?.name || 'Student'
-                // Dynamic English session titles based on indices or student goals
-                const classTitle = idx === 0 ? "Business English" : idx === 1 ? "Conversation Practice" : "Presentation Skills"
+                
+                // Fetch dynamic purchased class name from patientProductMap
+                const purchasedClassName = patientProductMap.get(session.patient?.user_id)
+                const classTitle = purchasedClassName || session.patient?.student_goal || "Aula de Inglês"
 
                 return (
-                  <div key={session.id} className="py-4.5 flex justify-between items-center first:pt-0 last:pb-0 gap-4">
-                    <div>
+                  <div key={session.id} className="py-5 flex justify-between items-center border-b border-slate-100/70 last:border-b-0 hover:bg-slate-50/50 px-2 rounded-2xl transition-all duration-200 gap-4">
+                    <div className="space-y-1.5">
                       <h3 className="font-extrabold text-slate-800 text-[15px]">{classTitle}</h3>
-                      <p className="text-slate-450 text-[13px] font-semibold mt-0.5">
-                        {name} // {timeStr}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 text-xs font-semibold">
+                        <span className="text-slate-800 font-extrabold">{name}</span>
+                        <span className="text-slate-350">•</span>
+                        <span>{dateStr}</span>
+                        <span className="text-slate-350">•</span>
+                        <span>{timeStr}</span>
+                      </div>
                     </div>
                     <button 
                       onClick={() => navigate(`/dashboard/session/${session.id}`)}
-                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-extrabold text-xs py-2 px-5 rounded-xl transition-all shadow-sm shrink-0"
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-extrabold text-xs py-2.5 px-5 rounded-xl transition-all shadow-sm shrink-0"
                     >
                       Join
                     </button>

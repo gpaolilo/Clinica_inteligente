@@ -23,6 +23,7 @@ export default function Dashboard() {
   })
 
   const [upcomingToday, setUpcomingToday] = useState<any[]>([])
+  const [studentGrowth, setStudentGrowth] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -46,6 +47,24 @@ export default function Dashboard() {
         const { count: pCount } = await supabase.from('patients')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'ACTIVE')
+
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+        const { count: prevPatientsCount } = await supabase.from('patients')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'ACTIVE')
+          .lt('created_at', sevenDaysAgo.toISOString())
+
+        const currentPatients = pCount || 0
+        const pastPatients = prevPatientsCount || 0
+        let sGrowth = 0
+        if (pastPatients > 0) {
+          sGrowth = parseFloat((((currentPatients - pastPatients) / pastPatients) * 100).toFixed(1))
+        } else if (currentPatients > 0) {
+          sGrowth = 100.0
+        }
+        setStudentGrowth(sGrowth)
 
         const { count: payCount } = await supabase.from('invoices')
           .select('*', { count: 'exact', head: true })
@@ -146,6 +165,10 @@ export default function Dashboard() {
 
   const teacherName = session?.user?.user_metadata?.full_name?.split(' ')[0] || 'Professor'
 
+  const revenueGrowth = kpis.last_month_revenue > 0
+    ? parseFloat((((kpis.expected_revenue - kpis.last_month_revenue) / kpis.last_month_revenue) * 100).toFixed(1))
+    : (kpis.expected_revenue > 0 ? 100.0 : 0.0)
+
   // Dados para o gráfico de faturamento Recharts
   const chartData = [
     { day: '1', Revenue: kpis.expected_revenue * 0.12 },
@@ -186,7 +209,9 @@ export default function Dashboard() {
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Students</span>
           <div className="flex items-baseline gap-3 mt-2">
             <span className="text-4xl font-black text-slate-800">{basicStats.activePatients}</span>
-            <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full">+12%</span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${studentGrowth >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+              {studentGrowth >= 0 ? `+${studentGrowth}` : studentGrowth}%
+            </span>
           </div>
           <span className="text-xs text-slate-400 mt-auto font-medium">this week</span>
         </div>
@@ -210,7 +235,9 @@ export default function Dashboard() {
             <span className="text-3xl font-black text-slate-800">
               R$ {kpis.expected_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </span>
-            <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full">+18%</span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${revenueGrowth >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+              {revenueGrowth >= 0 ? `+${revenueGrowth}` : revenueGrowth}%
+            </span>
           </div>
           <span className="text-xs text-slate-400 mt-auto font-medium">vs last month</span>
         </div>
@@ -272,7 +299,9 @@ export default function Dashboard() {
             <span className="text-3xl font-black text-slate-800">
               R$ {kpis.expected_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </span>
-            <span className="text-emerald-500 text-xs font-black">+18%</span>
+            <span className={`text-xs font-black ${revenueGrowth >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {revenueGrowth >= 0 ? `+${revenueGrowth}` : revenueGrowth}%
+            </span>
           </div>
 
           {/* Line Chart */}

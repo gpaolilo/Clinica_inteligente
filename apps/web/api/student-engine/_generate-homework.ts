@@ -123,15 +123,15 @@ export default async function handler(req: any, res: any) {
 
     // 7. Format sections prompt guidelines
     const sectionGuidelines: Record<string, string> = {
-      mistakes: "Section 1: Correct Your Mistakes. Goal: Reinforce mistakes made during class. Focus on rewriting, correcting, or translating real incorrect phrases from the transcript.",
-      grammar: "Section 2: Grammar Practice. Goal: Reinforce weak grammar topics (Prepositions, Articles, Conditionals, Verb Tenses, Verb Agreements) matching the student's level.",
-      vocabulary: "Section 3: Vocabulary Reinforcement. Goal: Improve vocabulary retention using words mentioned in class or introducing related business/practical terms.",
-      writing: "Section 4: Writing Challenge. Goal: Promote written production. Formats: Email writing, opinion paragraph, story completion, business communication.",
-      speaking: "Section 5: AI Speaking Challenge. Goal: Speak and record practice (presentation, monologue, response to scenario).",
-      scenario: "Section 6: Scenario Practice. Goal: Simulate real-life roleplay (Job Interview, airport conversation, negotiation, travel small talk) relevant to student's goal.",
-      reading: "Section 7: Reading Comprehension. Goal: Short readable text or dialog suited for level, followed by comprehension questions.",
-      reflection: "Section 8: Reflection Questions. Goal: Self-awareness questions (e.g. what was difficult today, how confident do you feel).",
-      bonus: "Section 9: Bonus XP Mission. Goal: Fun task (e.g. read an article, learn 5 specific words, watch a TED talk)."
+      mistakes: "Section 1: Correct Your Mistakes. Goal: Reinforce mistakes made during class. Exercise types: Correct sentence, Rewrite sentence, Choose correct option, or Translate sentence.",
+      grammar: "Section 2: Grammar Practice. Goal: Reinforce weak grammar topics (Present Simple, Present Perfect, Prepositions, Conditionals, Articles, Verb Tenses, Passive Voice, Modal Verbs). Exercise types: Multiple choice, Fill in the blank, Sentence transformation, or Error identification.",
+      vocabulary: "Section 3: Vocabulary Reinforcement. Goal: Improve vocabulary retention. Exercise types: Flashcards, Fill in the blank, Matching, Synonyms, Definitions, or Example sentences.",
+      writing: "Section 4: Writing Challenge. Goal: Encourage active writing production. Exercise types: Email writing, Opinion paragraph, Journal entry, Essay, Story completion, or Business communication.",
+      speaking: "Section 5: AI Speaking Challenge. Goal: Speak and record practice. Exercise types: Voice recording, Monologue, Presentation, Conversation, or Roleplay.",
+      scenario: "Section 6: Scenario Practice. Goal: Simulate real-life roleplay. Scenarios: Job Interview, Airport, Restaurant, Sales Pitch, Negotiation, Meeting, Travel, Small Talk, Customer Support.",
+      reading: "Section 7: Reading Comprehension. Goal: Short article, business article, news, story, or dialogue. Questions: Multiple choice, open questions, true/false, or summarization.",
+      reflection: "Section 8: Reflection Questions. Goal: Promote self-awareness. Questions: What was difficult today? What did you learn? What do you want to improve? How confident do you feel?",
+      bonus: "Section 9: Bonus XP Mission. Goal: Extra engagement tasks. Examples: Learn 5 words, speak for 30 minutes, watch a TED Talk, read an article, write a journal."
     }
 
     const promptSections = enabledSections.map((sec: string) => sectionGuidelines[sec]).filter(Boolean).join('\n')

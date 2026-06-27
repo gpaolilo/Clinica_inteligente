@@ -31,6 +31,7 @@ const SECTION_LABELS: Record<string, string> = {
 export function HomeworkManager({ sessionId, patientId, psychologistId }: { sessionId: string, patientId: string, psychologistId: string }) {
   const [loading, setLoading] = useState(false)
   const [homework, setHomework] = useState<any>(null)
+  const [homeworkResult, setHomeworkResult] = useState<any | null>(null)
 
   // Config de geração
   const [template, setTemplate] = useState<string>('standard')
@@ -63,9 +64,21 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
         if (error) throw error
         if (data) {
           setHomework(data)
+
+          // Buscar resultado se o dever de casa foi feito pelo aluno
+          const { data: result, error: resultError } = await supabase
+            .from('homework_results')
+            .select('*')
+            .eq('homework_plan_id', data.id)
+            .maybeSingle()
+            
+          if (resultError) throw resultError
+          if (result) {
+            setHomeworkResult(result)
+          }
         }
       } catch (err) {
-        console.error("Failed to fetch existing homework:", err)
+        console.error("Failed to fetch existing homework or results:", err)
       } finally {
         setLoading(false)
       }
@@ -171,7 +184,161 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
     )
   }
 
+  const handleUpdateCorrection = async (idx: number, isCorrect: boolean) => {
+    if (!homeworkResult) return
+    const updatedResults = [...homeworkResult.exercises_results]
+    updatedResults[idx] = {
+      ...updatedResults[idx],
+      is_correct: isCorrect
+    }
+
+    // Recalcular score
+    const correctCount = updatedResults.filter((r: any) => r.is_correct).length
+    const totalCount = updatedResults.length
+    const newScore = parseFloat(((correctCount / totalCount) * 100).toFixed(1))
+
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('homework_results')
+        .update({
+          exercises_results: updatedResults,
+          score: newScore
+        })
+        .eq('id', homeworkResult.id)
+
+      if (error) throw error
+
+      setHomeworkResult({
+        ...homeworkResult,
+        exercises_results: updatedResults,
+        score: newScore
+      })
+    } catch (err: any) {
+      console.error("Failed to update student answer status:", err)
+      alert("Erro ao atualizar status: " + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const creditCost = enabledSections.reduce((sum, sec) => sum + (SECTION_METRIC_COSTS[sec] || 0), 0)
+
+  // STUDENT SUBMITTED ANSWERS REVIEW SCREEN
+  if (homeworkResult) {
+    const score = homeworkResult.score
+    const exercisesResults = homeworkResult.exercises_results || []
+    const correctCount = exercisesResults.filter((r: any) => r.is_correct).length
+    const totalCount = exercisesResults.length
+
+    return (
+      <div className="bg-white border border-slate-200/80 shadow-md rounded-[32px] p-6 md:p-8 font-urbanist max-w-4xl mx-auto space-y-6 animate-in fade-in duration-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-5 gap-4">
+          <div>
+            <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-indigo-600" /> Respostas da Lição de Casa
+            </h3>
+            <p className="text-slate-500 text-xs mt-1 font-medium">O aluno concluiu este dever de casa. Revise e ajuste o aproveitamento.</p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-50 border border-indigo-150 px-4 py-2 rounded-2xl flex flex-col text-right">
+              <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Aproveitamento Final</span>
+              <span className="text-lg font-black text-indigo-900">{score}% ({correctCount}/{totalCount} corretas)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {exercisesResults.map((res: any, idx: number) => {
+            return (
+              <div key={idx} className="border border-slate-200/60 rounded-[20px] p-5 hover:shadow-md transition-all relative overflow-hidden">
+                <div className={clsx(
+                  "absolute top-0 left-0 w-1 h-full",
+                  res.is_correct ? "bg-emerald-500" : "bg-rose-500"
+                )} />
+
+                <div className="pl-2 space-y-4">
+                  <div className="flex justify-between items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold bg-slate-100 text-slate-500 uppercase tracking-wider">
+                        Exercício {idx + 1}
+                      </span>
+                      <span className={clsx(
+                        "px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider",
+                        res.is_correct ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-rose-50 text-rose-700 border border-rose-100"
+                      )}>
+                        {res.is_correct ? "Correto" : "Incorreto"}
+                      </span>
+                      {res.type && (
+                        <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold bg-slate-50 text-slate-505 border border-slate-100 uppercase tracking-wider">
+                          {res.type}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleUpdateCorrection(idx, true)}
+                        disabled={res.is_correct}
+                        className={clsx(
+                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                          res.is_correct
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-200/50 cursor-not-allowed"
+                            : "bg-white hover:bg-emerald-50 text-slate-655 border-slate-200 hover:text-emerald-700 font-bold"
+                        )}
+                      >
+                        Correto
+                      </button>
+                      <button
+                        onClick={() => handleUpdateCorrection(idx, false)}
+                        disabled={!res.is_correct}
+                        className={clsx(
+                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                          !res.is_correct
+                            ? "bg-rose-50 text-rose-600 border-rose-200/50 cursor-not-allowed"
+                            : "bg-white hover:bg-rose-50 text-slate-655 border-slate-205 hover:text-rose-750 font-bold"
+                        )}
+                      >
+                        Incorreto
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pergunta / Prompt:</span>
+                      <p className="text-slate-800 text-sm font-bold leading-relaxed">{res.question}</p>
+                    </div>
+
+                    <div className="bg-slate-50/70 border border-slate-150 rounded-xl p-4">
+                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block mb-1">Resposta do Aluno:</span>
+                      <p className="text-slate-800 font-semibold text-sm leading-relaxed whitespace-pre-line">
+                        {res.user_answer || "(Sem resposta enviada)"}
+                      </p>
+                    </div>
+
+                    <div className="bg-emerald-50/30 border border-emerald-100 rounded-xl p-4 text-xs font-medium space-y-2">
+                      <div>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider block mb-0.5">Gabarito Sugerido pela IA:</span>
+                        <p className="text-slate-850 font-bold">{res.answer}</p>
+                      </div>
+                      {res.explanation && (
+                        <div className="pt-2 border-t border-slate-100">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">Explicação Didática:</span>
+                          <p className="text-slate-500 leading-relaxed font-medium">{res.explanation}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   // LOADING SCREEN
   if (loading && !homework) {

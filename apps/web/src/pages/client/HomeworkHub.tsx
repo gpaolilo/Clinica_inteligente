@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
-import { BookOpen, CheckCircle, Clock, PlayCircle, Trophy, ArrowLeft, Send, Award, Sparkles, AlertCircle } from 'lucide-react'
+import { BookOpen, CheckCircle, Clock, PlayCircle, Trophy, ArrowLeft, Send, Award, Sparkles, AlertCircle, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 
 const GlassCard = ({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
@@ -30,6 +30,8 @@ export default function HomeworkHub() {
   const [showResultsScreen, setShowResultsScreen] = useState(false)
   const [finalScore, setFinalScore] = useState<number>(0)
   const [xpEarned, setXpEarned] = useState<number>(0)
+  const [evaluatingIndex, setEvaluatingIndex] = useState<number | null>(null)
+  const [writingEvaluations, setWritingEvaluations] = useState<Record<number, any>>({})
 
   const fetchHomeworks = async () => {
     if (!session) return
@@ -114,15 +116,32 @@ export default function HomeworkHub() {
     setXpEarned(0)
   }
 
-  const handleVerifyAnswer = () => {
+  const handleVerifyAnswer = async () => {
     if (!activeHomework) return
     const currentEx = activeHomework.exercises[currentExerciseIdx]
-    const userAnswer = (answers[currentExerciseIdx] || '').trim().toLowerCase()
+    const rawUserAnswer = (answers[currentExerciseIdx] || '').trim()
+    const userAnswer = rawUserAnswer.toLowerCase()
     const correctAnswer = (currentEx.answer || '').trim().toLowerCase()
     
     // Escrita, fala, reflexão, bônus ou cenário são auto-aceitos (sem checagem estrita de strings)
     const isAutomaticType = ['writing', 'speaking', 'reflection', 'bonus', 'scenario'].includes(currentEx.type)
     
+    if (isAutomaticType && rawUserAnswer.length > 0) {
+      setEvaluatingIndex(currentExerciseIdx)
+      try {
+        const { StudentEngine } = await import('../../lib/student-engine-client')
+        const evalResult = await StudentEngine.evaluateWriting(currentEx.question, rawUserAnswer, 'Intermediate')
+        setWritingEvaluations(prev => ({
+          ...prev,
+          [currentExerciseIdx]: evalResult
+        }))
+      } catch (err) {
+        console.error("Failed to run grammar evaluation:", err)
+      } finally {
+        setEvaluatingIndex(null)
+      }
+    }
+
     // Comparação simples sem levar em conta acentos ou espaços extras
     const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g,"").replace(/\s+/g," ")
     
@@ -426,29 +445,76 @@ export default function HomeworkHub() {
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="pt-4 border-t border-slate-100 space-y-4"
+                className="pt-4 border-t border-slate-100 space-y-4 font-urbanist"
               >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
-                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block mb-1">Gabarito</span>
-                    <p className="text-emerald-900 font-bold">{currentEx.answer}</p>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Feedback do Sistema</span>
-                    <p className="text-slate-700 text-sm font-semibold">
-                      {['writing', 'speaking', 'reflection', 'bonus', 'scenario'].includes(currentEx.type)
-                        ? 'Excelente! Sua produção foi registrada e será computada nos seus relatórios de progresso.'
-                        : isUserCorrect 
-                          ? 'Excelente! Resposta equivalente ao gabarito.' 
-                          : 'A resposta digitada divergiu do padrão. Você pode ajustar abaixo se considerar que estava correta.'}
-                    </p>
-                  </div>
-                </div>
+                {writingEvaluations[currentExerciseIdx] ? (
+                  <div className="space-y-4">
+                    {/* Card de Frases Corrigidas */}
+                    {writingEvaluations[currentExerciseIdx].has_mistakes ? (
+                      <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 space-y-3">
+                        <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block mb-1">Revisão e Correção de Frases</span>
+                        <div className="space-y-4">
+                          {writingEvaluations[currentExerciseIdx].corrections.map((corr: any, idx: number) => (
+                            <div key={idx} className="border-l-4 border-rose-400 pl-3.5 space-y-1">
+                              <p className="text-xs font-semibold text-slate-500 line-through">"{corr.original}"</p>
+                              <p className="text-sm font-bold text-emerald-700">"{corr.corrected}"</p>
+                              <p className="text-xs text-slate-600 font-medium leading-relaxed">{corr.explanation}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-emerald-600 animate-bounce" />
+                        <div>
+                          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Gramática Excelente</span>
+                          <p className="text-emerald-800 text-sm font-semibold">Nenhum erro de gramática foi identificado no seu texto! Excelente trabalho.</p>
+                        </div>
+                      </div>
+                    )}
 
-                <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-5">
-                  <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block mb-1">Explicação Teórica</span>
-                  <p className="text-slate-600 text-sm leading-relaxed font-medium">{currentEx.explanation}</p>
-                </div>
+                    {/* Feedback geral e Versão Polida */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-1">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Abordagem Recomendada</span>
+                        <p className="text-slate-750 text-sm font-semibold leading-relaxed">
+                          {writingEvaluations[currentExerciseIdx].overall_feedback}
+                        </p>
+                      </div>
+
+                      <div className="bg-purple-50/40 border border-purple-100 rounded-2xl p-4 space-y-1">
+                        <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block mb-1">Versão Sugerida pela IA</span>
+                        <p className="text-purple-950 text-sm font-bold leading-relaxed italic">
+                          "{writingEvaluations[currentExerciseIdx].improved_version}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block mb-1">Gabarito</span>
+                      <p className="text-emerald-900 font-bold">{currentEx.answer}</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Feedback do Sistema</span>
+                      <p className="text-slate-700 text-sm font-semibold">
+                        {['writing', 'speaking', 'reflection', 'bonus', 'scenario'].includes(currentEx.type)
+                          ? 'Excelente! Sua produção foi registrada e será computada nos seus relatórios de progresso.'
+                          : isUserCorrect 
+                            ? 'Excelente! Resposta equivalente ao gabarito.' 
+                            : 'A resposta digitada divergiu do padrão. Você pode ajustar abaixo se considerar que estava correta.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {currentEx.explanation && !writingEvaluations[currentExerciseIdx] && (
+                  <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-5">
+                    <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block mb-1">Explicação Teórica</span>
+                    <p className="text-slate-600 text-sm leading-relaxed font-medium">{currentEx.explanation}</p>
+                  </div>
+                )}
 
                 {/* Sobrescrever Correção Manual */}
                 <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl text-xs font-bold text-slate-500 border border-slate-100">
@@ -474,13 +540,22 @@ export default function HomeworkHub() {
             {/* Ações */}
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
               {!isChecked ? (
-                <button 
-                  onClick={handleVerifyAnswer}
-                  disabled={!(answers[currentExerciseIdx] || '').trim()}
-                  className="bg-slate-900 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-slate-800 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Send className="w-4 h-4" /> Verificar Resposta
-                </button>
+                evaluatingIndex === currentExerciseIdx ? (
+                  <button 
+                    disabled
+                    className="bg-slate-800 text-white font-bold py-3.5 px-8 rounded-xl opacity-90 cursor-not-allowed flex items-center gap-2 shadow-sm"
+                  >
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-450" /> Analisando Resposta por IA...
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleVerifyAnswer}
+                    disabled={!(answers[currentExerciseIdx] || '').trim()}
+                    className="bg-slate-900 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-slate-800 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <Send className="w-4 h-4" /> Verificar Resposta
+                  </button>
+                )
               ) : (
                 currentExerciseIdx < totalExercises - 1 ? (
                   <button 

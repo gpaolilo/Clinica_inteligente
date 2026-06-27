@@ -37,5 +37,9 @@ export const StudentEngine = {
 
   getProfile: async (patientId: string) => {
     return await fetchApi('profile', { patientId })
+  },
+
+  evaluateWriting: async (question: string, userAnswer: string, studentLevel: string) => {
+    return await fetchApi('evaluate-writing', { question, userAnswer, studentLevel })
   }
 }

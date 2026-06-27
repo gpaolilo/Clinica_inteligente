@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { useGoogleStore } from '../stores/googleStore'
 import ScheduleModal from '../components/agenda/ScheduleModal'
+import WeeklyCalendar from '../components/dashboard/WeeklyCalendar'
 
 interface SessionData {
   id: string
@@ -330,6 +331,10 @@ export default function Agenda() {
           </svg>
           {role === 'TEACHER' ? 'Agendar Aula' : 'Agendar Consulta'}
         </button>
+      </div>
+
+      <div className="mb-8">
+        <WeeklyCalendar />
       </div>
 
       <div className="space-y-8">

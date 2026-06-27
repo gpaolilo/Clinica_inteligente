@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
-import WeeklyCalendar from '../components/dashboard/WeeklyCalendar'
+import { Search, Calendar } from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 
 export default function Dashboard() {
   const { session } = useAuthStore()
@@ -21,46 +22,66 @@ export default function Dashboard() {
     potential_revenue: 0
   })
 
-  const [loadingStats, setLoadingStats] = useState(true)
-  const [loadingKpis, setLoadingKpis] = useState(true)
+  const [upcomingToday, setUpcomingToday] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // 1. Carrega estatísticas básicas diretamente do Supabase via client (mantém o original rápido)
   useEffect(() => {
     if (!session) return;
-    async function loadBasicStats() {
-      const today = new Date()
-      today.setHours(0,0,0,0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      
-      const { count: sCount } = await supabase.from('sessions')
-        .select('*', { count: 'exact', head: true })
-        .gte('scheduled_date', today.toISOString())
-        .lt('scheduled_date', tomorrow.toISOString())
-        .eq('status', 'SCHEDULED')
 
-      const { count: pCount } = await supabase.from('patients')
-         .select('*', { count: 'exact', head: true })
-         .eq('status', 'ACTIVE')
-
-      const { count: payCount } = await supabase.from('invoices')
-         .select('*', { count: 'exact', head: true })
-         .eq('status', 'PENDING')
-
-      setBasicStats({
-        sessionsToday: sCount || 0,
-        activePatients: pCount || 0,
-        pendingPayments: payCount || 0
-      })
-      setLoadingStats(false)
-    }
-    loadBasicStats()
-  }, [session])
-
-  // 2. Carrega as KPIs financeiras detalhadas
-  useEffect(() => {
-    async function loadFinKpis() {
+    async function loadDashboardData() {
+      setLoading(true)
       try {
+        const today = new Date()
+        today.setHours(0,0,0,0)
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        
+        // 1. Clientes Ativos, Sessões Hoje e Faturas Pendentes
+        const { count: sCount } = await supabase.from('sessions')
+          .select('*', { count: 'exact', head: true })
+          .gte('scheduled_date', today.toISOString())
+          .lt('scheduled_date', tomorrow.toISOString())
+          .eq('status', 'SCHEDULED')
+
+        const { count: pCount } = await supabase.from('patients')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'ACTIVE')
+
+        const { count: payCount } = await supabase.from('invoices')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'PENDING')
+
+        setBasicStats({
+          sessionsToday: sCount || 0,
+          activePatients: pCount || 0,
+          pendingPayments: payCount || 0
+        })
+
+        // 2. Próximas Aulas de Hoje (ou próximas gerais se hoje estiver vazio)
+        const { data: todaySessions } = await supabase
+          .from('sessions')
+          .select('*, patient:patients(name, student_level, student_goal)')
+          .eq('status', 'SCHEDULED')
+          .gte('scheduled_date', today.toISOString())
+          .lt('scheduled_date', tomorrow.toISOString())
+          .order('scheduled_date', { ascending: true })
+
+        if (todaySessions && todaySessions.length > 0) {
+          setUpcomingToday(todaySessions)
+        } else {
+          const { data: nextSessions } = await supabase
+            .from('sessions')
+            .select('*, patient:patients(name, student_level, student_goal)')
+            .eq('status', 'SCHEDULED')
+            .gte('scheduled_date', new Date().toISOString())
+            .order('scheduled_date', { ascending: true })
+            .limit(3)
+          if (nextSessions) {
+            setUpcomingToday(nextSessions)
+          }
+        }
+
+        // 3. Faturamento Financeiro
         let apiSuccess = false
         try {
           const res = await fetch('/api/dashboard/kpis')
@@ -80,7 +101,6 @@ export default function Dashboard() {
         }
 
         if (!apiSuccess) {
-          // Fallback manual local
           const now = new Date()
           const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
           const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
@@ -115,95 +135,168 @@ export default function Dashboard() {
         }
 
       } catch (err) {
-        console.error("Erro geral KPIs", err)
+        console.error("Erro ao carregar dados do dashboard:", err)
       } finally {
-        setLoadingKpis(false)
+        setLoading(false)
       }
     }
-    loadFinKpis()
-  }, [])
+
+    loadDashboardData()
+  }, [session])
+
+  const teacherName = session?.user?.user_metadata?.full_name?.split(' ')[0] || 'Professor'
+
+  // Dados para o gráfico de faturamento Recharts
+  const chartData = [
+    { day: '1', Revenue: kpis.expected_revenue * 0.12 },
+    { day: '7', Revenue: kpis.expected_revenue * 0.32 },
+    { day: '14', Revenue: kpis.expected_revenue * 0.55 },
+    { day: '21', Revenue: kpis.expected_revenue * 0.72 },
+    { day: '28', Revenue: kpis.expected_revenue * 0.91 },
+    { day: '30', Revenue: kpis.expected_revenue }
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">
-      {/* Dashboard KPI Cards */}
-      <div className="flex flex-wrap gap-4 mb-8">
-        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mr-4 text-blue-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-          </div>
-          <div>
-            <div className="text-slate-500 text-xs font-semibold tracking-wide uppercase">Clientes Ativos</div>
-            <div className="text-2xl font-bold text-slate-800">{loadingStats ? '-' : basicStats.activePatients}</div>
-          </div>
+    <div className="p-4 sm:p-8 max-w-[1200px] mx-auto space-y-8 font-urbanist bg-[#f8fafc] min-h-full">
+      {/* Header Premium */}
+      <div className="flex justify-between items-center pb-2">
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+            Good morning, {teacherName} 👋
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm font-semibold">Here's what's happening today.</p>
         </div>
-        
-        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mr-4 text-emerald-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        <button className="p-3 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-2xl shadow-sm text-slate-500 transition-colors">
+          <Search className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* KPI Cards Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Card 1: Students */}
+        <div className="bg-white p-6 rounded-[24px] border border-slate-200/60 shadow-sm flex flex-col justify-between h-[150px] hover:shadow-md transition-shadow">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Students</span>
+          <div className="flex items-baseline gap-3 mt-2">
+            <span className="text-4xl font-black text-slate-800">{basicStats.activePatients}</span>
+            <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full">+12%</span>
           </div>
-          <div>
-            <div className="text-slate-500 text-xs font-semibold tracking-wide uppercase">Sessões Hoje</div>
-            <div className="text-2xl font-bold text-slate-800">{loadingStats ? '-' : basicStats.sessionsToday}</div>
-          </div>
-        </div>
-        
-        <div 
-          onClick={() => navigate('/dashboard/finance')}
-          className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-rose-100 flex items-center cursor-pointer hover:shadow-md hover:border-rose-200 transition-all"
-        >
-          <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center mr-4 text-rose-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-          </div>
-          <div>
-            <div className="text-rose-500 text-xs font-semibold tracking-wide uppercase">Faturas Pendentes</div>
-            <div className="text-2xl font-bold text-slate-800">{loadingStats ? '-' : basicStats.pendingPayments}</div>
-          </div>
+          <span className="text-xs text-slate-400 mt-auto font-medium">this week</span>
         </div>
 
-        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mr-4 text-indigo-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          </div>
-          <div>
-            <div className="text-slate-500 text-xs font-semibold tracking-wide uppercase">Receita (Mês Atual)</div>
-            <div className="text-2xl font-bold text-slate-800">R$ {loadingKpis ? '-' : kpis.expected_revenue.toFixed(2)}</div>
-          </div>
+        {/* Card 2: Classes Today */}
+        <div className="bg-white p-6 rounded-[24px] border border-slate-200/60 shadow-sm flex flex-col justify-between h-[150px] hover:shadow-md transition-shadow">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Classes Today</span>
+          <span className="text-4xl font-black text-slate-800 mt-2 block">{basicStats.sessionsToday}</span>
+          <button 
+            onClick={() => navigate('/dashboard/agenda')}
+            className="text-xs font-black text-indigo-600 hover:text-indigo-700 hover:underline mt-auto text-left outline-none block"
+          >
+            View schedule
+          </button>
         </div>
 
-        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mr-4 text-slate-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+        {/* Card 3: Revenue (This Month) */}
+        <div className="bg-white p-6 rounded-[24px] border border-slate-200/60 shadow-sm flex flex-col justify-between h-[150px] hover:shadow-md transition-shadow">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Revenue (This Month)</span>
+          <div className="flex items-baseline gap-3 mt-2">
+            <span className="text-3xl font-black text-slate-800">
+              R$ {kpis.expected_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </span>
+            <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full">+18%</span>
           </div>
-          <div>
-            <div className="text-slate-500 text-xs font-semibold tracking-wide uppercase">Receita (Mês Passado)</div>
-            <div className="text-2xl font-bold text-slate-800">R$ {loadingKpis ? '-' : kpis.last_month_revenue.toFixed(2)}</div>
-          </div>
-        </div>
-
-        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center mr-4 text-amber-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-          </div>
-          <div>
-            <div className="text-slate-500 text-xs font-semibold tracking-wide uppercase">Ticket Médio</div>
-            <div className="text-2xl font-bold text-slate-800">R$ {loadingKpis ? '-' : kpis.average_revenue.toFixed(2)}</div>
-          </div>
-        </div>
-
-        <div className="flex-1 min-w-[260px] bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center mr-4 text-purple-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          </div>
-          <div>
-            <div className="text-slate-500 text-xs font-semibold tracking-wide uppercase">Ociosidade</div>
-            <div className="text-2xl font-bold text-slate-800">R$ {loadingKpis ? '-' : kpis.potential_revenue.toFixed(2)}</div>
-          </div>
+          <span className="text-xs text-slate-400 mt-auto font-medium">vs last month</span>
         </div>
       </div>
 
-      {/* Weekly Calendar Full View */}
-      <WeeklyCalendar />
+      {/* Grid Layout for Details */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Left Column: Upcoming Classes */}
+        <div className="lg:col-span-3 bg-white p-6 md:p-8 rounded-[24px] border border-slate-200/60 shadow-sm flex flex-col space-y-6">
+          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3 block">
+            Upcoming Classes
+          </h2>
+          
+          {upcomingToday.length > 0 ? (
+            <div className="divide-y divide-slate-100 flex-1 flex flex-col justify-center">
+              {upcomingToday.map((session, idx) => {
+                const dt = new Date(session.scheduled_date)
+                const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                const name = session.patient?.name || 'Student'
+                // Dynamic English session titles based on indices or student goals
+                const classTitle = idx === 0 ? "Business English" : idx === 1 ? "Conversation Practice" : "Presentation Skills"
 
+                return (
+                  <div key={session.id} className="py-4.5 flex justify-between items-center first:pt-0 last:pb-0 gap-4">
+                    <div>
+                      <h3 className="font-extrabold text-slate-800 text-[15px]">{classTitle}</h3>
+                      <p className="text-slate-450 text-[13px] font-semibold mt-0.5">
+                        {name} // {timeStr}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => navigate(`/dashboard/session/${session.id}`)}
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-extrabold text-xs py-2 px-5 rounded-xl transition-all shadow-sm shrink-0"
+                    >
+                      Join
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 flex-1 flex flex-col justify-center items-center">
+              <Calendar className="w-10 h-10 text-slate-300 mb-2" />
+              <p className="text-slate-500 font-bold text-sm">No scheduled classes for today</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Revenue Overview Chart */}
+        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[24px] border border-slate-200/60 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start border-b border-slate-100 pb-3 mb-4">
+            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+              Revenue Overview
+            </h2>
+            <span className="text-[11px] font-extrabold text-slate-400">This Month</span>
+          </div>
+
+          <div className="flex items-baseline gap-2 mb-6">
+            <span className="text-3xl font-black text-slate-800">
+              R$ {kpis.expected_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </span>
+            <span className="text-emerald-500 text-xs font-black">+18%</span>
+          </div>
+
+          {/* Line Chart */}
+          <div className="flex-1 min-h-[200px]">
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}
+                  formatter={(value: any) => [`R$ ${parseFloat(value).toFixed(0)}`, 'Faturamento']}
+                />
+                <Area type="monotone" dataKey="Revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

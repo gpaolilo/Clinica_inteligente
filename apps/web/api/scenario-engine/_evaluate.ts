@@ -39,13 +39,16 @@ export default async function handler(req: any, res: any) {
     }
     const psychologistId = patientData.psychologist_id
 
+    // Calculate actual cost based on scenario practice duration (5 credits per minute)
+    const durationMinutes = Math.max(1, Math.ceil((durationSeconds || 180) / 60))
+
     // Verify and deduct AI credits
     const creditResult = await consumeCredits(
       psychologistId,
-      'writing_evaluation',
+      'scenario_practice',
       patientId,
-      1,
-      'Avaliação de prática de cenário por IA'
+      durationMinutes,
+      `Prática de cenário (${durationMinutes} min)`
     )
 
     if (!creditResult.success) {

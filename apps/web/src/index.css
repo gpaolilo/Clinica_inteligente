@@ -176,6 +176,49 @@
   html[data-tenant-preset="Flowike"] :not(.brand-preview-container *) .btn:hover {
     box-shadow: 0 0 15px var(--tenant-primary) !important;
   }
+
+  /* Ambient light leak glow blobs behind main layout */
+  html[data-tenant-preset="Glassmorphic"]::before,
+  html[data-tenant-preset="Glassmorphic"]::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(140px);
+    opacity: 0.25;
+    mix-blend-mode: screen;
+  }
+  html[data-tenant-preset="Glassmorphic"]::before {
+    width: 500px;
+    height: 500px;
+    top: -100px;
+    right: -50px;
+    background: radial-gradient(circle, rgba(112, 0, 255, 0.45) 0%, rgba(112, 0, 255, 0) 70%);
+  }
+  html[data-tenant-preset="Glassmorphic"]::after {
+    width: 600px;
+    height: 600px;
+    bottom: -200px;
+    left: -100px;
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.35) 0%, rgba(0, 255, 255, 0) 70%);
+  }
+
+  /* Ultra-premium glass cards */
+  html[data-tenant-preset="Glassmorphic"] :not(.brand-preview-container *) .bg-white,
+  html[data-tenant-preset="Glassmorphic"] :not(.brand-preview-container *) .rounded-tenant-card {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
+  }
+  html[data-tenant-preset="Glassmorphic"] :not(.brand-preview-container *) .bg-white:hover,
+  html[data-tenant-preset="Glassmorphic"] :not(.brand-preview-container *) .rounded-tenant-card:hover {
+    border-color: rgba(255, 255, 255, 0.16) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+  }
 }
 
 @layer utilities {

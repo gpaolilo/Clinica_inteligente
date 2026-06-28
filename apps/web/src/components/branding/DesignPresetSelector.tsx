@@ -75,6 +75,18 @@ export const brandingPresets: Record<string, BrandingPreset> = {
     theme_mode: 'dark',
     button_style: 'Pill',
     card_style: 'Glass'
+  },
+  Glassmorphic: {
+    name: 'Glassmorphic',
+    label: 'Glassmorphic',
+    primary_color: '#00FFFF',
+    secondary_color: '#7000FF',
+    accent_color: '#FF007F',
+    background_color: '#080a10',
+    text_color: '#ffffff',
+    theme_mode: 'dark',
+    button_style: 'Pill',
+    card_style: 'Glass'
   }
 }
 

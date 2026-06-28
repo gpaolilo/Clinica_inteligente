@@ -1087,10 +1087,18 @@ export default function Finance() {
                             <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
                           </linearGradient>
                           <filter id="glowGross" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--tenant-primary)" floodOpacity="0.35" />
+                            <feGaussianBlur stdDeviation="4" result="blur" />
+                            <feMerge>
+                              <feMergeNode in="blur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
                           </filter>
                           <filter id="glowNet" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--tenant-secondary)" floodOpacity="0.35" />
+                            <feGaussianBlur stdDeviation="4" result="blur" />
+                            <feMerge>
+                              <feMergeNode in="blur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
                           </filter>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--tenant-border)" />
@@ -1119,7 +1127,11 @@ export default function Finance() {
                             <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
                           </linearGradient>
                           <filter id="glowMonthly" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--tenant-primary)" floodOpacity="0.35" />
+                            <feGaussianBlur stdDeviation="4" result="blur" />
+                            <feMerge>
+                              <feMergeNode in="blur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
                           </filter>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--tenant-border)" />

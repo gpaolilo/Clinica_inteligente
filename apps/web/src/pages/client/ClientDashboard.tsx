@@ -397,10 +397,18 @@ export default function ClientDashboard() {
                     <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <filter id="glowFluency" x="-20%" y="-20%" width="140%" height="140%">
-                          <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="var(--tenant-secondary)" floodOpacity="0.45" />
+                          <feGaussianBlur stdDeviation="4" result="blur" />
+                          <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
                         </filter>
                         <filter id="glowConfidence" x="-20%" y="-20%" width="140%" height="140%">
-                          <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="var(--tenant-primary)" floodOpacity="0.45" />
+                          <feGaussianBlur stdDeviation="4" result="blur" />
+                          <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
                         </filter>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--tenant-border)" />

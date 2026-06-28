@@ -372,7 +372,11 @@ export default function Dashboard() {
                     <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
                   </linearGradient>
                   <filter id="glowRevenue" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="var(--tenant-primary)" floodOpacity="0.35" />
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
                   </filter>
                 </defs>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: 'var(--tenant-text-secondary)', fontSize: 10, fontWeight: 'bold' }} />

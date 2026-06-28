@@ -10,7 +10,10 @@
   }
 
   /* Sobrescreve fundos, bordas e sombras dos cartões baseados no card_style */
-  .bg-white, .bg-slate-50\/50, .bg-white\/80, .bg-tenant-surface {
+  :not(.brand-preview-container *) .bg-white, 
+  :not(.brand-preview-container *) .bg-slate-50\/50, 
+  :not(.brand-preview-container *) .bg-white\/80, 
+  :not(.brand-preview-container *) .bg-tenant-surface {
     background-color: var(--tenant-card-bg, var(--tenant-surface)) !important;
     backdrop-filter: blur(var(--tenant-card-backdrop-blur, 0px)) !important;
     -webkit-backdrop-filter: blur(var(--tenant-card-backdrop-blur, 0px)) !important;
@@ -19,20 +22,41 @@
     border-color: var(--tenant-card-border-color, var(--tenant-border)) !important;
   }
   
-  .bg-slate-50 {
+  :not(.brand-preview-container *) .bg-slate-50,
+  :not(.brand-preview-container *) .bg-slate-100 {
     background-color: var(--tenant-background) !important;
   }
 
-  .border-slate-100, .border-slate-200, .border-slate-200\/60, .border-slate-200\/50, .border-slate-200\/30, .border-tenant-border {
+  :not(.brand-preview-container *) .hover\:bg-slate-100:hover, 
+  :not(.brand-preview-container *) .hover\:bg-slate-50:hover {
+    background-color: var(--tenant-background) !important;
+  }
+
+  :not(.brand-preview-container *) .border-slate-100, 
+  :not(.brand-preview-container *) .border-slate-200, 
+  :not(.brand-preview-container *) .border-slate-200\/60, 
+  :not(.brand-preview-container *) .border-slate-200\/50, 
+  :not(.brand-preview-container *) .border-slate-200\/30, 
+  :not(.brand-preview-container *) .border-tenant-border {
     border-color: var(--tenant-card-border-color, var(--tenant-border)) !important;
   }
 
   /* Textos */
-  .text-slate-800, .text-slate-900, .text-slate-700, .text-dark, .text-slate-600 {
+  :not(.brand-preview-container *) .text-slate-800, 
+  :not(.brand-preview-container *) .text-slate-900, 
+  :not(.brand-preview-container *) .text-slate-700, 
+  :not(.brand-preview-container *) .text-dark, 
+  :not(.brand-preview-container *) .text-slate-650,
+  :not(.brand-preview-container *) .text-slate-600 {
     color: var(--tenant-text) !important;
   }
   
-  h1, h2, h3, h4, h5, h6 {
+  :not(.brand-preview-container *) h1, 
+  :not(.brand-preview-container *) h2, 
+  :not(.brand-preview-container *) h3, 
+  :not(.brand-preview-container *) h4, 
+  :not(.brand-preview-container *) h5, 
+  :not(.brand-preview-container *) h6 {
     color: var(--tenant-text) !important;
   }
 
@@ -74,43 +98,55 @@
   }
 
   /* Inputs */
-  input, textarea, select {
+  :not(.brand-preview-container *) input, 
+  :not(.brand-preview-container *) textarea, 
+  :not(.brand-preview-container *) select {
     background-color: var(--tenant-surface) !important;
     color: var(--tenant-text) !important;
     border-color: var(--tenant-border) !important;
   }
-  input:focus, textarea:focus, select:focus {
+  :not(.brand-preview-container *) input:focus, 
+  :not(.brand-preview-container *) textarea:focus, 
+  :not(.brand-preview-container *) select:focus {
     --tw-ring-color: var(--tenant-primary) !important;
     border-color: var(--tenant-primary) !important;
   }
 
   /* Raio de borda personalizado para todos os botões e campos de entrada */
-  button, 
-  .btn, 
-  a[class*="bg-tenant-primary"], 
-  a[class*="bg-blue-600"], 
-  a[class*="bg-emerald-500"], 
-  input[type="button"], 
-  input[type="submit"], 
-  input:not([type="checkbox"]):not([type="radio"]):not(.rounded-full), 
-  textarea, 
-  select {
+  :not(.brand-preview-container *) button, 
+  :not(.brand-preview-container *) .btn, 
+  :not(.brand-preview-container *) a[class*="bg-tenant-primary"], 
+  :not(.brand-preview-container *) a[class*="bg-blue-600"], 
+  :not(.brand-preview-container *) a[class*="bg-emerald-500"], 
+  :not(.brand-preview-container *) input[type="button"], 
+  :not(.brand-preview-container *) input[type="submit"], 
+  :not(.brand-preview-container *) input:not([type="checkbox"]):not([type="radio"]):not(.rounded-full), 
+  :not(.brand-preview-container *) textarea, 
+  :not(.brand-preview-container *) select {
     border-radius: var(--tenant-button-radius) !important;
   }
 
   /* Preservar o formato perfeitamente circular para avatares e botões de ícone quadrado */
-  .rounded-full.w-8, .rounded-full.w-9, .rounded-full.w-10, .rounded-full.w-12, 
-  .rounded-full.h-8, .rounded-full.h-9, .rounded-full.h-10, .rounded-full.h-12, 
-  .rounded-full.w-16, .rounded-full.h-16,
-  [class*="avatar"], .avatar-circle {
+  :not(.brand-preview-container *) .rounded-full.w-8, 
+  :not(.brand-preview-container *) .rounded-full.w-9, 
+  :not(.brand-preview-container *) .rounded-full.w-10, 
+  :not(.brand-preview-container *) .rounded-full.w-12, 
+  :not(.brand-preview-container *) .rounded-full.h-8, 
+  :not(.brand-preview-container *) .rounded-full.h-9, 
+  :not(.brand-preview-container *) .rounded-full.h-10, 
+  :not(.brand-preview-container *) .rounded-full.h-12, 
+  :not(.brand-preview-container *) .rounded-full.w-16, 
+  :not(.brand-preview-container *) .rounded-full.h-16,
+  :not(.brand-preview-container *) [class*="avatar"], 
+  :not(.brand-preview-container *) .avatar-circle {
     border-radius: 9999px !important;
   }
 
-  div.rounded-2xl:not(.rounded-full), 
-  div.rounded-3xl:not(.rounded-full), 
-  div.rounded-\[32px\]:not(.rounded-full), 
-  div.rounded-xl:not(.rounded-full), 
-  .rounded-tenant-card:not(.rounded-full) {
+  :not(.brand-preview-container *) div.rounded-2xl:not(.rounded-full), 
+  :not(.brand-preview-container *) div.rounded-3xl:not(.rounded-full), 
+  :not(.brand-preview-container *) div.rounded-\[32px\]:not(.rounded-full), 
+  :not(.brand-preview-container *) div.rounded-xl:not(.rounded-full), 
+  :not(.brand-preview-container *) .rounded-tenant-card:not(.rounded-full) {
     border-radius: var(--tenant-card-radius) !important;
   }
 

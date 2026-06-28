@@ -335,10 +335,10 @@ export default function DashboardLayout() {
       {/* Premium Mobile Bottom Navigation for Teachers */}
       <div 
         style={{
-          background: 'rgba(255, 255, 255, 0.85)',
+          background: 'var(--tenant-card-bg)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.4)'
+          borderTop: '1px solid var(--tenant-border)'
         }}
         className="lg:hidden fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around px-2 z-40 shadow-[0_-4px_20px_rgba(15,23,42,0.03)] pb-safe"
       >

@@ -273,7 +273,7 @@ export default function BrandStudioPage() {
         </div>
 
         {/* Live Preview Panel - Direita */}
-        <div className="lg:col-span-5">
+        <div className="lg:col-span-5 brand-preview-container">
           <BrandingPreviewPanel settings={draftSettings} />
         </div>
       </div>

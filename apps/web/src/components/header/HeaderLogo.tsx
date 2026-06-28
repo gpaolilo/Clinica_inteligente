@@ -15,7 +15,7 @@ export const HeaderLogo: React.FC<HeaderLogoProps> = ({ appName, logoUrl }) => {
           {appName.charAt(0)}
         </div>
       )}
-      <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight select-none">
+      <span className="text-xl sm:text-2xl font-bold text-tenant-text tracking-tight select-none">
         {appName}
       </span>
     </div>

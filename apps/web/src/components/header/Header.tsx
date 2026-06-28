@@ -25,10 +25,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header 
       style={{
-        background: 'rgba(255, 255, 255, 0.72)',
+        background: 'var(--tenant-card-bg)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.4)'
+        borderBottom: '1px solid var(--tenant-border)'
       }}
       className="sticky top-0 w-full h-[84px] z-30 shrink-0 rounded-b-[24px] shadow-[0_8px_30px_rgba(15,23,42,0.04),0_2px_8px_rgba(15,23,42,0.03)] px-4 sm:px-8 flex justify-between items-center transition-all duration-300"
     >

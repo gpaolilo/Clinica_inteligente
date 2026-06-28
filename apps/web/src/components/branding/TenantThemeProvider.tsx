@@ -89,6 +89,50 @@ export function getContrastColor(hex: string): string {
   }
 }
 
+// Function to lighten hex colors by a percentage
+export function lightenColor(hex: string, percent: number): string {
+  try {
+    const cleanHex = hex.replace('#', '')
+    let num = parseInt(cleanHex, 16)
+    if (isNaN(num)) return hex
+    
+    let amt = Math.round(2.55 * percent)
+    let R = (num >> 16) + amt
+    let G = ((num >> 8) & 0x00ff) + amt
+    let B = (num & 0x0000ff) + amt
+
+    R = Math.max(0, Math.min(255, R))
+    G = Math.max(0, Math.min(255, G))
+    B = Math.max(0, Math.min(255, B))
+
+    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)
+  } catch {
+    return hex
+  }
+}
+
+// Convert a hex color code to a comma-separated RGB string
+export function hexToRgb(hex: string): string {
+  try {
+    const cleanHex = hex.replace('#', '')
+    let r = 0, g = 0, b = 0
+    if (cleanHex.length === 3) {
+      r = parseInt(cleanHex.substring(0, 1).repeat(2), 16)
+      g = parseInt(cleanHex.substring(1, 2).repeat(2), 16)
+      b = parseInt(cleanHex.substring(2, 3).repeat(2), 16)
+    } else if (cleanHex.length === 6) {
+      r = parseInt(cleanHex.substring(0, 2), 16)
+      g = parseInt(cleanHex.substring(2, 4), 16)
+      b = parseInt(cleanHex.substring(4, 6), 16)
+    } else {
+      return '255, 255, 255'
+    }
+    return `${r}, ${g}, ${b}`
+  } catch {
+    return '255, 255, 255'
+  }
+}
+
 export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, role } = useAuthStore()
   const location = useLocation()
@@ -162,9 +206,12 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const isDark = settings.theme_mode === 'dark' || 
         (settings.theme_mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
       
-      root.style.setProperty('--tenant-surface', isDark ? '#1e293b' : '#ffffff')
+      const surfaceColor = isDark ? lightenColor(settings.background_color, 8) : '#ffffff'
+      const borderColor = isDark ? lightenColor(settings.background_color, 16) : '#e2e8f0'
+      
+      root.style.setProperty('--tenant-surface', surfaceColor)
       root.style.setProperty('--tenant-text', settings.text_color)
-      root.style.setProperty('--tenant-border', isDark ? '#334155' : '#e2e8f0')
+      root.style.setProperty('--tenant-border', borderColor)
 
       // Aplicar border-radius para botões
       let btnRadius = '12px'
@@ -183,9 +230,9 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       // Compute card styles based on settings.card_style
       let cardShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
-      let cardBorderColor = isDark ? '#334155' : '#e2e8f0'
+      let cardBorderColor = isDark ? borderColor : '#e2e8f0'
       let cardBorderWidth = '1px'
-      let cardBg = isDark ? '#1e293b' : '#ffffff'
+      let cardBg = isDark ? surfaceColor : '#ffffff'
       let cardBackdropBlur = '0px'
 
       if (settings.card_style === 'Minimal') {
@@ -202,7 +249,7 @@ export const TenantThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
           : '0 8px 32px 0 rgba(31, 38, 135, 0.07)'
         cardBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.4)'
         cardBorderWidth = '1px'
-        cardBg = isDark ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.65)'
+        cardBg = isDark ? `rgba(${hexToRgb(surfaceColor)}, 0.75)` : 'rgba(255, 255, 255, 0.65)'
         cardBackdropBlur = '16px'
       } else if (settings.card_style === 'Bordered') {
         cardShadow = 'none'

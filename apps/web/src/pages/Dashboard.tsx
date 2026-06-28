@@ -239,7 +239,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1200px] mx-auto space-y-8 font-urbanist bg-[#f8fafc] min-h-full">
+    <div className="p-4 sm:p-8 max-w-[1200px] mx-auto space-y-8 font-urbanist bg-slate-50 min-h-full">
       {/* Header Premium */}
       <div className="flex justify-between items-center pb-2">
         <div>

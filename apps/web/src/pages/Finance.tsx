@@ -1086,27 +1086,58 @@ export default function Finance() {
                             <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.2}/>
                             <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
                           </linearGradient>
+                          <filter id="glowGross" x="-20%" y="-20%" width="140%" height="140%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--tenant-primary)" floodOpacity="0.35" />
+                          </filter>
+                          <filter id="glowNet" x="-20%" y="-20%" width="140%" height="140%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--tenant-secondary)" floodOpacity="0.35" />
+                          </filter>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                        <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                        <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
-                        <Area type="monotone" dataKey="Receita" stroke="var(--tenant-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorGross)" />
-                        <Area type="monotone" dataKey="Líquido" stroke="#10b981" strokeWidth={2} fillOpacity={0} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--tenant-border)" />
+                        <XAxis dataKey="date" stroke="var(--tenant-text-secondary)" fontSize={11} tickLine={false} />
+                        <YAxis stroke="var(--tenant-text-secondary)" fontSize={11} tickLine={false} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'var(--tenant-card-bg)', 
+                            borderColor: 'var(--tenant-border)',
+                            color: 'var(--tenant-text)',
+                            borderRadius: '12px',
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)'
+                          }}
+                          itemStyle={{ color: 'var(--tenant-text)' }}
+                          labelStyle={{ color: 'var(--tenant-text)', opacity: 0.8 }}
+                        />
+                        <Area type="monotone" dataKey="Receita" stroke="var(--tenant-primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorGross)" filter="url(#glowGross)" />
+                        <Area type="monotone" dataKey="Líquido" stroke="var(--tenant-secondary)" strokeWidth={2.5} fillOpacity={0} filter="url(#glowNet)" />
                       </AreaChart>
                     ) : (
                       <AreaChart data={monthlyRevenueHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorMonthly" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
                           </linearGradient>
+                          <filter id="glowMonthly" x="-20%" y="-20%" width="140%" height="140%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--tenant-primary)" floodOpacity="0.35" />
+                          </filter>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                        <XAxis dataKey="month" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                        <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
-                        <Area type="monotone" dataKey="receita" stroke="#4f46e5" strokeWidth={2.5} fillOpacity={1} fill="url(#colorMonthly)" name="Receita" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--tenant-border)" />
+                        <XAxis dataKey="month" stroke="var(--tenant-text-secondary)" fontSize={11} tickLine={false} />
+                        <YAxis stroke="var(--tenant-text-secondary)" fontSize={11} tickLine={false} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'var(--tenant-card-bg)', 
+                            borderColor: 'var(--tenant-border)',
+                            color: 'var(--tenant-text)',
+                            borderRadius: '12px',
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)'
+                          }}
+                          itemStyle={{ color: 'var(--tenant-text)' }}
+                          labelStyle={{ color: 'var(--tenant-text)', opacity: 0.8 }}
+                        />
+                        <Area type="monotone" dataKey="receita" stroke="var(--tenant-primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorMonthly)" filter="url(#glowMonthly)" name="Receita" />
                       </AreaChart>
                     )}
                   </ResponsiveContainer>
@@ -1120,11 +1151,22 @@ export default function Finance() {
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={productSales} layout="vertical" margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-                        <XAxis type="number" stroke="#94a3b8" fontSize={9} fontWeight="bold" />
-                        <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} fontWeight="bold" width={90} tickFormatter={(name) => name.length > 12 ? `${name.substring(0, 10)}...` : name} />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0' }} />
-                        <Bar dataKey="receita" fill="#818cf8" radius={[0, 8, 8, 0]} barSize={10} name="Receita" />
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--tenant-border)" />
+                        <XAxis type="number" stroke="var(--tenant-text-secondary)" fontSize={9} fontWeight="bold" />
+                        <YAxis dataKey="name" type="category" stroke="var(--tenant-text-secondary)" fontSize={9} fontWeight="bold" width={90} tickFormatter={(name) => name.length > 12 ? `${name.substring(0, 10)}...` : name} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'var(--tenant-card-bg)', 
+                            borderColor: 'var(--tenant-border)',
+                            color: 'var(--tenant-text)',
+                            borderRadius: '12px',
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)'
+                          }}
+                          itemStyle={{ color: 'var(--tenant-text)' }}
+                          labelStyle={{ color: 'var(--tenant-text)', opacity: 0.8 }}
+                        />
+                        <Bar dataKey="receita" fill="var(--tenant-secondary)" radius={[0, 8, 8, 0]} barSize={10} name="Receita" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

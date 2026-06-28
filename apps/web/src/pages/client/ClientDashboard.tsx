@@ -16,7 +16,7 @@ const GlassCard = ({ children, className = '' }: { children: React.ReactNode, cl
 
 export default function ClientDashboard() {
   const { session, role } = useAuthStore()
-  const { dashboardMessage, primaryColor, secondaryColor } = useTenantBranding()
+  const { dashboardMessage } = useTenantBranding()
   const [loading, setLoading] = useState(true)
   const [patientRecord, setPatientRecord] = useState<any>(null)
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([])
@@ -395,33 +395,48 @@ export default function ClientDashboard() {
                 <div className="flex-1 w-full h-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                      <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <defs>
+                        <filter id="glowFluency" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="var(--tenant-secondary)" floodOpacity="0.45" />
+                        </filter>
+                        <filter id="glowConfidence" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="var(--tenant-primary)" floodOpacity="0.45" />
+                        </filter>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--tenant-border)" />
+                      <XAxis dataKey="date" tick={{ fill: 'var(--tenant-text-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis domain={[0, 100]} tick={{ fill: 'var(--tenant-text-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
                       <RechartsTooltip 
                         contentStyle={{ 
                           borderRadius: '16px', 
                           border: 'none', 
                           boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                          backdropFilter: 'blur(8px)'
+                          backgroundColor: 'var(--tenant-card-bg)',
+                          borderColor: 'var(--tenant-border)',
+                          color: 'var(--tenant-text)',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)'
                         }}
+                        itemStyle={{ color: 'var(--tenant-text)' }}
+                        labelStyle={{ color: 'var(--tenant-text)', opacity: 0.8 }}
                       />
                       <Line 
                         type="monotone" 
                         dataKey="Fluência" 
-                        stroke={secondaryColor || "#84cc16"} 
+                        stroke="var(--tenant-secondary)" 
                         strokeWidth={4} 
-                        dot={{ r: 4, fill: secondaryColor || '#84cc16', strokeWidth: 0 }} 
+                        dot={{ r: 4, fill: 'var(--tenant-secondary)', strokeWidth: 0 }} 
                         activeDot={{ r: 6 }} 
+                        filter="url(#glowFluency)"
                       />
                       <Line 
                         type="monotone" 
                         dataKey="Confiança" 
-                        stroke={primaryColor || "#8b5cf6"} 
+                        stroke="var(--tenant-primary)" 
                         strokeWidth={4} 
-                        dot={{ r: 4, fill: primaryColor || '#8b5cf6', strokeWidth: 0 }} 
+                        dot={{ r: 4, fill: 'var(--tenant-primary)', strokeWidth: 0 }} 
                         activeDot={{ r: 6 }} 
+                        filter="url(#glowConfidence)"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -477,14 +492,14 @@ export default function ClientDashboard() {
               <div className="flex-1 w-full h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                    <PolarGrid stroke="#e2e8f0" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} />
+                    <PolarGrid stroke="var(--tenant-border)" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--tenant-text-secondary)', fontSize: 12, fontWeight: 'bold' }} />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                     <Radar 
                       name="Habilidades" 
                       dataKey="A" 
-                      stroke={primaryColor || "#8b5cf6"} 
-                      fill={primaryColor || "#8b5cf6"} 
+                      stroke="var(--tenant-primary)" 
+                      fill="var(--tenant-primary)" 
                       fillOpacity={0.4} 
                     />
                   </RadarChart>

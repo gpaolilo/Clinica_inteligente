@@ -368,17 +368,31 @@ export default function Dashboard() {
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="var(--tenant-primary)" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="var(--tenant-primary)" stopOpacity={0}/>
                   </linearGradient>
+                  <filter id="glowRevenue" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="var(--tenant-primary)" floodOpacity="0.35" />
+                  </filter>
                 </defs>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: 'var(--tenant-text-secondary)', fontSize: 10, fontWeight: 'bold' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--tenant-text-secondary)', fontSize: 10, fontWeight: 'bold' }} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}
+                  contentStyle={{ 
+                    backgroundColor: 'var(--tenant-card-bg)', 
+                    borderColor: 'var(--tenant-border)', 
+                    color: 'var(--tenant-text)',
+                    borderRadius: '12px', 
+                    fontSize: '11px', 
+                    fontWeight: 'bold',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)'
+                  }}
+                  itemStyle={{ color: 'var(--tenant-text)' }}
+                  labelStyle={{ color: 'var(--tenant-text)', opacity: 0.8 }}
                   formatter={(value: any) => [`R$ ${parseFloat(value).toFixed(0)}`, 'Faturamento']}
                 />
-                <Area type="monotone" dataKey="Revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                <Area type="monotone" dataKey="Revenue" stroke="var(--tenant-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" filter="url(#glowRevenue)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

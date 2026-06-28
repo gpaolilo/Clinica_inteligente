@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import RequestSessionModal from '../../components/client/RequestSessionModal'
 import { motion, Variants } from 'framer-motion'
-import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, TrendingUp, Clock, Activity } from 'lucide-react'
+import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, Clock } from 'lucide-react'
 import { useTenantBranding } from '../../hooks/useTenantBranding'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts'
 
@@ -229,7 +229,7 @@ export default function ClientDashboard() {
       </motion.div>
 
       {/* KPI Cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
         <GlassCard className="p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-orange-500/10 text-orange-500 rounded-xl">
@@ -258,18 +258,6 @@ export default function ClientDashboard() {
 
         <GlassCard className="p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-tenant-primary/10 text-tenant-primary rounded-xl">
-              <TrendingUp className="w-5.5 h-5.5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fluência</p>
-              <p className="text-xl md:text-2xl font-black text-slate-800 mt-0.5">{latestInsights?.fluency_score || 0}%</p>
-            </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard className="p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-          <div className="flex items-center gap-4">
             <div className="p-3 bg-tenant-secondary/10 text-tenant-secondary rounded-xl">
               <Star className="w-5.5 h-5.5 text-tenant-secondary" />
             </div>
@@ -281,9 +269,9 @@ export default function ClientDashboard() {
         </GlassCard>
       </motion.div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Next Session (Left Col) */}
-        <div className="md:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           {pendingHomeworks.length > 0 && (
             <motion.div variants={itemVariants} className="space-y-4">
               <div className="flex justify-between items-center mb-2">
@@ -398,9 +386,56 @@ export default function ClientDashboard() {
                </GlassCard>
             </motion.div>
           )}
+
+          {/* Timeline Chart (Evolução Histórica) */}
+          <motion.div variants={itemVariants}>
+            <GlassCard className="p-6 h-[360px] flex flex-col">
+              <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider text-slate-400">Evolução Histórica</h3>
+              {timelineData.length > 0 ? (
+                <div className="flex-1 w-full h-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <RechartsTooltip 
+                        contentStyle={{ 
+                          borderRadius: '16px', 
+                          border: 'none', 
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                          backdropFilter: 'blur(8px)'
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="Fluência" 
+                        stroke={secondaryColor || "#84cc16"} 
+                        strokeWidth={4} 
+                        dot={{ r: 4, fill: secondaryColor || '#84cc16', strokeWidth: 0 }} 
+                        activeDot={{ r: 6 }} 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="Confiança" 
+                        stroke={primaryColor || "#8b5cf6"} 
+                        strokeWidth={4} 
+                        dot={{ r: 4, fill: primaryColor || '#8b5cf6', strokeWidth: 0 }} 
+                        activeDot={{ r: 6 }} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-slate-400 font-medium text-sm">
+                  Faça sua primeira aula para acompanhar sua evolução histórica
+                </div>
+              )}
+            </GlassCard>
+          </motion.div>
         </div>
 
-        {/* AI Recommendations & Latest Insights (Right Col) */}
+        {/* AI Recommendations & Radar Chart (Right Col) */}
         <motion.div variants={itemVariants} className="space-y-6">
           <GlassCard className="p-5 relative overflow-hidden border border-tenant-border/50">
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
@@ -434,46 +469,10 @@ export default function ClientDashboard() {
               </button>
             </div>
           </GlassCard>
-          
-          <GlassCard className="p-5">
-            <div className="flex items-center gap-2 font-bold text-base text-slate-800 border-b border-slate-100 pb-3 mb-4">
-              <TrendingUp className="w-4.5 h-4.5 text-tenant-primary" />
-              <span>Seu Progresso</span>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  <span>Gramática</span>
-                  <span className="text-slate-700">{latestInsights?.grammar_score || 75}%</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className="bg-tenant-primary h-2 rounded-full transition-all duration-500" style={{ width: `${latestInsights?.grammar_score || 75}%` }}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  <span>Vocabulário</span>
-                  <span className="text-slate-700">{latestInsights?.vocabulary_score || 60}%</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className="bg-tenant-secondary h-2 rounded-full transition-all duration-500" style={{ width: `${latestInsights?.vocabulary_score || 60}%` }}></div>
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
-      </div>
 
-      {/* Analytics de Progresso Section */}
-      <motion.div variants={itemVariants} className="pt-6 border-t border-slate-200">
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
-          <Activity className="w-5 h-5 text-tenant-primary" /> Analytics de Progresso
-        </h2>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Radar Chart */}
-          <GlassCard className="p-6 h-[400px] flex flex-col">
-            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider text-slate-400">Habilidades (Radar)</h3>
+          <GlassCard className="p-6 h-[360px] flex flex-col">
+            <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider text-slate-400">Habilidades (Radar)</h3>
             {radarData.length > 0 ? (
               <div className="flex-1 w-full h-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -497,53 +496,8 @@ export default function ClientDashboard() {
               </div>
             )}
           </GlassCard>
-
-          {/* Timeline Chart */}
-          <GlassCard className="p-6 h-[400px] flex flex-col">
-            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider text-slate-400">Evolução Histórica</h3>
-            {timelineData.length > 0 ? (
-              <div className="flex-1 w-full h-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <RechartsTooltip 
-                      contentStyle={{ 
-                        borderRadius: '16px', 
-                        border: 'none', 
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        backdropFilter: 'blur(8px)'
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="Fluência" 
-                      stroke={secondaryColor || "#84cc16"} 
-                      strokeWidth={4} 
-                      dot={{ r: 4, fill: secondaryColor || '#84cc16', strokeWidth: 0 }} 
-                      activeDot={{ r: 6 }} 
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="Confiança" 
-                      stroke={primaryColor || "#8b5cf6"} 
-                      strokeWidth={4} 
-                      dot={{ r: 4, fill: primaryColor || '#8b5cf6', strokeWidth: 0 }} 
-                      activeDot={{ r: 6 }} 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-slate-400 font-medium text-sm">
-                Faça sua primeira aula para acompanhar sua evolução histórica
-              </div>
-            )}
-          </GlassCard>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {isModalOpen && <RequestSessionModal onClose={() => setIsModalOpen(false)} onSaved={fetchData} />}
     </motion.div>

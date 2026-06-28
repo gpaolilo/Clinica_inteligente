@@ -95,8 +95,8 @@ const TEACHING_PERSONALITIES = [
   { value: 'Friendly & Casual', label: 'Amigável & Casual', description: 'Mais próximo e informal, ideal para tutoria e línguas.', color: '#ec4899', preset: 'Modern' },
   { value: 'Professional & Structured', label: 'Profissional & Estruturado', description: 'Foco corporativo, seriedade e cronogramas claros.', color: '#1e3a8a', preset: 'Corporate' },
   { value: 'Modern & Dynamic', label: 'Moderno & Dinâmico', description: 'Ágil, focado em tecnologia e metodologias ativas.', color: '#8b5cf6', preset: 'Modern' },
-  { value: 'Motivational & Energetic', label: 'Motivador & Enérgico', description: 'Foco em superação de limites e alta energia.', color: '#f59e0b', preset: 'Playful' },
-  { value: 'Luxury & Premium', label: 'Luxo & Premium', description: 'Visual requintado, alta exclusividade e preço premium.', color: '#d97706', preset: 'Luxury' },
+  { value: 'Motivational & Energetic', label: 'Motivador & Enérgico', description: 'Foco em superação de limites e alta energia.', color: '#f59e0b', preset: 'Modern' },
+  { value: 'Luxury & Premium', label: 'Luxo & Premium', description: 'Visual requintado, alta exclusividade e preço premium.', color: '#d97706', preset: 'Corporate' },
   { value: 'Academic & Serious', label: 'Acadêmico & Sério', description: 'Cursos formais, certificações e rigor metodológico.', color: '#22c55e', preset: 'Education' }
 ]
 

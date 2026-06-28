@@ -51,42 +51,7 @@ export const brandingPresets: Record<string, BrandingPreset> = {
     button_style: 'Soft',
     card_style: 'Glass'
   },
-  Playful: {
-    name: 'Playful',
-    label: 'Divertido',
-    primary_color: '#f59e0b',
-    secondary_color: '#ef4444',
-    accent_color: '#3b82f6',
-    background_color: '#fffbeb',
-    text_color: '#78350f',
-    theme_mode: 'light',
-    button_style: 'Pill',
-    card_style: 'Elevated'
-  },
-  Luxury: {
-    name: 'Luxury',
-    label: 'Luxo',
-    primary_color: '#d97706',
-    secondary_color: '#111827',
-    accent_color: '#fbbf24',
-    background_color: '#0f172a',
-    text_color: '#f8fafc',
-    theme_mode: 'dark',
-    button_style: 'Sharp',
-    card_style: 'Glass'
-  },
-  Dark: {
-    name: 'Dark',
-    label: 'Escuro',
-    primary_color: '#10b981',
-    secondary_color: '#06b6d4',
-    accent_color: '#d4ff59',
-    background_color: '#0b0f19',
-    text_color: '#f3f4f6',
-    theme_mode: 'dark',
-    button_style: 'Soft',
-    card_style: 'Minimal'
-  },
+
   Education: {
     name: 'Education',
     label: 'Educação',

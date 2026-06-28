@@ -31,7 +31,6 @@ import EmailLogs from './pages/admin/EmailLogs'
 import ClientLayout from './layouts/ClientLayout'
 import ClientDashboard from './pages/client/ClientDashboard'
 import LessonInsights from './pages/client/LessonInsights'
-import ProgressAnalytics from './pages/client/ProgressAnalytics'
 import HomeworkHub from './pages/client/HomeworkHub'
 import ScenarioPractice from './pages/client/ScenarioPractice'
 import VocabularyBank from './pages/client/VocabularyBank'
@@ -167,7 +166,6 @@ export default function App() {
         <Route path="/client" element={<RoleGuard allowedRoles={['STUDENT', 'PATIENT']}><ClientLayout /></RoleGuard>}>
           <Route index element={<ClientDashboard />} />
           <Route path="insights" element={<LessonInsights />} />
-          <Route path="analytics" element={<ProgressAnalytics />} />
           <Route path="homework" element={<HomeworkHub />} />
           <Route path="practice" element={<ScenarioPractice />} />
           <Route path="vocabulary" element={<VocabularyBank />} />

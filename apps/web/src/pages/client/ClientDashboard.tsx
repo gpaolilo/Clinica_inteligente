@@ -3,8 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import RequestSessionModal from '../../components/client/RequestSessionModal'
 import { motion, Variants } from 'framer-motion'
-import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, TrendingUp, Clock } from 'lucide-react'
+import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, TrendingUp, Clock, Activity } from 'lucide-react'
 import { useTenantBranding } from '../../hooks/useTenantBranding'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts'
 
 // Premium glassmorphism container
 const GlassCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
@@ -15,7 +16,7 @@ const GlassCard = ({ children, className = '' }: { children: React.ReactNode, cl
 
 export default function ClientDashboard() {
   const { session, role } = useAuthStore()
-  const { dashboardMessage } = useTenantBranding()
+  const { dashboardMessage, primaryColor, secondaryColor } = useTenantBranding()
   const [loading, setLoading] = useState(true)
   const [patientRecord, setPatientRecord] = useState<any>(null)
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([])
@@ -23,6 +24,8 @@ export default function ClientDashboard() {
   const [latestInsights, setLatestInsights] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [pendingHomeworks, setPendingHomeworks] = useState<any[]>([])
+  const [timelineData, setTimelineData] = useState<any[]>([])
+  const [radarData, setRadarData] = useState<any[]>([])
 
   const fetchData = async () => {
     if (!session) return
@@ -102,6 +105,67 @@ export default function ClientDashboard() {
       const completedPlanIds = new Set(resultsData?.map((r: any) => r.homework_plan_id) || [])
       const pending = publishedPlans.filter((plan: any) => !completedPlanIds.has(plan.id))
       setPendingHomeworks(pending)
+    }
+
+    // 6. Buscar Histórico de Insights para Gráficos
+    const { data: insightsHistory } = await supabase
+      .from('student_insights')
+      .select('created_at, fluency_score, confidence_score, grammar_errors, vocabulary_suggestions')
+      .eq('patient_id', patient.id)
+
+    // 7. Buscar Prática de Cenários IA para Gráficos
+    const { data: scenarioSessions } = await supabase
+      .from('scenario_sessions')
+      .select('created_at, fluency_score, confidence_score, grammar_score')
+      .eq('patient_id', patient.id)
+
+    // Combinar e formatar dados para os gráficos
+    const allActivities = [
+      ...(insightsHistory || []).map(i => ({
+        created_at: i.created_at,
+        fluency_score: i.fluency_score || 0,
+        confidence_score: i.confidence_score || 0,
+        grammar_errors_count: i.grammar_errors?.length || 0,
+        vocab_suggestions_count: i.vocabulary_suggestions?.length || 0
+      })),
+      ...(scenarioSessions || []).map(s => ({
+        created_at: s.created_at,
+        fluency_score: s.fluency_score || 0,
+        confidence_score: s.confidence_score || 0,
+        grammar_errors_count: s.grammar_score ? Math.max(0, Math.round((100 - s.grammar_score) / 10)) : 2,
+        vocab_suggestions_count: s.fluency_score ? Math.max(0, Math.round((100 - s.fluency_score) / 15)) : 1
+      }))
+    ]
+
+    allActivities.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+    if (allActivities.length > 0) {
+      const formattedTimeline = allActivities.map((act: any) => ({
+        date: new Date(act.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+        Fluência: act.fluency_score || 0,
+        Confiança: act.confidence_score || 0
+      }))
+      setTimelineData(formattedTimeline)
+
+      // Calcular médias para Radar
+      const avgFluency = allActivities.reduce((acc: number, act: any) => acc + (act.fluency_score || 0), 0) / allActivities.length
+      const avgConfidence = allActivities.reduce((acc: number, act: any) => acc + (act.confidence_score || 0), 0) / allActivities.length
+      
+      // Estimar nota de Gramática
+      const avgGrammarErrors = allActivities.reduce((acc: number, act: any) => acc + (act.grammar_errors_count || 0), 0) / allActivities.length
+      const grammarScore = Math.max(0, 100 - (avgGrammarErrors * 10))
+
+      // Engajamento de vocabulário
+      const avgVocab = allActivities.reduce((acc: number, act: any) => acc + (act.vocab_suggestions_count || 0), 0) / allActivities.length
+      const vocabScore = Math.min(100, 50 + (avgVocab * 10))
+
+      setRadarData([
+        { subject: 'Fluência', A: Math.round(avgFluency), fullMark: 100 },
+        { subject: 'Confiança', A: Math.round(avgConfidence), fullMark: 100 },
+        { subject: 'Gramática', A: Math.round(grammarScore), fullMark: 100 },
+        { subject: 'Vocabulário', A: Math.round(vocabScore), fullMark: 100 },
+        { subject: 'Compreensão', A: Math.round((avgFluency + avgConfidence) / 2), fullMark: 100 },
+      ])
     }
 
     setLoading(false)
@@ -399,6 +463,87 @@ export default function ClientDashboard() {
           </GlassCard>
         </motion.div>
       </div>
+
+      {/* Analytics de Progresso Section */}
+      <motion.div variants={itemVariants} className="pt-6 border-t border-slate-200">
+        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+          <Activity className="w-5 h-5 text-tenant-primary" /> Analytics de Progresso
+        </h2>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Radar Chart */}
+          <GlassCard className="p-6 h-[400px] flex flex-col">
+            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider text-slate-400">Habilidades (Radar)</h3>
+            {radarData.length > 0 ? (
+              <div className="flex-1 w-full h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                    <PolarGrid stroke="#e2e8f0" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar 
+                      name="Habilidades" 
+                      dataKey="A" 
+                      stroke={primaryColor || "#8b5cf6"} 
+                      fill={primaryColor || "#8b5cf6"} 
+                      fillOpacity={0.4} 
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-slate-400 font-medium text-sm">
+                Dados insuficientes para gerar o radar de habilidades
+              </div>
+            )}
+          </GlassCard>
+
+          {/* Timeline Chart */}
+          <GlassCard className="p-6 h-[400px] flex flex-col">
+            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider text-slate-400">Evolução Histórica</h3>
+            {timelineData.length > 0 ? (
+              <div className="flex-1 w-full h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <RechartsTooltip 
+                      contentStyle={{ 
+                        borderRadius: '16px', 
+                        border: 'none', 
+                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        backdropFilter: 'blur(8px)'
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Fluência" 
+                      stroke={secondaryColor || "#84cc16"} 
+                      strokeWidth={4} 
+                      dot={{ r: 4, fill: secondaryColor || '#84cc16', strokeWidth: 0 }} 
+                      activeDot={{ r: 6 }} 
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Confiança" 
+                      stroke={primaryColor || "#8b5cf6"} 
+                      strokeWidth={4} 
+                      dot={{ r: 4, fill: primaryColor || '#8b5cf6', strokeWidth: 0 }} 
+                      activeDot={{ r: 6 }} 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-slate-400 font-medium text-sm">
+                Faça sua primeira aula para acompanhar sua evolução histórica
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      </motion.div>
 
       {isModalOpen && <RequestSessionModal onClose={() => setIsModalOpen(false)} onSaved={fetchData} />}
     </motion.div>

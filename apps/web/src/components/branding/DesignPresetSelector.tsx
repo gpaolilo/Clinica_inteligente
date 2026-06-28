@@ -63,6 +63,18 @@ export const brandingPresets: Record<string, BrandingPreset> = {
     theme_mode: 'light',
     button_style: 'Rounded',
     card_style: 'Minimal'
+  },
+  Flowike: {
+    name: 'Flowike',
+    label: 'Flowike',
+    primary_color: '#00FFFF',
+    secondary_color: '#7000FF',
+    accent_color: '#ff00ff',
+    background_color: '#0B0E14',
+    text_color: '#f3f4f6',
+    theme_mode: 'dark',
+    button_style: 'Pill',
+    card_style: 'Glass'
   }
 }
 

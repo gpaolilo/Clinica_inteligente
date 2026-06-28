@@ -171,6 +171,11 @@
   html[data-tenant-preset="Playful"] .bg-tenant-surface:hover {
     transform: scale(1.015) !important;
   }
+
+  html[data-tenant-preset="Flowike"] :not(.brand-preview-container *) button:hover,
+  html[data-tenant-preset="Flowike"] :not(.brand-preview-container *) .btn:hover {
+    box-shadow: 0 0 15px var(--tenant-primary) !important;
+  }
 }
 
 @layer utilities {

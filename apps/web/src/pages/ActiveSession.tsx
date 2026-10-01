@@ -153,11 +153,12 @@ export default function ActiveSession() {
 
       } else {
         // Fluxo de PACIENTES (Mantém o Original Psicanalítico)
+        const groqModel = import.meta.env.VITE_GROQ_MODEL || 'qwen/qwen3.8-27b'
         const gptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: groqModel,
             temperature: 0.7,
             messages: [
               { 
@@ -318,7 +319,7 @@ export default function ActiveSession() {
         <div className="lg:col-span-2 bg-surface rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px] lg:h-full overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
             <h3 className="font-bold text-dark text-lg">{isAluno ? "Relatório Final (Geração Estática)" : "Editor do Prontuário"}</h3>
-            <span className="text-xs font-bold text-slate-500 bg-background px-3 py-1.5 rounded-full">LLaMA 3 (Groq API)</span>
+            <span className="text-xs font-bold text-slate-500 bg-background px-3 py-1.5 rounded-full">Groq AI</span>
           </div>
           
           <div className="flex-1 p-6 relative bg-background overflow-y-auto">

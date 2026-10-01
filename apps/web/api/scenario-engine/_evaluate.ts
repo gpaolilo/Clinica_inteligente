@@ -1,5 +1,6 @@
 import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 import { consumeCredits } from '../_lib/credits.js'
+import { callGroqChat } from '../_lib/groq.js'
 
 const SYSTEM_PROMPT = `You are an expert language evaluator and conversational partner.
 The user is practicing a specific scenario. Evaluate their final performance based on the conversation transcript.
@@ -56,29 +57,15 @@ export default async function handler(req: any, res: any) {
     }
 
 
-    const groqKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY
-    if (!groqKey) throw new Error('GROQ API Key is missing')
-
     // 1. Evaluate Transcript with GROQ
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Scenario: ${scenarioType}\nTranscript:\n${JSON.stringify(transcript)}` }
-        ],
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      })
+    const groqData = await callGroqChat({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `Scenario: ${scenarioType}\nTranscript:\n${JSON.stringify(transcript)}` }
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' }
     })
-
-    const groqData = await response.json()
-    if (groqData.error) throw new Error(`GROQ Error: ${groqData.error.message}`)
 
     const evaluation = JSON.parse(groqData.choices[0].message.content)
 

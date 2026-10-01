@@ -1,5 +1,6 @@
 import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 import { consumeCredits } from '../_lib/credits.js'
+import { callGroqChat } from '../_lib/groq.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI homework generator.
 Based on the student's recent learning events (errors, gaps), class transcript, and their overall profile, generate a personalized homework plan.
@@ -118,8 +119,6 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: creditResult.error })
     }
 
-    const groqKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY
-    if (!groqKey) throw new Error('GROQ API Key is missing')
 
     // 7. Format sections prompt guidelines
     const sectionGuidelines: Record<string, string> = {
@@ -166,25 +165,14 @@ export default async function handler(req: any, res: any) {
     }
 
     // 10. Call GROQ API
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Please generate the homework plan using this configuration: ${JSON.stringify(promptData)}` }
-        ],
-        temperature: 0.2,
-        response_format: { type: 'json_object' }
-      })
+    const groqData = await callGroqChat({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `Please generate the homework plan using this configuration: ${JSON.stringify(promptData)}` }
+      ],
+      temperature: 0.2,
+      response_format: { type: 'json_object' }
     })
-
-    const groqData = await response.json()
-    if (groqData.error) throw new Error(`GROQ Error: ${groqData.error.message}`)
 
     const generatedPlan = JSON.parse(groqData.choices[0].message.content)
 

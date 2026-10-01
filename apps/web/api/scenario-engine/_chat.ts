@@ -1,4 +1,5 @@
 import { createAuthClient } from '../_lib/supabase.js'
+import { callGroqChat } from '../_lib/groq.js'
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   job_interview: `You are conducting a professional job interview in English. You are the hiring manager.
@@ -28,8 +29,6 @@ export default async function handler(req: any, res: any) {
       throw new Error('Missing or invalid parameters')
     }
 
-    const groqKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY
-    if (!groqKey) throw new Error('GROQ API Key is missing')
 
     // 1. Verify Authentication
     const supabaseAuth = createAuthClient(req)
@@ -51,22 +50,11 @@ export default async function handler(req: any, res: any) {
     ]
 
     // 4. Call GROQ API
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: groqMessages,
-        temperature: 0.7,
-        max_tokens: 300
-      })
+    const groqData = await callGroqChat({
+      messages: groqMessages,
+      temperature: 0.7,
+      max_tokens: 300
     })
-
-    const groqData = await response.json()
-    if (groqData.error) throw new Error(`GROQ Error: ${groqData.error.message}`)
 
     const replyContent = groqData.choices[0].message.content
 

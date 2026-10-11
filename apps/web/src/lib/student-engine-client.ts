@@ -41,5 +41,20 @@ export const StudentEngine = {
 
   evaluateWriting: async (question: string, userAnswer: string, studentLevel: string) => {
     return await fetchApi('evaluate-writing', { question, userAnswer, studentLevel })
+  },
+
+  generateAssessment: async (studentId: string, teacherId?: string, assessmentType: string = 'INITIAL_PLACEMENT', targetLevel?: string) => {
+    return await fetchApi('generate-assessment', { studentId, teacherId, assessmentType, targetLevel })
+  },
+
+  evaluateAssessment: async (payload: { 
+    assessmentId: string
+    studentId: string
+    grammarAnswers: Record<string, string>
+    readingAnswers: Record<string, string>
+    audioUrl?: string
+    audioDurationSeconds?: number 
+  }) => {
+    return await fetchApi('evaluate-assessment', payload)
   }
 }

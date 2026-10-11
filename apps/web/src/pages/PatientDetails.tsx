@@ -8,8 +8,11 @@ import {
 } from 'recharts'
 import { 
   Flame, Brain, Trophy, Clock, ArrowLeft, CheckCircle, Copy, Plus, 
-  Trash2, FileText, CheckSquare, MessageSquare 
+  Trash2, FileText, CheckSquare, MessageSquare, Sparkles, Award, Calendar, RefreshCw 
 } from 'lucide-react'
+import LevelRevealModal from '../components/assessment/LevelRevealModal'
+import AudioBeforeAfterPlayer from '../components/assessment/AudioBeforeAfterPlayer'
+import { StudentEngine } from '../lib/student-engine-client'
 
 // Premium Glassmorphism card container
 const GlassCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
@@ -43,6 +46,10 @@ export default function PatientDetails() {
   const [exercises, setExercises] = useState<any[]>([])
   const [sessions, setSessions] = useState<any[]>([])
   const [scenarioSessions, setScenarioSessions] = useState<any[]>([])
+  const [assessments, setAssessments] = useState<any[]>([])
+  const [selectedAssessmentForModal, setSelectedAssessmentForModal] = useState<any>(null)
+  const [isLevelModalOpen, setIsLevelModalOpen] = useState(false)
+  const [requestingAssessment, setRequestingAssessment] = useState(false)
   
   // Tab control
   const [activeTab, setActiveTab] = useState<'STUDENT_ROOM' | 'INSIGHTS' | 'EXERCISES' | 'CLASSES' | 'PROGRESS' | 'CADASTRO'>('STUDENT_ROOM')
@@ -203,6 +210,14 @@ export default function PatientDetails() {
           .eq('patient_id', patientId)
           .order('created_at', { ascending: false })
         if (scData) setScenarioSessions(scData || [])
+
+        // 6.5 Fetch level assessments
+        const { data: assessData } = await supabase
+          .from('level_assessments')
+          .select('*')
+          .eq('student_id', patientId)
+          .order('created_at', { ascending: false })
+        if (assessData) setAssessments(assessData || [])
 
         // 7. Calculate charts data
         const { data: clientInsights } = await supabase
@@ -464,6 +479,24 @@ export default function PatientDetails() {
       alert('Erro ao processar convite: ' + err.message)
     } finally {
       setInviteLoading(false)
+    }
+  }
+
+  const handleRequestAssessment = async () => {
+    if (!patientId || !session?.user?.id) return
+    setRequestingAssessment(true)
+    try {
+      const res = await StudentEngine.generateAssessment(patientId, session.user.id, 'PROGRESS_CHECK', studentLevel)
+      if (res.success) {
+        alert('Novo teste de progresso solicitado com sucesso! O aluno receberá um aviso no dashboard para realizá-lo.')
+        await loadData()
+      } else {
+        alert('Erro ao solicitar teste: ' + (res.error || 'Falha na requisição'))
+      }
+    } catch (err: any) {
+      alert('Erro ao solicitar teste: ' + err.message)
+    } finally {
+      setRequestingAssessment(false)
     }
   }
 
@@ -888,47 +921,186 @@ export default function PatientDetails() {
 
         {/* PROGRESS TAB */}
         {activeTab === 'PROGRESS' && patient.client_type === 'ALUNO' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-8">
             
-            {/* Radar Skills */}
-            <GlassCard className="p-6 h-[400px] flex flex-col">
-              <h3 className="font-bold text-slate-800 mb-4">Habilidades (Radar)</h3>
-              {radarData.length > 0 ? (
-                <div className="flex-1 w-full h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                      <PolarGrid stroke="#e2e8f0" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar name="Habilidades" dataKey="A" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-slate-400 font-medium">Dados insuficientes</div>
-              )}
-            </GlassCard>
+            {/* 1. Radar Skills & Historical Progress */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Radar Skills */}
+              <GlassCard className="p-6 h-[400px] flex flex-col">
+                <h3 className="font-bold text-slate-800 mb-4">Habilidades (Radar)</h3>
+                {radarData.length > 0 ? (
+                  <div className="flex-1 w-full h-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                        <PolarGrid stroke="#e2e8f0" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} />
+                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                        <Radar name="Habilidades" dataKey="A" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-slate-400 font-medium">Dados insuficientes</div>
+                )}
+              </GlassCard>
 
-            {/* Historical Progress Line Chart */}
-            <GlassCard className="p-6 h-[400px] flex flex-col">
-              <h3 className="font-bold text-slate-800 mb-4">Evolução Histórica</h3>
-              {timelineData.length > 0 ? (
-                <div className="flex-1 w-full h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                      <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                      <RechartsTooltip 
-                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      />
-                      <Line type="monotone" dataKey="Fluência" stroke="#84cc16" strokeWidth={4} dot={{ r: 4, fill: '#84cc16', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-                      <Line type="monotone" dataKey="Confiança" stroke="#8b5cf6" strokeWidth={4} dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+              {/* Historical Progress Line Chart */}
+              <GlassCard className="p-6 h-[400px] flex flex-col">
+                <h3 className="font-bold text-slate-800 mb-4">Evolução Histórica</h3>
+                {timelineData.length > 0 ? (
+                  <div className="flex-1 w-full h-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <RechartsTooltip 
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        />
+                        <Line type="monotone" dataKey="Fluência" stroke="#84cc16" strokeWidth={4} dot={{ r: 4, fill: '#84cc16', strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="Confiança" stroke="#8b5cf6" strokeWidth={4} dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-slate-400 font-medium">Sem dados históricos suficientes</div>
+                )}
+              </GlassCard>
+            </div>
+
+            {/* 2. Audio Before & After Speech Player */}
+            {(() => {
+              const completedWithAudio = assessments.filter(a => a.status === 'COMPLETED' && a.audio_url)
+              const initialA = completedWithAudio.length > 0 ? completedWithAudio[completedWithAudio.length - 1] : undefined
+              const latestA = completedWithAudio.length > 0 ? completedWithAudio[0] : undefined
+              return (initialA || latestA) ? (
+                <AudioBeforeAfterPlayer initialAssessment={initialA} latestAssessment={latestA} />
+              ) : null
+            })()}
+
+            {/* 3. Level Assessment History & Teacher Actions */}
+            <GlassCard className="p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-indigo-50 text-indigo-700 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-indigo-100/80">
+                      Quadro Europeu Comum (CEFR)
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Award className="w-5 h-5 text-indigo-600" />
+                    Avaliações de Nível & Testes Recorrentes
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Histórico de nivelamentos com leitura em voz alta gravada, desafios gramaticais e diagnóstico pedagógico.
+                  </p>
+                </div>
+
+                {/* Request Test Button */}
+                <button
+                  onClick={handleRequestAssessment}
+                  disabled={requestingAssessment}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                >
+                  {requestingAssessment ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Gerando Desafio com IA...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Solicitar Novo Teste de Progresso</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {assessments.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <Award className="w-10 h-10 text-slate-300 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-600">Nenhum teste de nivelamento registrado ainda.</p>
+                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                    O aluno realizará o teste inicial no primeiro login, ou você pode solicitar uma nova avaliação a qualquer momento pelo botão acima.
+                  </p>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-slate-400 font-medium">Sem dados históricos suficientes</div>
+                <div className="space-y-3">
+                  {assessments.map((a: any) => {
+                    const isCompleted = a.status === 'COMPLETED'
+                    const isInitial = a.assessment_type === 'INITIAL_PLACEMENT'
+                    const dateFormatted = a.completed_at 
+                      ? new Date(a.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      : new Date(a.created_at).toLocaleDateString('pt-BR')
+
+                    return (
+                      <div 
+                        key={a.id}
+                        className="bg-slate-50/70 hover:bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      >
+                        <div className="flex items-start sm:items-center gap-4">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shrink-0 ${
+                            isCompleted ? 'bg-indigo-600 text-white shadow-sm' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {isCompleted ? (a.assigned_level || 'B1') : '?'}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-black text-slate-800">
+                                {isInitial ? 'Diagnóstico Inicial de Nivelamento' : 'Avaliação Recorrente de Progresso'}
+                              </h4>
+                              <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                                isCompleted ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}>
+                                {isCompleted ? 'Concluído' : 'Aguardando Aluno'}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-400 font-medium mt-1 flex items-center gap-3 flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5" />
+                                {dateFormatted}
+                              </span>
+                              {isCompleted && (
+                                <>
+                                  <span>•</span>
+                                  <span>Geral: <strong className="text-slate-700">{Math.round(a.overall_score || 0)}%</strong></span>
+                                  <span>•</span>
+                                  <span>Pronúncia: <strong className="text-slate-700">{Math.round(a.pronunciation_score || 0)}%</strong></span>
+                                  <span>•</span>
+                                  <span>Gramática: <strong className="text-slate-700">{Math.round(a.grammar_score || 0)}%</strong></span>
+                                  <span>•</span>
+                                  <span>Leitura: <strong className="text-slate-700">{Math.round(a.reading_score || 0)}%</strong></span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 self-end md:self-center">
+                          {isCompleted ? (
+                            <button
+                              onClick={() => {
+                                setSelectedAssessmentForModal(a)
+                                setIsLevelModalOpen(true)
+                              }}
+                              className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-indigo-600 hover:text-indigo-800 font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Ver Revelação de Nível</span>
+                            </button>
+                          ) : (
+                            <span className="text-xs text-amber-600 font-semibold italic">
+                              Pendente de resposta no portal do aluno
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </GlassCard>
 
@@ -1282,6 +1454,19 @@ export default function PatientDetails() {
         )}
 
       </div>
+
+      {/* Level Reveal Modal for Teacher View */}
+      {selectedAssessmentForModal && (
+        <LevelRevealModal
+          isOpen={isLevelModalOpen}
+          onClose={() => {
+            setIsLevelModalOpen(false)
+            setSelectedAssessmentForModal(null)
+          }}
+          assessment={selectedAssessmentForModal}
+          studentName={name}
+        />
+      )}
 
     </div>
   )

@@ -3,9 +3,12 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import RequestSessionModal from '../../components/client/RequestSessionModal'
 import { motion, Variants } from 'framer-motion'
-import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, Clock } from 'lucide-react'
+import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, Clock, Award, Sparkles } from 'lucide-react'
 import { useTenantBranding } from '../../hooks/useTenantBranding'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts'
+import PlacementTestModal from '../../components/assessment/PlacementTestModal'
+import LevelRevealModal from '../../components/assessment/LevelRevealModal'
+import AudioBeforeAfterPlayer from '../../components/assessment/AudioBeforeAfterPlayer'
 
 // Premium glassmorphism container
 const GlassCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
@@ -26,6 +29,12 @@ export default function ClientDashboard() {
   const [pendingHomeworks, setPendingHomeworks] = useState<any[]>([])
   const [timelineData, setTimelineData] = useState<any[]>([])
   const [radarData, setRadarData] = useState<any[]>([])
+  
+  // Assessment states
+  const [assessments, setAssessments] = useState<any[]>([])
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false)
+  const [selectedAssessmentForModal, setSelectedAssessmentForModal] = useState<any>(null)
+  const [isRevealModalOpen, setIsRevealModalOpen] = useState(false)
 
   const fetchData = async () => {
     if (!session) return
@@ -34,7 +43,7 @@ export default function ClientDashboard() {
     // 1. Encontrar o registro do paciente vinculado a este usuário
     const { data: patient } = await supabase
       .from('patients')
-      .select('id, psychologist_id, name, class_balance, ai_credits_balance')
+      .select('id, psychologist_id, name, class_balance, ai_credits_balance, student_level')
       .eq('user_id', session.user.id)
       .single()
 
@@ -106,6 +115,14 @@ export default function ClientDashboard() {
       const pending = publishedPlans.filter((plan: any) => !completedPlanIds.has(plan.id))
       setPendingHomeworks(pending)
     }
+
+    // 5.5 Buscar Avaliações de Nível
+    const { data: assessData } = await supabase
+      .from('level_assessments')
+      .select('*')
+      .eq('student_id', patient.id)
+      .order('created_at', { ascending: false })
+    if (assessData) setAssessments(assessData || [])
 
     // 6. Buscar Histórico de Insights para Gráficos
     const { data: insightsHistory } = await supabase
@@ -227,6 +244,122 @@ export default function ClientDashboard() {
           Agendar Aula
         </button>
       </motion.div>
+
+      {/* 1. INITIAL PLACEMENT TEST HERO BANNER (FIRST LOGIN) */}
+      {(() => {
+        const completedAssessments = assessments.filter(a => a.status === 'COMPLETED')
+        const pendingAssessment = assessments.find(a => a.status === 'PENDING')
+        const needsInitialTest = completedAssessments.length === 0
+        const latestAssessment = completedAssessments[0]
+
+        if (needsInitialTest) {
+          return (
+            <motion.div variants={itemVariants} className="bg-gradient-to-r from-indigo-950 via-indigo-900 to-violet-950 text-white rounded-[28px] p-6 sm:p-8 shadow-xl relative overflow-hidden border border-indigo-500/20">
+              <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-sm">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
+                      1º Passo • Diagnóstico de Nivelamento CEFR
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    Descubra seu Nível Atual de Inglês
+                  </h2>
+                  <p className="text-xs sm:text-sm text-indigo-200/90 leading-relaxed font-medium">
+                    Antes de começar, faça o teste de 5 minutos com <strong>leitura em voz alta gravada</strong>, <strong>desafio gramatical</strong> e <strong>interpretação de texto</strong>. Seu primeiro áudio ficará salvo para compararmos sua evolução ao longo do curso!
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsTestModalOpen(true)}
+                  className="w-full sm:w-auto px-7 py-4 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Fazer Teste de Nível Agora</span>
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </button>
+              </div>
+            </motion.div>
+          )
+        }
+
+        if (pendingAssessment) {
+          return (
+            <motion.div variants={itemVariants} className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-[24px] p-5 sm:p-6 shadow-lg relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm shrink-0">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-black tracking-wider bg-white/20 text-white px-2 py-0.5 rounded">
+                      Solicitação do Professor
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-white mt-0.5">Novo Teste de Progresso Pendente</h3>
+                  <p className="text-xs text-white/80 font-medium">
+                    Seu professor solicitou uma nova leitura para medir e comparar a evolução do seu nível.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsTestModalOpen(true)}
+                className="w-full sm:w-auto px-6 py-3 bg-white text-indigo-700 hover:bg-slate-50 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+              >
+                <span>Iniciar Teste</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )
+        }
+
+        return (
+          <motion.div variants={itemVariants} className="bg-white border border-slate-200/80 rounded-[28px] p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-black text-2xl flex items-center justify-center shadow-md shrink-0">
+                {patientRecord?.student_level || latestAssessment?.assigned_level || 'B1'}
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Seu Nível Oficial CEFR</span>
+                <h3 className="text-base font-black text-slate-800">
+                  Nível {patientRecord?.student_level || latestAssessment?.assigned_level || 'B1'} • {completedAssessments.length} {completedAssessments.length === 1 ? 'Avaliação Realizada' : 'Avaliações Realizadas'}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Pontuação Geral: <strong>{Math.round(latestAssessment?.overall_score || 80)}%</strong> • Pronúncia: <strong>{Math.round(latestAssessment?.pronunciation_score || 80)}%</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <button
+                onClick={() => {
+                  setSelectedAssessmentForModal(latestAssessment)
+                  setIsRevealModalOpen(true)
+                }}
+                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl border border-indigo-100 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Ver Revelação de Nível</span>
+              </button>
+            </div>
+          </motion.div>
+        )
+      })()}
+
+      {/* 2. Audio Before & After Speech Player (if student has recorded audio) */}
+      {(() => {
+        const completedWithAudio = assessments.filter(a => a.status === 'COMPLETED' && a.audio_url)
+        const initialA = completedWithAudio.length > 0 ? completedWithAudio[completedWithAudio.length - 1] : undefined
+        const latestA = completedWithAudio.length > 0 ? completedWithAudio[0] : undefined
+        return (initialA || latestA) ? (
+          <motion.div variants={itemVariants}>
+            <AudioBeforeAfterPlayer initialAssessment={initialA} latestAssessment={latestA} />
+          </motion.div>
+        ) : null
+      })()}
 
       {/* KPI Cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
@@ -523,6 +656,33 @@ export default function ClientDashboard() {
       </div>
 
       {isModalOpen && <RequestSessionModal onClose={() => setIsModalOpen(false)} onSaved={fetchData} />}
+
+      {/* Placement Test Modal for Student */}
+      {isTestModalOpen && patientRecord && (
+        <PlacementTestModal
+          isOpen={isTestModalOpen}
+          onClose={() => setIsTestModalOpen(false)}
+          studentId={patientRecord.id}
+          teacherId={patientRecord.psychologist_id}
+          existingAssessment={assessments.find((a: any) => a.status === 'PENDING')}
+          onCompleted={() => {
+            fetchData()
+          }}
+        />
+      )}
+
+      {/* Level Reveal Modal for Student */}
+      {selectedAssessmentForModal && (
+        <LevelRevealModal
+          isOpen={isRevealModalOpen}
+          onClose={() => {
+            setIsRevealModalOpen(false)
+            setSelectedAssessmentForModal(null)
+          }}
+          assessment={selectedAssessmentForModal}
+          studentName={firstName}
+        />
+      )}
     </motion.div>
   )
 }

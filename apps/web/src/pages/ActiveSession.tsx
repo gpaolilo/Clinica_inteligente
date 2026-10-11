@@ -165,7 +165,12 @@ export default function ActiveSession() {
                  role: 'system', 
                  content: 'Você é um arquiteto clínico. Receberá uma transcrição (bruta/verbal) de uma sessão psicológica. Sua missão: expurgar nomes próprios completos (Substituir por PII Mascarado), resumir as emoções cruciais e montar a entrega rigorosamente sob este molde de texto: \nEvolução Clínica (Modelo Psicanalítico)\n\nTemas Tratados:\n[Bullet points com os principais assuntos abordados na consulta]\n\nRelatório da Sessão:\n[Seu resumo detalhado da dinâmica abordada]\n\nConduta Analítica:\n[Sua recomendação e diretrizes para a próxima sessão]'
               },
-              { role: 'user', content: transcricaoBruta }
+              { 
+                role: 'user', 
+                content: transcricaoBruta.length > 16000 
+                  ? transcricaoBruta.slice(0, 16000) + '\n\n[... transcrição condensada para síntese clínica ...]'
+                  : transcricaoBruta 
+              }
             ]
           })
         })

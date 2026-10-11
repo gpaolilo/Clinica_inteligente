@@ -1,6 +1,7 @@
 import { supabaseAdmin, createAuthClient } from '../_lib/supabase.js'
 import { consumeCredits } from '../_lib/credits.js'
 import { callGroqChat } from '../_lib/groq.js'
+import { optimizeTranscriptForAnalysis } from '../_lib/transcript-optimizer.js'
 
 const SYSTEM_PROMPT = `You are an expert language teacher and AI learning analyst.
 Analyze the following lesson transcript and extract structured learning events. 
@@ -63,11 +64,15 @@ export default async function handler(req: any, res: any) {
 
     if (transcriptError || !transcriptData) throw new Error('Transcript not found')
 
-    // 2. Call GROQ API
+    // 2. Optimize transcript to guarantee it stays safely under Groq's 7,000 ITPM limit
+    const optimization = optimizeTranscriptForAnalysis(transcriptData.transcript, 4500)
+    console.log(`[StudentEngine:Analyze] Transcript tokens: original ~${optimization.originalTokens}, optimized ~${optimization.optimizedTokens} (Compressed: ${optimization.wasCompressed})`)
+
+    // 3. Call GROQ API
     const groqData = await callGroqChat({
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: transcriptData.transcript }
+        { role: 'user', content: optimization.optimizedTranscript }
       ],
       temperature: 0.1,
       response_format: { type: 'json_object' }

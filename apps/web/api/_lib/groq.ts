@@ -57,23 +57,55 @@ export async function callGroqChat(payload: GroqPayload) {
       lastError = groqData.error
       const errMsg = groqData.error.message || ''
 
-      // If model not found or decommissioned, try next model candidate
+      // If model not found, decommissioned, or temporarily rate-limited, try next candidate
       if (
         errMsg.includes('does not exist') ||
         errMsg.includes('not have access') ||
-        errMsg.includes('decommissioned')
+        errMsg.includes('decommissioned') ||
+        errMsg.includes('Request too large') ||
+        errMsg.includes('tokens per minute') ||
+        errMsg.includes('rate_limit') ||
+        errMsg.includes('ITPM')
       ) {
-        console.warn(`Groq model '${model}' failed with error: ${errMsg}. Attempting fallback...`)
+        console.warn(`Groq model '${model}' failed with error: ${errMsg}. Attempting next model fallback...`)
         continue
       }
 
-      // Other errors (auth, quota, bad request), throw immediately
+      // Other fatal errors (e.g. invalid auth), throw immediately
       throw new Error(`GROQ Error: ${errMsg}`)
     } catch (err: any) {
-      if (err.message?.startsWith('GROQ Error:')) {
+      if (err.message?.startsWith('GROQ Error:') && !err.message.includes('tokens per minute') && !err.message.includes('ITPM')) {
         throw err
       }
       lastError = err
+    }
+  }
+
+  // Graceful fallback to OpenAI gpt-4o-mini if Groq quotas are completely exhausted
+  const openaiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY
+  if (openaiKey) {
+    try {
+      console.warn(`Groq models exhausted or rate-limited. Activating OpenAI fallback (gpt-4o-mini)...`)
+      const oaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: payload.messages,
+          temperature: payload.temperature ?? 0.1,
+          ...(payload.response_format ? { response_format: payload.response_format } : {})
+        })
+      })
+      const oaiData = await oaiRes.json()
+      if (!oaiData.error) {
+        return oaiData
+      }
+      console.error(`OpenAI fallback error:`, oaiData.error)
+    } catch (oaiErr) {
+      console.error(`OpenAI fallback exception:`, oaiErr)
     }
   }
 

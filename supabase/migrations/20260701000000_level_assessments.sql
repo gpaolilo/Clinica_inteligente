@@ -46,6 +46,14 @@ ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS student_level TEXT;
 -- 4. Enable RLS
 ALTER TABLE public.level_assessments ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies first to guarantee idempotent execution
+DROP POLICY IF EXISTS "Teachers can view level assessments of their students" ON public.level_assessments;
+DROP POLICY IF EXISTS "Teachers can create level assessments" ON public.level_assessments;
+DROP POLICY IF EXISTS "Teachers can update level assessments" ON public.level_assessments;
+DROP POLICY IF EXISTS "Students can view their own level assessments" ON public.level_assessments;
+DROP POLICY IF EXISTS "Students can update their own level assessments" ON public.level_assessments;
+DROP POLICY IF EXISTS "Students can insert their own initial placement assessment" ON public.level_assessments;
+
 -- Policy: Teachers can view assessments for their own students
 CREATE POLICY "Teachers can view level assessments of their students"
 ON public.level_assessments
@@ -113,6 +121,10 @@ WITH CHECK (
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('student-assessments', 'student-assessments', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Drop existing storage policies first
+DROP POLICY IF EXISTS "Authenticated users can upload assessment audio" ON storage.objects;
+DROP POLICY IF EXISTS "Public read on student assessment audio" ON storage.objects;
 
 -- Storage policies: anyone authenticated can upload to student-assessments
 CREATE POLICY "Authenticated users can upload assessment audio"

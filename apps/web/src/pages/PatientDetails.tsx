@@ -8,10 +8,11 @@ import {
 } from 'recharts'
 import { 
   Flame, Brain, Trophy, Clock, ArrowLeft, CheckCircle, Copy, Plus, 
-  Trash2, FileText, CheckSquare, MessageSquare, Sparkles, Award, Calendar, RefreshCw 
+  Trash2, FileText, CheckSquare, MessageSquare, Sparkles, Award, Calendar, RefreshCw, ShieldCheck 
 } from 'lucide-react'
 import LevelRevealModal from '../components/assessment/LevelRevealModal'
 import AudioBeforeAfterPlayer from '../components/assessment/AudioBeforeAfterPlayer'
+import ContractViewerModal from '../components/contract/ContractViewerModal'
 import { StudentEngine } from '../lib/student-engine-client'
 
 // Premium Glassmorphism card container
@@ -50,6 +51,7 @@ export default function PatientDetails() {
   const [selectedAssessmentForModal, setSelectedAssessmentForModal] = useState<any>(null)
   const [isLevelModalOpen, setIsLevelModalOpen] = useState(false)
   const [requestingAssessment, setRequestingAssessment] = useState(false)
+  const [isContractViewerOpen, setIsContractViewerOpen] = useState(false)
   
   // Tab control
   const [activeTab, setActiveTab] = useState<'STUDENT_ROOM' | 'INSIGHTS' | 'EXERCISES' | 'CLASSES' | 'PROGRESS' | 'CADASTRO'>('STUDENT_ROOM')
@@ -554,7 +556,7 @@ export default function PatientDetails() {
             </p>
             
             {/* Quick Metrics */}
-            <div className="flex items-center gap-4 mt-3">
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
               <div className="flex items-center gap-1 text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-xl text-xs font-bold shadow-sm">
                 <Trophy className="w-3.5 h-3.5 text-amber-500" />
                 <span>{gamification.xp || 0} pts</span>
@@ -563,6 +565,20 @@ export default function PatientDetails() {
                 <Flame className="w-3.5 h-3.5 text-orange-500" />
                 <span>{gamification.current_streak || 0}d streak</span>
               </div>
+              {patient.client_type === 'ALUNO' && (
+                <button
+                  type="button"
+                  onClick={() => setIsContractViewerOpen(true)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-sm transition-all cursor-pointer ${
+                    patient.contract_signed
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>{patient.contract_signed ? 'Contrato Assinado' : 'Contrato Pendente'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1448,6 +1464,47 @@ export default function PatientDetails() {
                   </div>
                 )}
               </GlassCard>
+
+              {/* Contrato de Prestação de Serviços (para ALUNO) */}
+              {patient.client_type === 'ALUNO' && (
+                <GlassCard className="p-6 bg-slate-50 border border-slate-200 mt-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0" />
+                      <span className="text-sm font-bold text-slate-800">Contrato de Prestação de Serviços</span>
+                    </div>
+                    {patient.contract_signed ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <CheckCircle className="w-3 h-3 text-emerald-600" />
+                        Assinado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                        Pendente
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
+                    {patient.contract_signed 
+                      ? `Contrato de 4 páginas rubricado e assinado digitalmente pelo aluno em ${patient.contract_signed_at ? new Date(patient.contract_signed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'data registrada'}.`
+                      : 'O aluno deverá rubricar todas as páginas e assinar digitalmente no primeiro acesso à plataforma antes de realizar o teste de nível.'
+                    }
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsContractViewerOpen(true)}
+                    className={`w-full font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer ${
+                      patient.contract_signed 
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    {patient.contract_signed ? 'Visualizar / Imprimir Contrato (PDF)' : 'Pré-visualizar Modelo do Contrato'}
+                  </button>
+                </GlassCard>
+              )}
             </div>
 
           </div>
@@ -1465,6 +1522,15 @@ export default function PatientDetails() {
           }}
           assessment={selectedAssessmentForModal}
           studentName={name}
+        />
+      )}
+
+      {/* Contract Viewer Modal for Teacher View */}
+      {isContractViewerOpen && patient && (
+        <ContractViewerModal
+          isOpen={isContractViewerOpen}
+          onClose={() => setIsContractViewerOpen(false)}
+          patient={patient}
         />
       )}
 

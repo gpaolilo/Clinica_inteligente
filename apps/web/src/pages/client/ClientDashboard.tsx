@@ -3,12 +3,14 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import RequestSessionModal from '../../components/client/RequestSessionModal'
 import { motion, Variants } from 'framer-motion'
-import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, Clock, Award, Sparkles } from 'lucide-react'
+import { Flame, Brain, Calendar, Trophy, ArrowRight, Star, Clock, Award, Sparkles, FileText, ShieldCheck } from 'lucide-react'
 import { useTenantBranding } from '../../hooks/useTenantBranding'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts'
 import PlacementTestModal from '../../components/assessment/PlacementTestModal'
 import LevelRevealModal from '../../components/assessment/LevelRevealModal'
 import AudioBeforeAfterPlayer from '../../components/assessment/AudioBeforeAfterPlayer'
+import StudentContractModal from '../../components/contract/StudentContractModal'
+import ContractViewerModal from '../../components/contract/ContractViewerModal'
 
 // Premium glassmorphism container
 const GlassCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
@@ -36,6 +38,10 @@ export default function ClientDashboard() {
   const [selectedAssessmentForModal, setSelectedAssessmentForModal] = useState<any>(null)
   const [isRevealModalOpen, setIsRevealModalOpen] = useState(false)
 
+  // Contract states
+  const [isContractModalOpen, setIsContractModalOpen] = useState(false)
+  const [isContractViewerOpen, setIsContractViewerOpen] = useState(false)
+
   const fetchData = async () => {
     if (!session) return
     setLoading(true)
@@ -43,7 +49,7 @@ export default function ClientDashboard() {
     // 1. Encontrar o registro do paciente vinculado a este usuário
     const { data: patient } = await supabase
       .from('patients')
-      .select('id, psychologist_id, name, class_balance, ai_credits_balance, student_level')
+      .select('id, psychologist_id, name, cpf, rg, profession, address, cep, city, class_balance, ai_credits_balance, student_level, contract_signed, contract_signed_at, contract_initials, contract_signature, contract_data')
       .eq('user_id', session.user.id)
       .single()
 
@@ -245,13 +251,49 @@ export default function ClientDashboard() {
         </button>
       </motion.div>
 
-      {/* 1. INITIAL PLACEMENT TEST HERO BANNER (FIRST LOGIN) */}
+      {/* 1. CONTRACT GATE OR PLACEMENT TEST OR LEVEL CARD */}
       {(() => {
+        const isContractSigned = Boolean(patientRecord?.contract_signed)
         const completedAssessments = assessments.filter(a => a.status === 'COMPLETED')
         const pendingAssessment = assessments.find(a => a.status === 'PENDING')
         const needsInitialTest = completedAssessments.length === 0
         const latestAssessment = completedAssessments[0]
 
+        // GATE 1: CONTRACT SIGNING (MANDATORY BEFORE PLACEMENT TEST)
+        if (!isContractSigned) {
+          return (
+            <motion.div variants={itemVariants} className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-[28px] p-6 sm:p-8 shadow-xl relative overflow-hidden border border-indigo-500/30">
+              <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-sm">
+                      <FileText className="w-3.5 h-3.5 text-amber-400" />
+                      1º Passo Obrigatório • Contrato de Aulas
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    Assine seu Contrato de Prestação de Serviços
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                    Antes de realizar seu teste de nivelamento e agendar suas aulas, é necessário assinar o contrato educacional de 3 meses. Todas as 4 páginas receberão sua rubrica digital e ficarão arquivadas com segurança jurídica para você e seu professor.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsContractModalOpen(true)}
+                  className="w-full sm:w-auto px-7 py-4 bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Assinar Contrato Agora</span>
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </button>
+              </div>
+            </motion.div>
+          )
+        }
+
+        // GATE 2: INITIAL PLACEMENT TEST (AFTER CONTRACT SIGNED)
         if (needsInitialTest) {
           return (
             <motion.div variants={itemVariants} className="bg-gradient-to-r from-indigo-950 via-indigo-900 to-violet-950 text-white rounded-[28px] p-6 sm:p-8 shadow-xl relative overflow-hidden border border-indigo-500/20">
@@ -261,30 +303,45 @@ export default function ClientDashboard() {
                   <div className="flex items-center gap-2">
                     <span className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-sm">
                       <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-                      1º Passo • Diagnóstico de Nivelamento CEFR
+                      2º Passo • Diagnóstico de Nivelamento CEFR
+                    </span>
+                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      Contrato Assinado
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                     Descubra seu Nível Atual de Inglês
                   </h2>
                   <p className="text-xs sm:text-sm text-indigo-200/90 leading-relaxed font-medium">
-                    Antes de começar, faça o teste de 5 minutos com <strong>leitura em voz alta gravada</strong>, <strong>desafio gramatical</strong> e <strong>interpretação de texto</strong>. Seu primeiro áudio ficará salvo para compararmos sua evolução ao longo do curso!
+                    Faça seu teste de 5 minutos com <strong>leitura em voz alta gravada</strong>, <strong>desafio gramatical</strong> e <strong>interpretação de texto</strong>. Seu primeiro áudio ficará salvo para compararmos sua evolução ao longo do curso!
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setIsTestModalOpen(true)}
-                  className="w-full sm:w-auto px-7 py-4 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Fazer Teste de Nível Agora</span>
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </button>
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                  <button
+                    onClick={() => setIsContractViewerOpen(true)}
+                    className="w-full sm:w-auto px-4 py-3 bg-white/10 hover:bg-white/15 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Ver Contrato</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsTestModalOpen(true)}
+                    className="w-full sm:w-auto px-7 py-4 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Fazer Teste de Nível</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+                </div>
               </div>
             </motion.div>
           )
         }
 
+        // PENDING PROGRESS TEST REQUESTED BY TEACHER
         if (pendingAssessment) {
           return (
             <motion.div variants={itemVariants} className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-[24px] p-5 sm:p-6 shadow-lg relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -305,17 +362,28 @@ export default function ClientDashboard() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setIsTestModalOpen(true)}
-                className="w-full sm:w-auto px-6 py-3 bg-white text-indigo-700 hover:bg-slate-50 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-              >
-                <span>Iniciar Teste</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <button
+                  onClick={() => setIsContractViewerOpen(true)}
+                  className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Ver Contrato</span>
+                </button>
+
+                <button
+                  onClick={() => setIsTestModalOpen(true)}
+                  className="w-full sm:w-auto px-6 py-3 bg-white text-indigo-700 hover:bg-slate-50 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <span>Iniciar Teste</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </motion.div>
           )
         }
 
+        // ACTIVE STUDENT WITH CONTRACT & LEVEL COMPLETED
         return (
           <motion.div variants={itemVariants} className="bg-white border border-slate-200/80 rounded-[28px] p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -333,7 +401,15 @@ export default function ClientDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end flex-wrap">
+              <button
+                onClick={() => setIsContractViewerOpen(true)}
+                className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <FileText className="w-4 h-4 text-slate-500" />
+                <span>Ver Contrato Assinado</span>
+              </button>
+
               <button
                 onClick={() => {
                   setSelectedAssessmentForModal(latestAssessment)
@@ -656,6 +732,27 @@ export default function ClientDashboard() {
       </div>
 
       {isModalOpen && <RequestSessionModal onClose={() => setIsModalOpen(false)} onSaved={fetchData} />}
+
+      {/* Student Contract Signing Modal */}
+      {isContractModalOpen && patientRecord && (
+        <StudentContractModal
+          isOpen={isContractModalOpen}
+          onClose={() => setIsContractModalOpen(false)}
+          patient={patientRecord}
+          onSigned={() => {
+            fetchData()
+          }}
+        />
+      )}
+
+      {/* Student Contract Viewer / Download Modal */}
+      {isContractViewerOpen && patientRecord && (
+        <ContractViewerModal
+          isOpen={isContractViewerOpen}
+          onClose={() => setIsContractViewerOpen(false)}
+          patient={patientRecord}
+        />
+      )}
 
       {/* Placement Test Modal for Student */}
       {isTestModalOpen && patientRecord && (

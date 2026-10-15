@@ -88,7 +88,10 @@ export default function StudentLevelCheckView({
               </span>
             </div>
 
-            <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+            <h2 
+              style={{ color: '#ffffff' }}
+              className="text-2xl sm:text-4xl font-black text-white !text-white tracking-tight leading-tight"
+            >
               Parabéns, {firstName}! Vamos calibrar seu nível de inglês?
             </h2>
 

@@ -51,13 +51,30 @@
     color: var(--tenant-text) !important;
   }
   
-  :not(.brand-preview-container *) h1, 
-  :not(.brand-preview-container *) h2, 
-  :not(.brand-preview-container *) h3, 
-  :not(.brand-preview-container *) h4, 
-  :not(.brand-preview-container *) h5, 
-  :not(.brand-preview-container *) h6 {
+  :not(.brand-preview-container *):not(.text-white):not([class*="text-white"]) h1:not(.text-white):not([class*="text-white"]), 
+  :not(.brand-preview-container *):not(.text-white):not([class*="text-white"]) h2:not(.text-white):not([class*="text-white"]), 
+  :not(.brand-preview-container *):not(.text-white):not([class*="text-white"]) h3:not(.text-white):not([class*="text-white"]), 
+  :not(.brand-preview-container *):not(.text-white):not([class*="text-white"]) h4:not(.text-white):not([class*="text-white"]), 
+  :not(.brand-preview-container *):not(.text-white):not([class*="text-white"]) h5:not(.text-white):not([class*="text-white"]), 
+  :not(.brand-preview-container *):not(.text-white):not([class*="text-white"]) h6:not(.text-white):not([class*="text-white"]) {
     color: var(--tenant-text) !important;
+  }
+
+  /* Garantir que textos explicitamente brancos NUNCA sejam sobrescritos */
+  .text-white,
+  h1.text-white,
+  h2.text-white,
+  h3.text-white,
+  h4.text-white,
+  h5.text-white,
+  h6.text-white,
+  .text-white h1,
+  .text-white h2,
+  .text-white h3,
+  .text-white h4,
+  .text-white h5,
+  .text-white h6 {
+    color: #ffffff !important;
   }
 
   /* Botões e Badges de cores fixas do sistema (Mapeia Azul, Slate, etc. para a cor Primária do Professor) */

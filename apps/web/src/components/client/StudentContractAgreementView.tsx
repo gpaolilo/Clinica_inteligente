@@ -242,7 +242,10 @@ export default function StudentContractAgreementView({
                 <Lock className="w-3 h-3 text-amber-400" />
                 Acesso Inicial Restrito
               </span>
-              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+              <h2 
+                style={{ color: '#ffffff' }}
+                className="text-lg sm:text-xl font-black text-white !text-white tracking-tight"
+              >
                 Bem-vindo ao seu portal educacional!
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed font-medium">

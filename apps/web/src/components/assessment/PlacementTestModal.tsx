@@ -184,8 +184,10 @@ export default function PlacementTestModal({
 
       if (res.success) {
         setEvaluationResult(res.assessment)
+        if (res.assessment?.assigned_level) {
+          localStorage.setItem(`flowike_student_level_${studentId}`, res.assessment.assigned_level)
+        }
         setCurrentStep('REVEAL')
-        if (onCompleted) onCompleted(res.assessment)
       } else {
         throw new Error(res.error || 'Erro na avaliação da IA')
       }
@@ -604,7 +606,10 @@ export default function PlacementTestModal({
               {currentStep === 'REVEAL' && evaluationResult && (
                 <LevelRevealModal
                   isOpen={true}
-                  onClose={onClose}
+                  onClose={() => {
+                    if (onCompleted) onCompleted(evaluationResult)
+                    onClose()
+                  }}
                   assessment={evaluationResult}
                 />
               )}

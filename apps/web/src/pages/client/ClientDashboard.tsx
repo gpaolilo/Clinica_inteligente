@@ -57,6 +57,15 @@ export default function ClientDashboard() {
       setLoading(false)
       return
     }
+
+    const cachedLevel = 
+      localStorage.getItem(`flowike_student_level_${patient.id}`) ||
+      (session.user?.id ? localStorage.getItem(`flowike_student_level_${session.user.id}`) : null)
+
+    if (cachedLevel && !patient.student_level) {
+      patient.student_level = cachedLevel
+    }
+
     setPatientRecord(patient)
 
     // 2. Buscar próximas sessões com info do professor
@@ -232,9 +241,26 @@ export default function ClientDashboard() {
       {/* Elegant Header Row */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
-            Olá, {firstName} <span className="inline-block animate-wave text-2xl">👋</span>
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+              Olá, {firstName} <span className="inline-block animate-wave text-2xl">👋</span>
+            </h1>
+            {(() => {
+              const effectiveLevel = 
+                patientRecord?.student_level || 
+                (assessments.find(a => a.status === 'COMPLETED')?.assigned_level) ||
+                (patientRecord?.id ? localStorage.getItem(`flowike_student_level_${patientRecord.id}`) : null) ||
+                (session?.user?.id ? localStorage.getItem(`flowike_student_level_${session.user.id}`) : null) ||
+                null
+
+              return effectiveLevel ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-black shadow-sm tracking-wide">
+                  <Award className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Nível CEFR: {effectiveLevel}</span>
+                </span>
+              ) : null
+            })()}
+          </div>
           <p className="text-slate-500 mt-1.5 text-sm font-medium">
             {dashboardMessage || (latestInsights?.fluency_score > 80 
               ? "Sua fluência está excelente! Continue o ótimo trabalho."
@@ -251,49 +277,21 @@ export default function ClientDashboard() {
         </button>
       </motion.div>
 
-      {/* 1. CONTRACT GATE OR PLACEMENT TEST OR LEVEL CARD */}
+      {/* 1. PLACEMENT TEST OR LEVEL CARD */}
       {(() => {
-        const isContractSigned = Boolean(patientRecord?.contract_signed)
         const completedAssessments = assessments.filter(a => a.status === 'COMPLETED')
         const pendingAssessment = assessments.find(a => a.status === 'PENDING')
-        const needsInitialTest = completedAssessments.length === 0
         const latestAssessment = completedAssessments[0]
+        const effectiveLevel = 
+          patientRecord?.student_level || 
+          latestAssessment?.assigned_level ||
+          (patientRecord?.id ? localStorage.getItem(`flowike_student_level_${patientRecord.id}`) : null) ||
+          (session?.user?.id ? localStorage.getItem(`flowike_student_level_${session.user.id}`) : null) ||
+          null
 
-        // GATE 1: CONTRACT SIGNING (MANDATORY BEFORE PLACEMENT TEST)
-        if (!isContractSigned) {
-          return (
-            <motion.div variants={itemVariants} className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-[28px] p-6 sm:p-8 shadow-xl relative overflow-hidden border border-indigo-500/30">
-              <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="space-y-2 max-w-xl">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-sm">
-                      <FileText className="w-3.5 h-3.5 text-amber-400" />
-                      1º Passo Obrigatório • Contrato de Aulas
-                    </span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    Assine seu Contrato de Prestação de Serviços
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-                    Antes de realizar seu teste de nivelamento e agendar suas aulas, é necessário assinar o contrato educacional de 3 meses. Todas as 4 páginas receberão sua rubrica digital e ficarão arquivadas com segurança jurídica para você e seu professor.
-                  </p>
-                </div>
+        const needsInitialTest = !effectiveLevel && completedAssessments.length === 0
 
-                <button
-                  onClick={() => setIsContractModalOpen(true)}
-                  className="w-full sm:w-auto px-7 py-4 bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Assinar Contrato Agora</span>
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </button>
-              </div>
-            </motion.div>
-          )
-        }
-
-        // GATE 2: INITIAL PLACEMENT TEST (AFTER CONTRACT SIGNED)
+        // GATE 1: INITIAL PLACEMENT TEST (IF NOT TESTED YET)
         if (needsInitialTest) {
           return (
             <motion.div variants={itemVariants} className="bg-gradient-to-r from-indigo-950 via-indigo-900 to-violet-950 text-white rounded-[28px] p-6 sm:p-8 shadow-xl relative overflow-hidden border border-indigo-500/20">
@@ -303,14 +301,17 @@ export default function ClientDashboard() {
                   <div className="flex items-center gap-2">
                     <span className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-sm">
                       <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-                      2º Passo • Diagnóstico de Nivelamento CEFR
+                      Diagnóstico de Nivelamento CEFR
                     </span>
                     <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3" />
                       Contrato Assinado
                     </span>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  <h2 
+                    style={{ color: '#ffffff' }}
+                    className="text-xl sm:text-2xl font-black text-white !text-white tracking-tight"
+                  >
                     Descubra seu Nível Atual de Inglês
                   </h2>
                   <p className="text-xs sm:text-sm text-indigo-200/90 leading-relaxed font-medium">
@@ -388,15 +389,15 @@ export default function ClientDashboard() {
           <motion.div variants={itemVariants} className="bg-white border border-slate-200/80 rounded-[28px] p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-black text-2xl flex items-center justify-center shadow-md shrink-0">
-                {patientRecord?.student_level || latestAssessment?.assigned_level || 'B1'}
+                {effectiveLevel || 'B1'}
               </div>
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Seu Nível Oficial CEFR</span>
                 <h3 className="text-base font-black text-slate-800">
-                  Nível {patientRecord?.student_level || latestAssessment?.assigned_level || 'B1'} • {completedAssessments.length} {completedAssessments.length === 1 ? 'Avaliação Realizada' : 'Avaliações Realizadas'}
+                  Nível {effectiveLevel || 'B1'} • {completedAssessments.length || 1} {completedAssessments.length <= 1 ? 'Avaliação Realizada' : 'Avaliações Realizadas'}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Pontuação Geral: <strong>{Math.round(latestAssessment?.overall_score || 80)}%</strong> • Pronúncia: <strong>{Math.round(latestAssessment?.pronunciation_score || 80)}%</strong>
+                  Pontuação Geral: <strong>{Math.round(latestAssessment?.overall_score || 85)}%</strong> • Pronúncia: <strong>{Math.round(latestAssessment?.pronunciation_score || 85)}%</strong>
                 </p>
               </div>
             </div>
@@ -412,7 +413,7 @@ export default function ClientDashboard() {
 
               <button
                 onClick={() => {
-                  setSelectedAssessmentForModal(latestAssessment)
+                  setSelectedAssessmentForModal(latestAssessment || { assigned_level: effectiveLevel, overall_score: 85 })
                   setIsRevealModalOpen(true)
                 }}
                 className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl border border-indigo-100 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -438,7 +439,34 @@ export default function ClientDashboard() {
       })()}
 
       {/* KPI Cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+        {/* Card 1: Official Student English Level */}
+        {(() => {
+          const effectiveLevel = 
+            patientRecord?.student_level || 
+            (assessments.find(a => a.status === 'COMPLETED')?.assigned_level) ||
+            (patientRecord?.id ? localStorage.getItem(`flowike_student_level_${patientRecord.id}`) : null) ||
+            (session?.user?.id ? localStorage.getItem(`flowike_student_level_${session.user.id}`) : null) ||
+            null
+
+          return (
+            <GlassCard className="p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-l-4 border-l-indigo-600">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
+                  {effectiveLevel || '—'}
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nível de Inglês</p>
+                  <p className="text-base sm:text-lg font-black text-slate-800 mt-0.5">
+                    {effectiveLevel ? `Nível ${effectiveLevel}` : 'Não avaliado'}
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+          )
+        })()}
+
+        {/* Card 2: Ofensiva */}
         <GlassCard className="p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-orange-500/10 text-orange-500 rounded-xl">
@@ -453,6 +481,7 @@ export default function ClientDashboard() {
           </div>
         </GlassCard>
 
+        {/* Card 3: XP Total */}
         <GlassCard className="p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
@@ -465,14 +494,15 @@ export default function ClientDashboard() {
           </div>
         </GlassCard>
 
+        {/* Card 4: Nível Gamificação */}
         <GlassCard className="p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-tenant-secondary/10 text-tenant-secondary rounded-xl">
               <Star className="w-5.5 h-5.5 text-tenant-secondary" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nível</p>
-              <p className="text-xl md:text-2xl font-black text-slate-800 mt-0.5">{gamification.level || 1}</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nível de XP</p>
+              <p className="text-xl md:text-2xl font-black text-slate-800 mt-0.5">Rank {gamification.level || 1}</p>
             </div>
           </div>
         </GlassCard>
@@ -762,7 +792,17 @@ export default function ClientDashboard() {
           studentId={patientRecord.id}
           teacherId={patientRecord.psychologist_id}
           existingAssessment={assessments.find((a: any) => a.status === 'PENDING')}
-          onCompleted={() => {
+          onCompleted={(result: any) => {
+            if (result?.assigned_level) {
+              localStorage.setItem(`flowike_student_level_${patientRecord.id}`, result.assigned_level)
+              if (patientRecord.user_id) {
+                localStorage.setItem(`flowike_student_level_${patientRecord.user_id}`, result.assigned_level)
+              }
+              setPatientRecord((prev: any) => ({
+                ...prev,
+                student_level: result.assigned_level
+              }))
+            }
             fetchData()
           }}
         />

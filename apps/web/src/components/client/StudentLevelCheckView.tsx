@@ -234,12 +234,17 @@ export default function StudentLevelCheckView({
           isOpen={isTestModalOpen}
           onClose={() => {
             setIsTestModalOpen(false)
-            onCompleted()
           }}
           studentId={patient.id}
           teacherId={patient.psychologist_id}
-          onCompleted={() => {
+          onCompleted={(result: any) => {
             setIsTestModalOpen(false)
+            if (result?.assigned_level) {
+              localStorage.setItem(`flowike_student_level_${patient.id}`, result.assigned_level)
+              if (patient.user_id) {
+                localStorage.setItem(`flowike_student_level_${patient.user_id}`, result.assigned_level)
+              }
+            }
             onCompleted()
           }}
         />

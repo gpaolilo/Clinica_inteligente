@@ -155,8 +155,8 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
       phone, 
       status, 
       client_type: clientType,
-      student_level: clientType === 'ALUNO' ? studentLevel : null,
-      student_goal: clientType === 'ALUNO' ? studentGoal : null,
+      student_level: clientType === 'ALUNO' && patient ? (studentLevel || patient?.student_level || null) : null,
+      student_goal: clientType === 'ALUNO' && patient ? (studentGoal || patient?.student_goal || null) : null,
       class_balance: parseFloat(classBalance.toString()) || 0,
       ai_credits_balance: initialAiCredits
     }
@@ -345,18 +345,29 @@ export default function PatientModal({ patient, onClose, onSaved }: any) {
                 </div>
               </div>
               
-              {clientType === 'ALUNO' && (
+              {clientType === 'ALUNO' && !patient && (
+                <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-xl flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">
+                    ℹ
+                  </div>
+                  <p className="text-xs text-blue-750 leading-relaxed font-medium">
+                    O <strong>nível (CEFR)</strong> e o <strong>objetivo</strong> do aluno serão definidos automaticamente através do teste de nivelamento no primeiro acesso.
+                  </p>
+                </div>
+              )}
+
+              {clientType === 'ALUNO' && patient && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
                   <div>
                     <label className="block text-sm font-medium text-blue-800 mb-1">Nível do Aluno</label>
-                    <select required value={studentLevel} onChange={e => setStudentLevel(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700">
-                      <option value="" disabled>Selecione um nível</option>
+                    <select value={studentLevel} onChange={e => setStudentLevel(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700">
+                      <option value="">Aguardando teste de nivelamento</option>
                       {['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-blue-800 mb-1">Objetivo de Aprendizado</label>
-                    <input required type="text" value={studentGoal} onChange={e => setStudentGoal(e.target.value)} placeholder="Ex: Viagem, Negócios, Fluência" className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 transition-all" />
+                    <input type="text" value={studentGoal} onChange={e => setStudentGoal(e.target.value)} placeholder="Ex: Viagem, Negócios, Fluência" className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 transition-all" />
                   </div>
                 </div>
               )}

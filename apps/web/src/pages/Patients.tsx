@@ -191,8 +191,8 @@ export default function Patients() {
                       </td>
                       <td className="px-6 py-4">
                         {role === 'TEACHER' ? (
-                          <span className="text-slate-700 font-bold bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md text-xs">
-                            {p.student_level || '-'}
+                          <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${p.student_level ? 'text-slate-700 font-bold bg-slate-100 border border-slate-200' : 'text-amber-750 bg-amber-50 border border-amber-200'}`}>
+                            {p.student_level || 'Teste pendente'}
                           </span>
                         ) : p.user_id ? (
                           <span className="inline-flex items-center text-emerald-700 text-xs font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
@@ -243,9 +243,9 @@ export default function Patients() {
                         ) : (
                           <span className="text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Paciente</span>
                         )}
-                        {role === 'TEACHER' && p.student_level && (
-                          <span className="text-slate-650 font-bold bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[9px]">
-                            {p.student_level}
+                        {role === 'TEACHER' && (
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${p.student_level ? 'text-slate-650 bg-slate-100 border-slate-200' : 'text-amber-700 bg-amber-50 border-amber-200'}`}>
+                            {p.student_level || 'Teste pendente'}
                           </span>
                         )}
                       </div>

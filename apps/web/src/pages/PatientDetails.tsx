@@ -1274,22 +1274,21 @@ export default function PatientDetails() {
                       <div>
                         <label className="block text-sm font-medium text-blue-800 mb-1">Nível do Aluno</label>
                         <select 
-                          required 
                           value={studentLevel} 
                           onChange={e => setStudentLevel(e.target.value)} 
                           className="w-full px-4 py-2 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 font-semibold bg-white"
                         >
-                          <option value="" disabled>Selecione um nível</option>
+                          <option value="">Aguardando teste de nivelamento</option>
                           {['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
                         </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-blue-800 mb-1">Objetivo de Aprendizado</label>
                         <input 
-                          required 
                           type="text" 
                           value={studentGoal} 
                           onChange={e => setStudentGoal(e.target.value)} 
+                          placeholder="Ex: Viagem, Negócios, Fluência" 
                           className="w-full px-4 py-2 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 transition-all bg-white" 
                         />
                       </div>

@@ -5,10 +5,22 @@ import { useAuthStore } from '../stores/authStore'
 import GamificationOverlay from '../components/ui/GamificationOverlay'
 import { Menu, X, LayoutDashboard, Brain, BookOpen, MessageSquare, Book, User, LogOut, CalendarPlus, CalendarDays, CreditCard } from 'lucide-react'
 import { useTenantBranding } from '../hooks/useTenantBranding'
+import { useStudentStatus } from '../hooks/useStudentStatus'
+import StudentContractAgreementView from '../components/client/StudentContractAgreementView'
+import StudentLevelCheckView from '../components/client/StudentLevelCheckView'
 
 export default function ClientLayout() {
   const { signOut, role, user } = useAuthStore()
   const { appName, logoUrl, loading: brandingLoading } = useTenantBranding()
+  const {
+    loading: studentStatusLoading,
+    patient,
+    isContractSigned,
+    isLevelAssessmentCompleted,
+    isLevelAssessmentSkipped,
+    skipLevelCheck,
+    refresh: refreshStudentStatus
+  } = useStudentStatus()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -17,8 +29,36 @@ export default function ClientLayout() {
     setIsMobileMenuOpen(false)
   }, [location.pathname])
 
-  if (brandingLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+  if (brandingLoading || (role === 'STUDENT' && studentStatusLoading)) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-600 mb-3" />
+        <span className="text-xs font-bold text-slate-500">Carregando portal...</span>
+      </div>
+    )
+  }
+
+  // 1. GATE 1: CONTRACT AGREEMENT LOCK (NO ACCESS TO OTHER FEATURES)
+  if ((role === 'STUDENT' || role === 'PATIENT') && !isContractSigned) {
+    return (
+      <StudentContractAgreementView
+        patient={patient}
+        onSigned={refreshStudentStatus}
+        onSignOut={signOut}
+      />
+    )
+  }
+
+  // 2. GATE 2: REDIRECT TO LEVEL CHECK FLOW (WITH OPTION TO SKIP FOR NOW)
+  if ((role === 'STUDENT' || role === 'PATIENT') && !isLevelAssessmentCompleted && !isLevelAssessmentSkipped) {
+    return (
+      <StudentLevelCheckView
+        patient={patient}
+        onSkip={skipLevelCheck}
+        onCompleted={refreshStudentStatus}
+        onSignOut={signOut}
+      />
+    )
   }
 
   const initial = user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || 'U'

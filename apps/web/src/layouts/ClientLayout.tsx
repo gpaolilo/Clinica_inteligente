@@ -19,6 +19,7 @@ export default function ClientLayout() {
     isLevelAssessmentCompleted,
     isLevelAssessmentSkipped,
     skipLevelCheck,
+    markContractSigned,
     refresh: refreshStudentStatus
   } = useStudentStatus()
   const location = useLocation()
@@ -43,7 +44,10 @@ export default function ClientLayout() {
     return (
       <StudentContractAgreementView
         patient={patient}
-        onSigned={refreshStudentStatus}
+        onSigned={async (payload) => {
+          markContractSigned(payload)
+          await refreshStudentStatus()
+        }}
         onSignOut={signOut}
       />
     )

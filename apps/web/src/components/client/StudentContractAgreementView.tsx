@@ -8,10 +8,11 @@ import { supabase } from '../../lib/supabase'
 import { useTenantBranding } from '../../hooks/useTenantBranding'
 import StudentContractDocument from '../contract/StudentContractDocument'
 import SignaturePad from '../contract/SignaturePad'
+import { StudentEngine } from '../../lib/student-engine-client'
 
 interface StudentContractAgreementViewProps {
   patient: any
-  onSigned: () => void
+  onSigned: (contractPayload?: any) => void | Promise<void>
   onSignOut: () => void
 }
 
@@ -85,10 +86,10 @@ export default function StudentContractAgreementView({
         signedDate: new Date().toISOString()
       }
 
-      // 1. Update patient records with contract info
-      const { error: patientErr } = await supabase
-        .from('patients')
-        .update({
+      // Strategy 1: Call Backend Server API (uses supabaseAdmin, bypasses RLS)
+      try {
+        await StudentEngine.signContract({
+          studentId: patient?.id,
           name,
           cpf,
           rg,
@@ -96,40 +97,73 @@ export default function StudentContractAgreementView({
           address,
           cep,
           city,
-          contract_signed: true,
-          contract_signed_at: new Date().toISOString(),
-          contract_initials: initialsUrl,
-          contract_signature: signatureUrl,
-          contract_data: contractPayload
+          weeklyFrequency,
+          initialsUrl,
+          signatureUrl,
+          contractPayload
         })
-        .eq('id', patient?.id)
-
-      if (patientErr) {
-        console.warn('Patient update error:', patientErr)
+      } catch (apiErr) {
+        console.warn('Backend sign-contract endpoint not reached, falling back to direct client update:', apiErr)
       }
 
-      // 2. Try inserting into student_contracts table if available
+      // Strategy 2: Direct Supabase update on patients table
       try {
-        await supabase
-          .from('student_contracts')
-          .insert([{
-            student_id: patient?.id,
-            teacher_id: patient?.psychologist_id || null,
-            status: 'SIGNED',
+        let updateQuery = supabase
+          .from('patients')
+          .update({
+            name,
+            cpf,
+            rg,
+            profession,
+            address,
+            cep,
+            city,
             weekly_frequency: weeklyFrequency,
-            contract_data: contractPayload,
-            initials_data_url: initialsUrl,
-            signature_data_url: signatureUrl,
-            signed_at: new Date().toISOString(),
-            signer_ip: 'client-signature',
-            signer_user_agent: navigator.userAgent
-          }])
-      } catch (tableErr) {
-        console.warn('student_contracts table not yet migrated, saved to patient record:', tableErr)
+            contract_signed: true,
+            contract_signed_at: new Date().toISOString(),
+            contract_initials: initialsUrl,
+            contract_signature: signatureUrl,
+            contract_data: contractPayload
+          })
+
+        if (patient?.id) {
+          updateQuery = updateQuery.eq('id', patient.id)
+        } else if (patient?.user_id) {
+          updateQuery = updateQuery.eq('user_id', patient.user_id)
+        }
+
+        const { error: patientErr } = await updateQuery
+        if (patientErr) {
+          console.warn('Direct patient update warning:', patientErr)
+        }
+      } catch (dbErr) {
+        console.warn('Direct database update exception:', dbErr)
+      }
+
+      // Strategy 3: Try inserting into student_contracts table if patient.id is available
+      if (patient?.id) {
+        try {
+          await supabase
+            .from('student_contracts')
+            .insert([{
+              student_id: patient.id,
+              teacher_id: patient?.psychologist_id || null,
+              status: 'SIGNED',
+              weekly_frequency: weeklyFrequency,
+              contract_data: contractPayload,
+              initials_data_url: initialsUrl,
+              signature_data_url: signatureUrl,
+              signed_at: new Date().toISOString(),
+              signer_ip: 'client-signature',
+              signer_user_agent: navigator.userAgent
+            }])
+        } catch (tableErr) {
+          console.warn('student_contracts table insert warning:', tableErr)
+        }
       }
 
       // Signal success to advance to level check flow
-      onSigned()
+      await onSigned(contractPayload)
     } catch (err: any) {
       console.error(err)
       setErrorMsg(err.message || 'Erro ao registrar assinatura do contrato.')

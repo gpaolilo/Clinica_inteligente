@@ -5,6 +5,7 @@ import transcribeHandler from './_transcribe.js'
 import evaluateWritingHandler from './_evaluate-writing.js'
 import generateAssessmentHandler from './_generate-assessment.js'
 import evaluateAssessmentHandler from './_evaluate-assessment.js'
+import signContractHandler from './_sign-contract.js'
 
 export default async function handler(req: any, res: any) {
   const url = new URL(req.url || '', 'http://localhost')
@@ -26,6 +27,8 @@ export default async function handler(req: any, res: any) {
       return generateAssessmentHandler(req, res)
     case 'evaluate-assessment':
       return evaluateAssessmentHandler(req, res)
+    case 'sign-contract':
+      return signContractHandler(req, res)
     default:
       return res.status(404).json({ error: `Route not found: ${action}` })
   }

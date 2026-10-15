@@ -56,5 +56,9 @@ export const StudentEngine = {
     audioDurationSeconds?: number 
   }) => {
     return await fetchApi('evaluate-assessment', payload)
+  },
+
+  signContract: async (payload: any) => {
+    return await fetchApi('sign-contract', payload)
   }
 }

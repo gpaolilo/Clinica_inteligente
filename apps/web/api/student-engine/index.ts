@@ -10,7 +10,9 @@ import signContractHandler from './_sign-contract.js'
 export default async function handler(req: any, res: any) {
   const url = new URL(req.url || '', 'http://localhost')
   const parts = url.pathname.split('/').filter(Boolean)
-  const action = parts[parts.length - 1]
+  const lastPart = parts[parts.length - 1] || ''
+  const isIndex = lastPart.startsWith('index')
+  const action = req.query?.action || (isIndex && parts.length > 1 ? parts[parts.length - 2] : lastPart)
 
   switch (action) {
     case 'analyze':

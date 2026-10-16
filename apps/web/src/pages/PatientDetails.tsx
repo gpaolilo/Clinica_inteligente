@@ -105,6 +105,45 @@ export default function PatientDetails() {
         return
       }
 
+      // Auto-sync contract status from student_contracts if pending
+      if (patData.client_type === 'ALUNO' && !patData.contract_signed) {
+        try {
+          let contractQuery = supabase
+            .from('student_contracts')
+            .select('*')
+            .eq('status', 'SIGNED')
+
+          if (patData.user_id) {
+            contractQuery = contractQuery.or(`student_id.eq.${patientId},student_id.eq.${patData.user_id}`)
+          } else {
+            contractQuery = contractQuery.eq('student_id', patientId)
+          }
+
+          const { data: contractRec } = await contractQuery
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (contractRec) {
+            patData.contract_signed = true
+            patData.contract_signed_at = contractRec.signed_at || contractRec.created_at
+            patData.contract_initials = contractRec.initials_data_url
+            patData.contract_signature = contractRec.signature_data_url
+            patData.contract_data = contractRec.contract_data
+
+            await supabase.from('patients').update({
+              contract_signed: true,
+              contract_signed_at: patData.contract_signed_at,
+              contract_initials: patData.contract_initials,
+              contract_signature: patData.contract_signature,
+              contract_data: patData.contract_data
+            }).eq('id', patientId)
+          }
+        } catch (cErr) {
+          console.warn('Error checking student_contracts:', cErr)
+        }
+      }
+
       setPatient(patData)
       setName(patData.name || '')
       setEmail(patData.email || '')
@@ -499,6 +538,29 @@ export default function PatientDetails() {
       alert('Erro ao solicitar teste: ' + err.message)
     } finally {
       setRequestingAssessment(false)
+    }
+  }
+
+  const handleManualConfirmContract = async () => {
+    if (!confirm('Deseja confirmar a assinatura deste contrato para este aluno?')) return
+    setLoading(true)
+    try {
+      const now = new Date().toISOString()
+      const { error } = await supabase.from('patients').update({
+        contract_signed: true,
+        contract_signed_at: now
+      }).eq('id', patientId)
+      if (error) throw error
+      setPatient((prev: any) => ({
+        ...prev,
+        contract_signed: true,
+        contract_signed_at: now
+      }))
+      alert('Contrato formalizado e assinado com sucesso!')
+    } catch (err: any) {
+      alert('Erro ao atualizar contrato: ' + err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -1502,6 +1564,17 @@ export default function PatientDetails() {
                     <FileText className="w-4 h-4" />
                     {patient.contract_signed ? 'Visualizar / Imprimir Contrato (PDF)' : 'Pré-visualizar Modelo do Contrato'}
                   </button>
+
+                  {!patient.contract_signed && (
+                    <button
+                      type="button"
+                      onClick={handleManualConfirmContract}
+                      className="w-full mt-2 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 cursor-pointer shadow-xs"
+                    >
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      <span>Confirmar Assinatura Manualmente</span>
+                    </button>
+                  )}
                 </GlassCard>
               )}
             </div>

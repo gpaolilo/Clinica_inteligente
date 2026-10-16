@@ -24,3 +24,18 @@ WITH CHECK (
   (auth.jwt() ->> 'email') IS NOT NULL AND 
   lower(email) = lower(auth.jwt() ->> 'email')
 );
+
+-- 3. Allow students to view their patient record by email or user_id
+DROP POLICY IF EXISTS "Students can read their profile by email" ON public.patients;
+CREATE POLICY "Students can read their profile by email"
+ON public.patients
+FOR SELECT
+USING (
+  auth.uid() = user_id OR
+  (
+    email IS NOT NULL AND 
+    (auth.jwt() ->> 'email') IS NOT NULL AND 
+    lower(email) = lower(auth.jwt() ->> 'email')
+  )
+);
+

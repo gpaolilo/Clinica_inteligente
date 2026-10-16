@@ -86,10 +86,16 @@ export default function StudentContractAgreementView({
         signedDate: new Date().toISOString()
       }
 
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      const effectiveUserId = patient?.user_id || currentSession?.user?.id
+      const effectiveEmail = patient?.email || currentSession?.user?.email
+
       // Strategy 1: Call Backend Server API (uses supabaseAdmin, bypasses RLS)
       try {
         await StudentEngine.signContract({
           studentId: patient?.id,
+          userId: effectiveUserId,
+          email: effectiveEmail,
           name,
           cpf,
           rg,
@@ -108,28 +114,34 @@ export default function StudentContractAgreementView({
 
       // Strategy 2: Direct Supabase update on patients table
       try {
+        const updatePayload: any = {
+          name,
+          cpf,
+          rg,
+          profession,
+          address,
+          cep,
+          city,
+          weekly_frequency: weeklyFrequency,
+          contract_signed: true,
+          contract_signed_at: new Date().toISOString(),
+          contract_initials: initialsUrl,
+          contract_signature: signatureUrl,
+          contract_data: contractPayload
+        }
+
+        if (effectiveUserId) {
+          updatePayload.user_id = effectiveUserId
+        }
+
         let updateQuery = supabase
           .from('patients')
-          .update({
-            name,
-            cpf,
-            rg,
-            profession,
-            address,
-            cep,
-            city,
-            weekly_frequency: weeklyFrequency,
-            contract_signed: true,
-            contract_signed_at: new Date().toISOString(),
-            contract_initials: initialsUrl,
-            contract_signature: signatureUrl,
-            contract_data: contractPayload
-          })
+          .update(updatePayload)
 
         if (patient?.id) {
           updateQuery = updateQuery.eq('id', patient.id)
-        } else if (patient?.user_id) {
-          updateQuery = updateQuery.eq('user_id', patient.user_id)
+        } else if (effectiveUserId) {
+          updateQuery = updateQuery.eq('user_id', effectiveUserId)
         }
 
         const { error: patientErr } = await updateQuery

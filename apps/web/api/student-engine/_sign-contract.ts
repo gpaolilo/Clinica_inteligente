@@ -7,6 +7,7 @@ export default async function handler(req: any, res: any) {
     const { 
       studentId, 
       userId,
+      email,
       name,
       cpf,
       rg,
@@ -21,10 +22,18 @@ export default async function handler(req: any, res: any) {
     } = req.body
 
     const supabaseAuth = createAuthClient(req)
-    const { data: { user } } = await supabaseAuth.auth.getUser()
-    const effectiveUserId = user?.id || userId
+    let authUser: any = null
+    try {
+      const { data } = await supabaseAuth.auth.getUser()
+      authUser = data?.user
+    } catch (e) {
+      console.warn('Could not extract auth user from token:', e)
+    }
 
-    if (!effectiveUserId && !studentId) {
+    const effectiveUserId = authUser?.id || userId
+    const effectiveEmail = authUser?.email || email
+
+    if (!effectiveUserId && !studentId && !effectiveEmail) {
       return res.status(400).json({ error: 'Identificação do aluno não fornecida' })
     }
 
@@ -40,42 +49,107 @@ export default async function handler(req: any, res: any) {
       signedDate: new Date().toISOString()
     }
 
-    // 1. Update patients table
-    let query = supabaseAdmin.from('patients').update({
-      name: name || payload.studentName,
-      cpf: cpf || payload.studentCpf,
-      rg: rg || payload.studentRg,
-      profession: profession || payload.studentProfession,
-      address: address || payload.studentAddress,
-      cep: cep || payload.studentCep,
-      city: city || payload.studentCity,
-      weekly_frequency: weeklyFrequency,
-      contract_signed: true,
-      contract_signed_at: new Date().toISOString(),
-      contract_initials: initialsUrl,
-      contract_signature: signatureUrl,
-      contract_data: payload
-    })
+    // 1. Locate the exact patient record in patients table
+    let existingPatient: any = null
 
+    // A. Check by studentId as primary key
     if (studentId) {
-      query = query.eq('id', studentId)
-    } else if (effectiveUserId) {
-      query = query.eq('user_id', effectiveUserId)
+      const { data } = await supabaseAdmin
+        .from('patients')
+        .select('*')
+        .eq('id', studentId)
+        .maybeSingle()
+      if (data) existingPatient = data
     }
 
-    const { data: updatedPatient, error: updateErr } = await query.select('*').maybeSingle()
-
-    if (updateErr) {
-      console.error('Error updating patient contract:', updateErr)
+    // B. Check by effectiveUserId
+    if (!existingPatient && effectiveUserId) {
+      const { data } = await supabaseAdmin
+        .from('patients')
+        .select('*')
+        .eq('user_id', effectiveUserId)
+        .maybeSingle()
+      if (data) existingPatient = data
     }
 
-    // 2. Insert into student_contracts table
-    const targetStudentId = studentId || updatedPatient?.id
-    if (targetStudentId) {
+    // C. Check if studentId was passed as the user_id
+    if (!existingPatient && studentId) {
+      const { data } = await supabaseAdmin
+        .from('patients')
+        .select('*')
+        .eq('user_id', studentId)
+        .maybeSingle()
+      if (data) existingPatient = data
+    }
+
+    // D. Fallback: match by email (common when teacher created the student prior to login)
+    if (!existingPatient && effectiveEmail) {
+      const { data } = await supabaseAdmin
+        .from('patients')
+        .select('*')
+        .ilike('email', effectiveEmail.trim())
+        .maybeSingle()
+      if (data) existingPatient = data
+    }
+
+    // E. Fallback: match by name if client_type is ALUNO
+    if (!existingPatient && name) {
+      const { data } = await supabaseAdmin
+        .from('patients')
+        .select('*')
+        .eq('client_type', 'ALUNO')
+        .ilike('name', name.trim())
+        .maybeSingle()
+      if (data) existingPatient = data
+    }
+
+    const targetPatientId = existingPatient?.id || studentId
+
+    let updatedPatient: any = null
+
+    if (targetPatientId) {
+      const updateData: any = {
+        name: name || payload.studentName || existingPatient?.name,
+        cpf: cpf || payload.studentCpf || existingPatient?.cpf,
+        rg: rg || payload.studentRg || existingPatient?.rg,
+        profession: profession || payload.studentProfession || existingPatient?.profession,
+        address: address || payload.studentAddress || existingPatient?.address,
+        cep: cep || payload.studentCep || existingPatient?.cep,
+        city: city || payload.studentCity || existingPatient?.city,
+        weekly_frequency: weeklyFrequency,
+        contract_signed: true,
+        contract_signed_at: new Date().toISOString(),
+        contract_initials: initialsUrl,
+        contract_signature: signatureUrl,
+        contract_data: payload
+      }
+
+      // Automatically link user_id if not linked yet
+      if (effectiveUserId && (!existingPatient?.user_id || existingPatient.user_id !== effectiveUserId)) {
+        updateData.user_id = effectiveUserId
+      }
+
+      const { data, error: updateErr } = await supabaseAdmin
+        .from('patients')
+        .update(updateData)
+        .eq('id', targetPatientId)
+        .select('*')
+        .maybeSingle()
+
+      if (updateErr) {
+        console.error('Error updating patient contract:', updateErr)
+      } else {
+        updatedPatient = data
+      }
+    }
+
+    // 2. Insert or update student_contracts table
+    const contractStudentId = targetPatientId || effectiveUserId
+    if (contractStudentId) {
       try {
         await supabaseAdmin.from('student_contracts').insert([{
-          student_id: targetStudentId,
-          teacher_id: updatedPatient?.psychologist_id || null,
+          student_id: contractStudentId,
+          teacher_id: updatedPatient?.psychologist_id || existingPatient?.psychologist_id || null,
           status: 'SIGNED',
           weekly_frequency: weeklyFrequency,
           contract_data: payload,
@@ -92,7 +166,7 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ 
       success: true, 
-      patient: updatedPatient || { contract_signed: true } 
+      patient: updatedPatient || existingPatient || { contract_signed: true } 
     })
   } catch (err: any) {
     console.error('sign-contract handler error:', err)

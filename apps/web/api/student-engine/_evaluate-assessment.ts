@@ -178,7 +178,7 @@ Determine the final CEFR Level (A1, A2, B1, B2, C1, C2), realistic balanced scor
     await supabaseAdmin
       .from('patients')
       .update({ student_level: finalAssignedLevel })
-      .eq('id', studentId)
+      .or(`id.eq.${studentId},user_id.eq.${studentId}`)
 
     // 6. Update student_profiles if present
     try {

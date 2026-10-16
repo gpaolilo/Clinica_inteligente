@@ -200,6 +200,19 @@ export default function PlacementTestModal({
 
   if (!isOpen) return null
 
+  if (currentStep === 'REVEAL' && evaluationResult) {
+    return (
+      <LevelRevealModal
+        isOpen={true}
+        onClose={() => {
+          if (onCompleted) onCompleted(evaluationResult)
+          onClose()
+        }}
+        assessment={evaluationResult}
+      />
+    )
+  }
+
   // Grammar questions list
   const grammarQuestions = testContent?.grammar_section || []
   const currentGrammarQ = grammarQuestions[grammarIndex]
@@ -600,18 +613,6 @@ export default function PlacementTestModal({
                     <div className="h-full bg-indigo-600 rounded-full animate-[progress_1.5s_ease-in-out_infinite]" style={{ width: '70%' }} />
                   </div>
                 </div>
-              )}
-
-              {/* STEP 5: REVEAL MODAL TRIGGER */}
-              {currentStep === 'REVEAL' && evaluationResult && (
-                <LevelRevealModal
-                  isOpen={true}
-                  onClose={() => {
-                    if (onCompleted) onCompleted(evaluationResult)
-                    onClose()
-                  }}
-                  assessment={evaluationResult}
-                />
               )}
             </>
           )}

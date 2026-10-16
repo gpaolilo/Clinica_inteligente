@@ -36,15 +36,27 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
 
   const isInitial = assessment.assessment_type === 'INITIAL_PLACEMENT'
 
+  const strengths: string[] = Array.isArray(report.strengths) 
+    ? report.strengths 
+    : typeof report.strengths === 'string' && report.strengths 
+      ? [report.strengths] 
+      : []
+
+  const growthAreas: string[] = Array.isArray(report.growth_areas) 
+    ? report.growth_areas 
+    : typeof report.growth_areas === 'string' && report.growth_areas 
+      ? [report.growth_areas] 
+      : []
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          initial={{ opacity: 0, scale: 0.94, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="bg-white border border-slate-200/90 rounded-[32px] shadow-2xl max-w-2xl w-full overflow-hidden my-8 relative flex flex-col max-h-[90vh]"
+          className="bg-white border border-slate-200/90 rounded-[32px] shadow-2xl max-w-3xl w-full overflow-hidden my-auto relative flex flex-col max-h-[92vh]"
         >
           {/* Header Glow Banner */}
           <div className={`p-6 sm:p-8 bg-gradient-to-br ${style.gradient} text-white relative overflow-hidden shrink-0`}>
@@ -160,14 +172,14 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
 
             {/* Strengths & Growth Areas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {report.strengths && report.strengths.length > 0 && (
+              {strengths.length > 0 && (
                 <div className="bg-emerald-50/50 border border-emerald-100/80 rounded-2xl p-4">
                   <h4 className="text-xs uppercase font-extrabold text-emerald-800 tracking-wider mb-2 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     Pontos Fortes Demonstrados
                   </h4>
                   <ul className="space-y-1.5">
-                    {report.strengths.map((s: string, idx: number) => (
+                    {strengths.map((s: string, idx: number) => (
                       <li key={idx} className="text-xs text-slate-700 flex items-start gap-2">
                         <span className="text-emerald-500 font-bold">•</span>
                         <span>{s}</span>
@@ -177,14 +189,14 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
                 </div>
               )}
 
-              {report.growth_areas && report.growth_areas.length > 0 && (
+              {growthAreas.length > 0 && (
                 <div className="bg-amber-50/50 border border-amber-100/80 rounded-2xl p-4">
                   <h4 className="text-xs uppercase font-extrabold text-amber-800 tracking-wider mb-2 flex items-center gap-1.5">
                     <TrendingUp className="w-4 h-4 text-amber-600" />
                     Oportunidades de Evolução
                   </h4>
                   <ul className="space-y-1.5">
-                    {report.growth_areas.map((g: string, idx: number) => (
+                    {growthAreas.map((g: string, idx: number) => (
                       <li key={idx} className="text-xs text-slate-700 flex items-start gap-2">
                         <span className="text-amber-500 font-bold">•</span>
                         <span>{g}</span>
@@ -219,12 +231,16 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
           </div>
 
           {/* Footer Action */}
-          <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+          <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+            <span className="text-[11px] font-bold text-slate-400">
+              Nível calibrado no padrão internacional CEFR
+            </span>
             <button
               onClick={onClose}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-6 py-3 rounded-xl transition-all shadow-sm cursor-pointer"
+              className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-black text-xs sm:text-sm px-7 py-3.5 rounded-2xl transition-all shadow-md shadow-indigo-200/50 cursor-pointer hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2"
             >
-              Concluir e Fechar
+              <span>Concluir e Ir para o Meu Portal</span>
+              <CheckCircle2 className="w-4 h-4" />
             </button>
           </div>
         </motion.div>

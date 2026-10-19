@@ -1,5 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Award, CheckCircle2, TrendingUp, Sparkles, Volume2, Calendar, Target } from 'lucide-react'
+import { 
+  X, Award, CheckCircle2, TrendingUp, Sparkles, Volume2, 
+  Calendar, Target, Mic, ArrowRight, BookOpen, Brain, Star
+} from 'lucide-react'
 
 interface LevelRevealModalProps {
   isOpen: boolean
@@ -8,13 +11,33 @@ interface LevelRevealModalProps {
   studentName?: string
 }
 
-const LEVEL_COLORS: Record<string, { bg: string, text: string, border: string, gradient: string, label: string }> = {
-  'A1': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', gradient: 'from-emerald-500 to-teal-600', label: 'Iniciante (Beginner)' },
-  'A2': { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200', gradient: 'from-teal-500 to-cyan-600', label: 'Básico (Elementary)' },
-  'B1': { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200', gradient: 'from-indigo-600 to-violet-600', label: 'Intermediário (Intermediate)' },
-  'B2': { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', gradient: 'from-violet-600 to-purple-600', label: 'Intermediário Superior (Upper Intermediate)' },
-  'C1': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', gradient: 'from-purple-600 to-fuchsia-600', label: 'Avançado (Advanced)' },
-  'C2': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', gradient: 'from-rose-600 to-pink-600', label: 'Proficiente (Proficient / Mastery)' },
+const LEVEL_COLORS: Record<string, { bg: string, text: string, border: string, gradient: string, label: string, tag: string }> = {
+  'A1': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', gradient: 'from-emerald-600 via-teal-600 to-cyan-700', label: 'Iniciante (A1)', tag: 'Fase Inicial' },
+  'A2': { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200', gradient: 'from-teal-600 via-cyan-600 to-sky-700', label: 'Básico (A2)', tag: 'Fundamentos Concluídos' },
+  'B1': { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200', gradient: 'from-indigo-600 via-violet-600 to-purple-700', label: 'Intermediário (B1)', tag: 'Independência Comunicativa' },
+  'B2': { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', gradient: 'from-violet-600 via-purple-600 to-fuchsia-700', label: 'Intermediário Superior (B2)', tag: 'Fluência Operacional' },
+  'C1': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', gradient: 'from-purple-600 via-fuchsia-600 to-rose-700', label: 'Avançado (C1)', tag: 'Eficácia Profissional' },
+  'C2': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', gradient: 'from-rose-600 via-pink-600 to-red-700', label: 'Proficiente (C2)', tag: 'Domínio Pleno' },
+}
+
+// Helper to sanitize or translate previous English AI outputs into Portuguese
+function translateComment(text: string): string {
+  if (!text) return ''
+  let pt = text
+  pt = pt.replace(/\bThe student demonstrated\b/gi, 'O aluno demonstrou')
+  pt = pt.replace(/\bThe student demonstrates\b/gi, 'O aluno demonstra')
+  pt = pt.replace(/\bThe student shows\b/gi, 'O aluno apresenta')
+  pt = pt.replace(/\bThe student has\b/gi, 'O aluno possui')
+  pt = pt.replace(/\bGood pronunciation and cadence\b/gi, 'Boa pronúncia e cadência natural')
+  pt = pt.replace(/\bSolid grammar comprehension\b/gi, 'Sólida compreensão gramatical')
+  pt = pt.replace(/\bNeeds improvement in\b/gi, 'Oportunidade de aprimoramento em')
+  pt = pt.replace(/\bFocus on\b/gi, 'Focar em')
+  pt = pt.replace(/\bPractice reading aloud\b/gi, 'Praticar leitura em voz alta')
+  pt = pt.replace(/\bWork on past tense\b/gi, 'Trabalhar tempos verbais passados e irregulares')
+  pt = pt.replace(/\bEnhance listening comprehension\b/gi, 'Intensificar a compreensão auditiva e ritmo de fala')
+  pt = pt.replace(/\bExpand vocabulary related to\b/gi, 'Expandir o repertório de vocabulário para')
+  pt = pt.replace(/\bLevel Placement Diagnosis\b/gi, 'Diagnóstico de Nivelamento CEFR')
+  return pt
 }
 
 export default function LevelRevealModal({ isOpen, onClose, assessment, studentName }: LevelRevealModalProps) {
@@ -23,6 +46,7 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
   const level = assessment.assigned_level || 'B1'
   const style = LEVEL_COLORS[level] || LEVEL_COLORS['B1']
   const report = assessment.evaluation_report || {}
+  
   const scores = {
     overall: Math.round(assessment.overall_score || 0),
     pronunciation: Math.round(assessment.pronunciation_score || 0),
@@ -36,211 +60,294 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
 
   const isInitial = assessment.assessment_type === 'INITIAL_PLACEMENT'
 
-  const strengths: string[] = Array.isArray(report.strengths) 
+  const rawStrengths = Array.isArray(report.strengths) 
     ? report.strengths 
     : typeof report.strengths === 'string' && report.strengths 
       ? [report.strengths] 
       : []
+  const strengths: string[] = rawStrengths.map((s: string) => translateComment(s))
 
-  const growthAreas: string[] = Array.isArray(report.growth_areas) 
+  const rawGrowthAreas = Array.isArray(report.growth_areas) 
     ? report.growth_areas 
     : typeof report.growth_areas === 'string' && report.growth_areas 
       ? [report.growth_areas] 
       : []
+  const growthAreas: string[] = rawGrowthAreas.map((g: string) => translateComment(g))
+
+  const summaryText = translateComment(report.summary) || 
+    `Avaliação diagnóstica concluída com sucesso. Seu desempenho reflete sólida assimilação e prontidão para acelerar seu aprendizado no nível ${level}.`
+  const pronunciationNotes = translateComment(report.pronunciation_notes)
+  const nextMilestone = translateComment(report.next_milestone)
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-md overflow-hidden">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.94, y: 15 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="bg-white border border-slate-200/90 rounded-[32px] shadow-2xl max-w-3xl w-full overflow-hidden my-auto relative flex flex-col max-h-[92vh]"
+          exit={{ opacity: 0, scale: 0.96, y: 8 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="bg-white border border-slate-200/90 rounded-[28px] sm:rounded-[36px] shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden relative"
         >
-          {/* Header Glow Banner */}
-          <div className={`p-6 sm:p-8 bg-gradient-to-br ${style.gradient} text-white relative overflow-hidden shrink-0`}>
-            {/* Background elements */}
-            <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-            <div className="absolute right-12 bottom-0 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          {/* Header Glow Banner (Compact, Spacious & High Impact) */}
+          <div className={`px-6 py-5 sm:px-8 sm:py-6 bg-gradient-to-r ${style.gradient} text-white relative shrink-0 overflow-hidden shadow-sm`}>
+            {/* Ambient visual glow elements */}
+            <div className="absolute -right-8 -top-8 w-60 h-60 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute right-1/3 -bottom-10 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
 
-            <button 
-              onClick={onClose}
-              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm"
-              aria-label="Fechar"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Top row: Badges and Close button */}
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="bg-white/20 text-white text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full backdrop-blur-md flex items-center gap-1.5 border border-white/25">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  {isInitial ? 'Diagnóstico Inicial de Nivelamento' : 'Avaliação Periódica de Progresso'}
+                </span>
+                <span className="bg-white/10 text-white/90 text-[11px] font-bold px-3 py-1 rounded-full backdrop-blur-md border border-white/15 hidden sm:inline-flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 opacity-80" />
+                  Concluído em {dateStr}
+                </span>
+              </div>
 
-            <div className="flex items-center gap-2 mb-2">
-              <span className="bg-white/20 text-white text-[11px] font-extrabold uppercase tracking-wider px-3 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                {isInitial ? 'Diagnóstico Inicial de Nivelamento' : 'Avaliação Recorrente de Progresso'}
-              </span>
+              <button 
+                onClick={onClose}
+                className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm shrink-0 border border-white/20 hover:scale-105 active:scale-95"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              {studentName ? `Diagnóstico de ${studentName}` : 'Diagnóstico de Nível CEFR'}
-            </h2>
-            <p className="text-white/80 text-xs sm:text-sm font-medium mt-1 flex items-center gap-2">
-              <Calendar className="w-3.5 h-3.5 opacity-80" />
-              <span>Concluído em {dateStr}</span>
-            </p>
-
-            {/* Level Hero Badge */}
-            <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/20">
+            {/* Main row: Level Badge & Overall Score in balanced harmony */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white text-slate-900 font-black text-3xl flex items-center justify-center shadow-lg border-2 border-white/60 shrink-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-white text-slate-900 font-black text-3xl sm:text-4xl flex items-center justify-center shadow-xl border-2 border-white/80 shrink-0">
                   {level}
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-white/80 block">Nível Atribuído:</span>
-                  <span className="text-lg sm:text-xl font-extrabold text-white block">{style.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-black tracking-wider text-white/80">Nível Oficial Atribuído</span>
+                    <span className="bg-white/25 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase">
+                      {style.tag}
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight leading-tight mt-0.5">
+                    {style.label}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-white/85 font-medium mt-0.5">
+                    {studentName ? `Diagnóstico pedagógico e analítico de ${studentName}` : 'Diagnóstico calibrado pelo padrão internacional CEFR'}
+                  </p>
                 </div>
               </div>
 
-              <div className="sm:text-right shrink-0">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-white/80 block">Pontuação Geral:</span>
-                <span className="text-2xl sm:text-3xl font-black text-white">{scores.overall}%</span>
+              {/* Overall Score Pill */}
+              <div className="bg-white/15 backdrop-blur-md rounded-2xl px-5 py-3 border border-white/25 flex items-center gap-4 shrink-0 self-start sm:self-auto">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-white/80 block">Aproveitamento Geral</span>
+                  <span className="text-xs font-black text-white flex items-center gap-1 mt-0.5">
+                    <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                    {scores.overall >= 80 ? 'Desempenho Excepcional' : scores.overall >= 60 ? 'Desempenho Sólido' : 'Em Desenvolvimento'}
+                  </span>
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-white pl-4 border-l border-white/25">
+                  {scores.overall}%
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Scrollable Content Body */}
-          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
+          {/* Clean Scrollable Content Body with Flowike Dashboard 2-Column Grid */}
+          <div className="p-5 sm:p-7 space-y-5 overflow-y-auto flex-1">
             
             {/* 3 Core Skill Pillar Scores */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center">
-                <span className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider block mb-1">Pronúncia & Ritmo</span>
-                <div className="text-2xl font-black text-slate-800">{scores.pronunciation}%</div>
-                <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
-                  <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${scores.pronunciation}%` }} />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              {/* Pillar 1: Pronúncia & Ritmo */}
+              <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4.5 hover:shadow-xs transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] uppercase font-black text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <Mic className="w-3.5 h-3.5 text-indigo-600" />
+                    Pronúncia & Ritmo
+                  </span>
+                  <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg">
+                    {scores.pronunciation}%
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-medium mb-2">Cadência, clareza oral e dicção</div>
+                <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-indigo-600 h-full rounded-full transition-all duration-700" 
+                    style={{ width: `${scores.pronunciation}%` }} 
+                  />
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center">
-                <span className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider block mb-1">Acurácia Gramatical</span>
-                <div className="text-2xl font-black text-slate-800">{scores.grammar}%</div>
-                <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
-                  <div className="bg-violet-600 h-full rounded-full transition-all duration-500" style={{ width: `${scores.grammar}%` }} />
+              {/* Pillar 2: Acurácia Gramatical */}
+              <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4.5 hover:shadow-xs transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] uppercase font-black text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5 text-violet-600" />
+                    Acurácia Gramatical
+                  </span>
+                  <span className="text-xs font-black text-violet-700 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-lg">
+                    {scores.grammar}%
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-medium mb-2">Estruturas verbais e conectivos</div>
+                <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-violet-600 h-full rounded-full transition-all duration-700" 
+                    style={{ width: `${scores.grammar}%` }} 
+                  />
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center">
-                <span className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider block mb-1">Compreensão Textual</span>
-                <div className="text-2xl font-black text-slate-800">{scores.reading}%</div>
-                <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
-                  <div className="bg-emerald-600 h-full rounded-full transition-all duration-500" style={{ width: `${scores.reading}%` }} />
+              {/* Pillar 3: Compreensão Textual */}
+              <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4.5 hover:shadow-xs transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] uppercase font-black text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-teal-600" />
+                    Compreensão Textual
+                  </span>
+                  <span className="text-xs font-black text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-lg">
+                    {scores.reading}%
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-medium mb-2">Assimilação de contexto e vocabulário</div>
+                <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-teal-600 h-full rounded-full transition-all duration-700" 
+                    style={{ width: `${scores.reading}%` }} 
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Audio Player if present */}
-            {assessment.audio_url && (
-              <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
-                    <Volume2 className="w-5 h-5" />
+            {/* Dashboard 2-Column Responsive Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4.5">
+              
+              {/* LEFT COLUMN: Pedagogical Diagnosis, Audio Recording, Next Milestone */}
+              <div className="space-y-4">
+                {/* Pedagogical Report Summary */}
+                <div className="bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 border border-indigo-100/90 rounded-2xl p-5 shadow-xs">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                      <Award className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs uppercase font-black text-indigo-950 tracking-wider">
+                        Diagnóstico Pedagógico do Aluno
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Parecer emitido pela Inteligência Artificial</span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-black text-slate-800">Gravação de Leitura em Voz Alta</h4>
-                    <p className="text-[11px] text-slate-500 font-medium">Áudio gravado pelo aluno durante este teste</p>
+                  <p className="text-slate-700 text-xs sm:text-sm leading-relaxed font-medium">
+                    {summaryText}
+                  </p>
+                </div>
+
+                {/* Audio Player if recorded */}
+                {assessment.audio_url && (
+                  <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                          <Volume2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-800">Gravação do Teste Oral</h4>
+                          <p className="text-[10px] text-slate-500 font-medium">Áudio gravado durante a leitura em voz alta</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <audio 
+                      controls 
+                      src={assessment.audio_url} 
+                      className="w-full h-9 rounded-lg"
+                    />
                   </div>
-                </div>
+                )}
 
-                <audio 
-                  controls 
-                  src={assessment.audio_url} 
-                  className="w-full sm:w-64 h-9 rounded-lg"
-                />
+                {/* Next Milestone Card */}
+                {nextMilestone && (
+                  <div className="bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-4.5 shadow-xs">
+                    <h4 className="text-xs uppercase font-black text-violet-900 tracking-wider mb-2 flex items-center gap-2">
+                      <Target className="w-4 h-4 text-violet-600" />
+                      Próxima Meta Recomendada
+                    </h4>
+                    <p className="text-violet-950 text-xs sm:text-sm leading-relaxed font-semibold">
+                      {nextMilestone}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Pedagogical Report Summary */}
-            {report.summary && (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5">
-                <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider mb-2 flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-indigo-600" />
-                  Diagnóstico Pedagógico
-                </h4>
-                <p className="text-slate-700 text-sm leading-relaxed font-medium">
-                  {report.summary}
-                </p>
+              {/* RIGHT COLUMN: Strengths, Growth Areas, Phonetic Notes */}
+              <div className="space-y-4">
+                {/* Strengths */}
+                {strengths.length > 0 && (
+                  <div className="bg-emerald-50/40 border border-emerald-200/70 rounded-2xl p-5 shadow-xs">
+                    <h4 className="text-xs uppercase font-black text-emerald-900 tracking-wider mb-2.5 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Pontos Fortes Demonstrados
+                    </h4>
+                    <ul className="space-y-2">
+                      {strengths.map((s: string, idx: number) => (
+                        <li key={idx} className="text-xs sm:text-sm text-slate-700 flex items-start gap-2.5 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0" />
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Growth Areas */}
+                {growthAreas.length > 0 && (
+                  <div className="bg-amber-50/40 border border-amber-200/70 rounded-2xl p-5 shadow-xs">
+                    <h4 className="text-xs uppercase font-black text-amber-900 tracking-wider mb-2.5 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-amber-600" />
+                      Oportunidades de Evolução
+                    </h4>
+                    <ul className="space-y-2">
+                      {growthAreas.map((g: string, idx: number) => (
+                        <li key={idx} className="text-xs sm:text-sm text-slate-700 flex items-start gap-2.5 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 shrink-0" />
+                          <span>{g}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Pronunciation Notes */}
+                {pronunciationNotes && (
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4.5 shadow-xs">
+                    <h4 className="text-xs uppercase font-black text-slate-700 tracking-wider mb-2 flex items-center gap-2">
+                      <Volume2 className="w-4 h-4 text-indigo-600" />
+                      Dicas Fonéticas & Ritmo de Fala
+                    </h4>
+                    <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
+                      {pronunciationNotes}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Strengths & Growth Areas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {strengths.length > 0 && (
-                <div className="bg-emerald-50/50 border border-emerald-100/80 rounded-2xl p-4">
-                  <h4 className="text-xs uppercase font-extrabold text-emerald-800 tracking-wider mb-2 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Pontos Fortes Demonstrados
-                  </h4>
-                  <ul className="space-y-1.5">
-                    {strengths.map((s: string, idx: number) => (
-                      <li key={idx} className="text-xs text-slate-700 flex items-start gap-2">
-                        <span className="text-emerald-500 font-bold">•</span>
-                        <span>{s}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {growthAreas.length > 0 && (
-                <div className="bg-amber-50/50 border border-amber-100/80 rounded-2xl p-4">
-                  <h4 className="text-xs uppercase font-extrabold text-amber-800 tracking-wider mb-2 flex items-center gap-1.5">
-                    <TrendingUp className="w-4 h-4 text-amber-600" />
-                    Oportunidades de Evolução
-                  </h4>
-                  <ul className="space-y-1.5">
-                    {growthAreas.map((g: string, idx: number) => (
-                      <li key={idx} className="text-xs text-slate-700 flex items-start gap-2">
-                        <span className="text-amber-500 font-bold">•</span>
-                        <span>{g}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
-
-            {/* Pronunciation Notes & Next Milestone */}
-            {report.pronunciation_notes && (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs">
-                <span className="block font-bold text-slate-800 mb-1 flex items-center gap-1">
-                  <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
-                  Dicas Fonéticas & Ritmo:
-                </span>
-                <p className="text-slate-600 leading-relaxed">{report.pronunciation_notes}</p>
-              </div>
-            )}
-
-            {report.next_milestone && (
-              <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 rounded-2xl p-4 text-xs">
-                <span className="block font-bold text-indigo-900 mb-1 flex items-center gap-1">
-                  <Target className="w-3.5 h-3.5 text-indigo-600" />
-                  Próxima Meta Recomendada:
-                </span>
-                <p className="text-indigo-800 leading-relaxed font-medium">{report.next_milestone}</p>
-              </div>
-            )}
 
           </div>
 
-          {/* Footer Action */}
-          <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-            <span className="text-[11px] font-bold text-slate-400">
-              Nível calibrado no padrão internacional CEFR
+          {/* Footer Action Bar */}
+          <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+            <span className="text-[11px] font-bold text-slate-500 text-center sm:text-left">
+              Calibrado no padrão internacional CEFR • Suas aulas e IA se adaptarão a este nível
             </span>
             <button
               onClick={onClose}
-              className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-black text-xs sm:text-sm px-7 py-3.5 rounded-2xl transition-all shadow-md shadow-indigo-200/50 cursor-pointer hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2"
+              className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-black text-xs sm:text-sm px-8 py-3.5 rounded-2xl transition-all shadow-md shadow-indigo-300/40 cursor-pointer hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <span>Concluir e Ir para o Meu Portal</span>
-              <CheckCircle2 className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </motion.div>

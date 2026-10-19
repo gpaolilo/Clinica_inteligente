@@ -11,6 +11,7 @@ interface PlacementTestModalProps {
   isOpen: boolean
   onClose: () => void
   studentId: string
+  studentName?: string
   teacherId?: string
   existingAssessment?: any
   onCompleted?: (result: any) => void
@@ -22,6 +23,7 @@ export default function PlacementTestModal({
   isOpen,
   onClose,
   studentId,
+  studentName,
   teacherId,
   existingAssessment,
   onCompleted
@@ -209,6 +211,7 @@ export default function PlacementTestModal({
           onClose()
         }}
         assessment={evaluationResult}
+        studentName={studentName}
       />
     )
   }

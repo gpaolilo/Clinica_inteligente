@@ -790,6 +790,7 @@ export default function ClientDashboard() {
           isOpen={isTestModalOpen}
           onClose={() => setIsTestModalOpen(false)}
           studentId={patientRecord.id}
+          studentName={firstName}
           teacherId={patientRecord.psychologist_id}
           existingAssessment={assessments.find((a: any) => a.status === 'PENDING')}
           onCompleted={(result: any) => {

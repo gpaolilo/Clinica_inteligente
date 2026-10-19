@@ -1,8 +1,11 @@
 import { supabaseAdmin } from '../_lib/supabase.js'
 import { callGroqChat } from '../_lib/groq.js'
 
-const EVALUATION_SYSTEM_PROMPT = `You are a Senior CEFR (Common European Framework of Reference for Languages) Examiner.
+const EVALUATION_SYSTEM_PROMPT = `You are a Senior CEFR (Common European Framework of Reference for Languages) Examiner and ESL Pedagogical Specialist.
 Evaluate an ESL student's English Level Assessment based on their answers, reading aloud performance, and scores.
+
+CRITICAL REQUIREMENT:
+All textual content inside "evaluation_report" (including title, summary, strengths, growth_areas, pronunciation_notes, and next_milestone) MUST be written in PORTUGUESE (Português do Brasil - pt-BR). The student and teacher are Brazilian, so the feedback must be completely in Portuguese, written in an encouraging, highly professional, and actionable pedagogical tone.
 
 You MUST return ONLY a valid JSON object matching this exact structure, with no markdown, no code fences, and no surrounding text:
 {
@@ -12,12 +15,12 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
   "grammar_score": number (0 to 100),
   "reading_score": number (0 to 100),
   "evaluation_report": {
-    "title": "Level Placement Diagnosis (e.g. B1 - Independent Intermediate)",
-    "summary": "2-3 encouraging sentences highlighting the student's current proficiency level.",
-    "strengths": ["2-3 specific bullet points of demonstrated competence"],
-    "growth_areas": ["2-3 specific areas for grammatical or vocabulary growth"],
-    "pronunciation_notes": "Actionable feedback on rhythm, cadence, word stress, or specific sounds.",
-    "next_milestone": "A concrete learning goal for the upcoming weeks."
+    "title": "Diagnóstico de Nivelamento CEFR (ex: B1 - Intermediário Independente)",
+    "summary": "2 a 3 frases motivadoras e analíticas em português destacando o nível atual e a prontidão do aluno.",
+    "strengths": ["2 a 3 pontos fortes específicos demonstrados no teste, em português"],
+    "growth_areas": ["2 a 3 áreas claras de oportunidade e refinamento gramatical/vocabular, em português"],
+    "pronunciation_notes": "Orientações práticas em português sobre dicção, ritmo, entonação, pausas ou sons específicos observados na leitura.",
+    "next_milestone": "Uma meta de aprendizado concreta e estimulante em português para as próximas semanas."
   }
 }`
 
@@ -123,7 +126,8 @@ export default async function handler(req: any, res: any) {
 
 Assessment Type: ${assessment.assessment_type}
 
-Determine the final CEFR Level (A1, A2, B1, B2, C1, C2), realistic balanced scores, and detailed constructive feedback.`
+Determine the final CEFR Level (A1, A2, B1, B2, C1, C2), realistic balanced scores, and detailed constructive feedback.
+IMPORTANTE: Todo o texto de feedback, comentários pedagógicos, pontos fortes, oportunidades de evolução e orientações de pronúncia DEVEM estar 100% em Português (pt-BR).`
 
     const groqData = await callGroqChat({
       messages: [

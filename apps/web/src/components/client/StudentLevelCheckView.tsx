@@ -236,6 +236,7 @@ export default function StudentLevelCheckView({
             setIsTestModalOpen(false)
           }}
           studentId={patient.id}
+          studentName={firstName}
           teacherId={patient.psychologist_id}
           onCompleted={(result: any) => {
             setIsTestModalOpen(false)

@@ -48,7 +48,10 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
     answer: '',
     explanation: '',
     section: '',
-    type: 'grammar'
+    type: 'grammar',
+    format: 'multiple_choice',
+    optionsStr: '',
+    wordBankStr: ''
   })
 
   useEffect(() => {
@@ -129,13 +132,36 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
 
   const handleStartEdit = (idx: number, ex: any) => {
     setEditingIndex(idx)
-    setEditForm({ ...ex })
+    const format = ex.format || (ex.word_bank?.length ? 'reorder_boxes' : (ex.options?.length ? 'multiple_choice' : 'multiple_choice'))
+    setEditForm({
+      ...ex,
+      format,
+      optionsStr: Array.isArray(ex.options) ? ex.options.join('\n') : '',
+      wordBankStr: Array.isArray(ex.word_bank) ? ex.word_bank.join(', ') : ''
+    })
   }
 
   const handleSaveEdit = async (idx: number) => {
     if (!homework) return
     const updatedExercises = [...homework.exercises]
-    updatedExercises[idx] = { ...editForm }
+
+    const parsedOptions = editForm.format === 'multiple_choice'
+      ? editForm.optionsStr.split('\n').map((s: string) => s.trim()).filter(Boolean)
+      : undefined
+
+    const parsedWordBank = editForm.format === 'reorder_boxes'
+      ? editForm.wordBankStr.split(/[,]+/).map((s: string) => s.trim()).filter(Boolean)
+      : undefined
+
+    const toSave = {
+      ...editForm,
+      options: parsedOptions,
+      word_bank: parsedWordBank
+    }
+    delete toSave.optionsStr
+    delete toSave.wordBankStr
+
+    updatedExercises[idx] = toSave
 
     setLoading(true)
     try {
@@ -508,25 +534,39 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500/20"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tempo (min)</label>
-                        <input
-                          type="number"
-                          value={editForm.time_estimate}
-                          onChange={(e) => setEditForm({ ...editForm, time_estimate: parseInt(e.target.value) || 2 })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500/20"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">XP</label>
-                        <input
-                          type="number"
-                          value={editForm.xp_reward}
-                          onChange={(e) => setEditForm({ ...editForm, xp_reward: parseInt(e.target.value) || 15 })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500/20"
-                        />
-                      </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Formato Interativo</label>
+                      <select
+                        value={editForm.format}
+                        onChange={(e) => setEditForm({ ...editForm, format: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      >
+                        <option value="multiple_choice">Múltipla Escolha (Opções Tagged)</option>
+                        <option value="reorder_boxes">Caixas de Palavras (Mover Caixas)</option>
+                        <option value="speaking">Desafio de Fala (Áudio)</option>
+                        <option value="writing">Produção Escrita (Dissertativa)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tempo (min)</label>
+                      <input
+                        type="number"
+                        value={editForm.time_estimate}
+                        onChange={(e) => setEditForm({ ...editForm, time_estimate: parseInt(e.target.value) || 2 })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">XP Recompensa</label>
+                      <input
+                        type="number"
+                        value={editForm.xp_reward}
+                        onChange={(e) => setEditForm({ ...editForm, xp_reward: parseInt(e.target.value) || 15 })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
                     </div>
                   </div>
 
@@ -540,8 +580,38 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
                     />
                   </div>
 
+                  {editForm.format === 'multiple_choice' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                        Opções de Múltipla Escolha (uma por linha)
+                      </label>
+                      <textarea
+                        value={editForm.optionsStr}
+                        onChange={(e) => setEditForm({ ...editForm, optionsStr: e.target.value })}
+                        rows={4}
+                        placeholder={"Opção A\nOpção B\nOpção C\nOpção D"}
+                        className="w-full bg-indigo-50/30 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium"
+                      />
+                    </div>
+                  )}
+
+                  {editForm.format === 'reorder_boxes' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-violet-600 uppercase tracking-wider block">
+                        Caixas de Palavras (separadas por vírgula)
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.wordBankStr}
+                        onChange={(e) => setEditForm({ ...editForm, wordBankStr: e.target.value })}
+                        placeholder="Yesterday, I, went, to, the, library"
+                        className="w-full bg-violet-50/30 border border-violet-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-500/20 font-medium"
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gabarito / Modelo Esperado</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gabarito / Resposta Correta</label>
                     <textarea
                       value={editForm.answer}
                       onChange={(e) => setEditForm({ ...editForm, answer: e.target.value })}
@@ -591,6 +661,15 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
                       )}>
                         {ex.type}
                       </span>
+                      {(ex.format === 'reorder_boxes' || ex.word_bank?.length) ? (
+                        <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
+                          Mover Caixas de Palavras
+                        </span>
+                      ) : (ex.format === 'multiple_choice' || ex.options?.length) ? (
+                        <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold bg-violet-50 text-violet-700 border border-violet-100 uppercase tracking-wider">
+                          Múltipla Escolha Tagged
+                        </span>
+                      ) : null}
                       <span className="text-[10px] text-slate-400 font-semibold">
                         ({ex.time_estimate || 2} min • +{ex.xp_reward || 15} XP)
                       </span>
@@ -620,6 +699,54 @@ export function HomeworkManager({ sessionId, patientId, psychologistId }: { sess
                     <h4 className="font-bold text-slate-800 text-sm mb-1">{ex.title || 'Exercício Adaptativo'}</h4>
                     <p className="text-slate-650 text-sm leading-relaxed">{ex.question}</p>
                   </div>
+
+                  {/* Preview de Opções Tagged */}
+                  {Array.isArray(ex.options) && ex.options.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Opções para o Aluno Marcar:</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {ex.options.map((opt: string, oIdx: number) => {
+                          const isCorrect = (opt || '').trim().toLowerCase() === (ex.answer || '').trim().toLowerCase()
+                          return (
+                            <div 
+                              key={oIdx} 
+                              className={clsx(
+                                "px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between",
+                                isCorrect 
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-900" 
+                                  : "bg-slate-50 border-slate-200 text-slate-700"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={clsx(
+                                  "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black",
+                                  isCorrect ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
+                                )}>
+                                  {['A', 'B', 'C', 'D', 'E'][oIdx] || oIdx + 1}
+                                </span>
+                                <span>{opt}</span>
+                              </div>
+                              {isCorrect && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview de Caixas de Palavras */}
+                  {Array.isArray(ex.word_bank) && ex.word_bank.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Caixas de Palavras para Mover:</span>
+                      <div className="flex flex-wrap gap-2 p-3 bg-indigo-50/30 border border-indigo-100 rounded-xl">
+                        {ex.word_bank.map((w: string, wIdx: number) => (
+                          <span key={wIdx} className="px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-950 shadow-2xs">
+                            {w}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="bg-slate-50/60 rounded-xl p-4 text-xs font-medium text-slate-700 border border-slate-100 space-y-2">
                     <div>

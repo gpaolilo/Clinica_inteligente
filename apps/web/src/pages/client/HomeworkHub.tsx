@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
-import { BookOpen, CheckCircle, Clock, PlayCircle, Trophy, ArrowLeft, Send, Award, Sparkles, AlertCircle, RefreshCw } from 'lucide-react'
+import { 
+  BookOpen, CheckCircle, CheckCircle2, Clock, PlayCircle, Trophy, 
+  ArrowLeft, ArrowRight, Award, Sparkles, AlertCircle, RefreshCw, 
+  RotateCcw, X, Mic, Play, Check 
+} from 'lucide-react'
 import clsx from 'clsx'
 
 const GlassCard = ({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
@@ -32,6 +36,12 @@ export default function HomeworkHub() {
   const [xpEarned, setXpEarned] = useState<number>(0)
   const [evaluatingIndex, setEvaluatingIndex] = useState<number | null>(null)
   const [writingEvaluations, setWritingEvaluations] = useState<Record<number, any>>({})
+
+  // Estados para Caixas de Palavras e Opções Interativas (estilo Teste de Nivelamento Flowike)
+  const [placedBoxesMap, setPlacedBoxesMap] = useState<Record<number, string[]>>({})
+  const [wordBanksMap, setWordBanksMap] = useState<Record<number, { id: string, text: string }[]>>({})
+  const [optionsMap, setOptionsMap] = useState<Record<number, string[]>>({})
+
 
   const fetchHomeworks = async () => {
     if (!session) return
@@ -105,47 +115,161 @@ export default function HomeworkHub() {
     fetchHomeworks()
   }, [session])
 
+  // Determinar o formato do exercício (Múltipla Escolha Tagged, Mover Caixas de Palavras, Fala ou Escrita)
+  const getExerciseFormat = (ex: any): 'multiple_choice' | 'reorder_boxes' | 'speaking' | 'writing' => {
+    if (!ex) return 'multiple_choice'
+    if (ex.format === 'reorder_boxes' || (Array.isArray(ex.word_bank) && ex.word_bank.length >= 2)) {
+      return 'reorder_boxes'
+    }
+    if (ex.format === 'multiple_choice' || (Array.isArray(ex.options) && ex.options.length >= 2)) {
+      return 'multiple_choice'
+    }
+    if (ex.type === 'speaking') return 'speaking'
+    if (ex.type === 'writing' || ex.type === 'reflection') return 'writing'
+
+    // Detecção dinâmica inteligente
+    const cleanAnswer = (ex.answer || '').trim()
+    const words = cleanAnswer.split(/\s+/).filter(Boolean)
+    const isUnscramblePrompt = (ex.question || '').toLowerCase().includes('order') || 
+                               (ex.question || '').toLowerCase().includes('unscramble') ||
+                               (ex.question || '').toLowerCase().includes('organize') ||
+                               (ex.section || '').toLowerCase().includes('mistake') ||
+                               (words.length >= 3 && words.length <= 12)
+
+    if (isUnscramblePrompt) return 'reorder_boxes'
+    if (words.length > 12) return 'writing'
+    return 'multiple_choice'
+  }
+
+  // Obter ou gerar a lista de caixas de palavras disponíveis para o exercício
+  const getWordBankForExercise = (ex: any, idx: number): { id: string, text: string }[] => {
+    if (wordBanksMap[idx]) return wordBanksMap[idx]
+
+    let rawWords: string[] = []
+    if (Array.isArray(ex.word_bank) && ex.word_bank.length > 0) {
+      rawWords = [...ex.word_bank]
+    } else if (ex.answer) {
+      const cleaned = (ex.answer || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").split(/\s+/).filter(Boolean)
+      const shuffled = [...cleaned]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      rawWords = shuffled
+    }
+
+    const resolved = rawWords.map((w, wIdx) => ({
+      id: `wbox-${idx}-${wIdx}-${w}`,
+      text: w
+    }))
+
+    wordBanksMap[idx] = resolved
+    return resolved
+  }
+
+  // Obter ou gerar opções de múltipla escolha
+  const getOptionsForExercise = (ex: any, idx: number): string[] => {
+    if (optionsMap[idx]) return optionsMap[idx]
+
+    let opts: string[] = []
+    if (Array.isArray(ex.options) && ex.options.length >= 2) {
+      opts = [...ex.options]
+    } else if (ex.answer) {
+      const correct = (ex.answer || '').trim()
+      opts = [correct, 'None of the above', 'Both options are correct', 'Neither option applies']
+    }
+
+    optionsMap[idx] = opts
+    return opts
+  }
+
   const handleStartPractice = (hw: any) => {
     setActiveHomework(hw)
     setCurrentExerciseIdx(0)
     setAnswers(new Array(hw.exercises?.length || 0).fill(''))
     setCheckedExercises(new Array(hw.exercises?.length || 0).fill(false))
     setIsCorrectArray(new Array(hw.exercises?.length || 0).fill(false))
+    setPlacedBoxesMap({})
+    setWordBanksMap({})
+    setOptionsMap({})
     setShowResultsScreen(false)
     setFinalScore(0)
     setXpEarned(0)
+  }
+
+  // Manipulação de caixas de palavras (mover para a resposta e devolver à gaveta)
+  const handleAddWordBox = (box: { id: string, text: string }) => {
+    const isChecked = checkedExercises[currentExerciseIdx]
+    if (isChecked) return
+
+    const currentPlaced = placedBoxesMap[currentExerciseIdx] || []
+    if (currentPlaced.includes(box.id)) return
+
+    const nextPlaced = [...currentPlaced, box.id]
+    setPlacedBoxesMap(prev => ({ ...prev, [currentExerciseIdx]: nextPlaced }))
+
+    const bank = getWordBankForExercise(activeHomework.exercises[currentExerciseIdx], currentExerciseIdx)
+    const assembledText = nextPlaced.map(id => bank.find(b => b.id === id)?.text).filter(Boolean).join(' ')
+
+    const nextAnswers = [...answers]
+    nextAnswers[currentExerciseIdx] = assembledText
+    setAnswers(nextAnswers)
+  }
+
+  const handleRemoveWordBox = (removeIndex: number) => {
+    const isChecked = checkedExercises[currentExerciseIdx]
+    if (isChecked) return
+
+    const currentPlaced = placedBoxesMap[currentExerciseIdx] || []
+    const nextPlaced = currentPlaced.filter((_, i) => i !== removeIndex)
+    setPlacedBoxesMap(prev => ({ ...prev, [currentExerciseIdx]: nextPlaced }))
+
+    const bank = getWordBankForExercise(activeHomework.exercises[currentExerciseIdx], currentExerciseIdx)
+    const assembledText = nextPlaced.map(id => bank.find(b => b.id === id)?.text).filter(Boolean).join(' ')
+
+    const nextAnswers = [...answers]
+    nextAnswers[currentExerciseIdx] = assembledText
+    setAnswers(nextAnswers)
+  }
+
+  const handleClearWordBoxes = () => {
+    const isChecked = checkedExercises[currentExerciseIdx]
+    if (isChecked) return
+
+    setPlacedBoxesMap(prev => ({ ...prev, [currentExerciseIdx]: [] }))
+    const nextAnswers = [...answers]
+    nextAnswers[currentExerciseIdx] = ''
+    setAnswers(nextAnswers)
   }
 
   const handleVerifyAnswer = async () => {
     if (!activeHomework) return
     const currentEx = activeHomework.exercises[currentExerciseIdx]
     const rawUserAnswer = (answers[currentExerciseIdx] || '').trim()
-    const userAnswer = rawUserAnswer.toLowerCase()
-    const correctAnswer = (currentEx.answer || '').trim().toLowerCase()
-    
-    // Escrita, fala, reflexão, bônus ou cenário são auto-aceitos (sem checagem estrita de strings)
-    const isAutomaticType = ['writing', 'speaking', 'reflection', 'bonus', 'scenario'].includes(currentEx.type)
-    
-    if (isAutomaticType && rawUserAnswer.length > 0) {
-      setEvaluatingIndex(currentExerciseIdx)
-      try {
-        const { StudentEngine } = await import('../../lib/student-engine-client')
-        const evalResult = await StudentEngine.evaluateWriting(currentEx.question, rawUserAnswer, 'Intermediate')
-        setWritingEvaluations(prev => ({
-          ...prev,
-          [currentExerciseIdx]: evalResult
-        }))
-      } catch (err) {
-        console.error("Failed to run grammar evaluation:", err)
-      } finally {
-        setEvaluatingIndex(null)
+    const format = getExerciseFormat(currentEx)
+
+    let isCorrect = false
+
+    if (format === 'multiple_choice') {
+      isCorrect = rawUserAnswer.toLowerCase() === (currentEx.answer || '').trim().toLowerCase()
+    } else if (format === 'reorder_boxes') {
+      const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g,"").toLowerCase().replace(/\s+/g," ").trim()
+      isCorrect = normalize(rawUserAnswer) === normalize(currentEx.answer || '')
+    } else if (format === 'writing' || format === 'speaking') {
+      isCorrect = rawUserAnswer.length > 0
+      if (format === 'writing' && rawUserAnswer.length > 5) {
+        setEvaluatingIndex(currentExerciseIdx)
+        try {
+          const { StudentEngine } = await import('../../lib/student-engine-client')
+          const evalResult = await StudentEngine.evaluateWriting(currentEx.question, rawUserAnswer, 'Intermediate')
+          setWritingEvaluations(prev => ({ ...prev, [currentExerciseIdx]: evalResult }))
+        } catch (err) {
+          console.error("Failed to run grammar evaluation:", err)
+        } finally {
+          setEvaluatingIndex(null)
+        }
       }
     }
-
-    // Comparação simples sem levar em conta acentos ou espaços extras
-    const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g,"").replace(/\s+/g," ")
-    
-    const isCorrect = isAutomaticType ? true : normalize(userAnswer) === normalize(correctAnswer)
 
     const newChecked = [...checkedExercises]
     newChecked[currentExerciseIdx] = true
@@ -308,120 +432,306 @@ export default function HomeworkHub() {
     )
   }
 
-  // MODO 2: Interface Ativa de Resolução de Exercício
+  // MODO 2: Interface Ativa de Resolução de Exercício (Método e Design do Teste de Nivelamento Flowike)
   if (activeHomework) {
     const currentEx = activeHomework.exercises[currentExerciseIdx]
     const totalExercises = activeHomework.exercises.length
     const progressPercent = ((currentExerciseIdx + 1) / totalExercises) * 100
     const isChecked = checkedExercises[currentExerciseIdx]
     const isUserCorrect = isCorrectArray[currentExerciseIdx]
+    const format = getExerciseFormat(currentEx)
+
+    // Data para Múltipla Escolha
+    const options = getOptionsForExercise(currentEx, currentExerciseIdx)
+    const selectedOption = answers[currentExerciseIdx] || ''
+
+    // Data para Mover Caixas de Palavras
+    const wordBank = getWordBankForExercise(currentEx, currentExerciseIdx)
+    const placedBoxIds = placedBoxesMap[currentExerciseIdx] || []
+    const placedBoxes = placedBoxIds.map(id => wordBank.find(b => b.id === id)).filter(Boolean) as { id: string, text: string }[]
+
+    // Checagem de prontidão para verificar
+    const canVerify = format === 'multiple_choice' 
+      ? Boolean(selectedOption)
+      : format === 'reorder_boxes'
+        ? placedBoxes.length > 0
+        : Boolean((answers[currentExerciseIdx] || '').trim())
 
     return (
       <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6">
-        {/* Header da Prática */}
-        <div className="flex justify-between items-center">
-          <button 
-            onClick={() => {
-              if (window.confirm("Tem certeza que deseja sair? O progresso desta sessão de prática será perdido.")) {
-                setActiveHomework(null)
-              }
-            }}
-            className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Voltar
-          </button>
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Exercício {currentExerciseIdx + 1} de {totalExercises}
-          </span>
+        {/* Top Header estilo Flowike Placement Test */}
+        <div className="bg-white border border-slate-200/90 rounded-[28px] p-5 md:p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-sm">
+                F
+              </span>
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-800">Flowike Homework Challenge</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  Exercício {currentExerciseIdx + 1} de {totalExercises} • {currentEx.section || 'Atividade Adaptativa'}
+                </p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                if (window.confirm("Deseja pausar esta prática? Você poderá retornar depois.")) {
+                  setActiveHomework(null)
+                }
+              }}
+              className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Barra de Progresso Suave */}
+          <div className="space-y-1.5">
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={{ duration: 0.3 }}
+                className="bg-gradient-to-r from-indigo-600 to-violet-600 h-full rounded-full"
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <span>{Math.round(progressPercent)}% Concluído</span>
+              <span>+{currentEx.xp_reward || 15} XP nesta questão</span>
+            </div>
+          </div>
         </div>
 
-        {/* Barra de Progresso */}
-        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercent}%` }}
-            transition={{ duration: 0.3 }}
-            className="bg-tenant-primary h-full rounded-full"
-          />
-        </div>
-
-        {/* Card do Exercício */}
+        {/* Card Principal do Exercício */}
         <motion.div 
           key={currentExerciseIdx}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.25 }}
         >
-          <GlassCard className="p-6 md:p-8 space-y-6">
-            {/* Categoria */}
-            {/* Categoria & Seção */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="bg-white border border-slate-200/90 rounded-[32px] p-6 md:p-8 shadow-md space-y-6">
+            {/* Header da Questão com Badges de Categoria */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-xs font-black uppercase tracking-wider">
-                  {currentEx.section || 'Atividade Adaptativa'}
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">
+                  {currentEx.section || 'Prática de Fixação'}
                 </span>
                 <span className={clsx(
-                  "px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider",
-                  currentEx.type === 'grammar' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                  currentEx.type === 'vocabulary' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                  'bg-blue-50 text-blue-600 border border-blue-100'
+                  "text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md",
+                  format === 'reorder_boxes' ? 'bg-violet-50 text-violet-700' :
+                  format === 'multiple_choice' ? 'bg-emerald-50 text-emerald-700' :
+                  'bg-amber-50 text-amber-700'
                 )}>
-                  {currentEx.type}
+                  {format === 'reorder_boxes' ? 'Mover Caixas de Palavras' :
+                   format === 'multiple_choice' ? 'Múltipla Escolha' :
+                   format === 'speaking' ? 'Fala em Inglês' : 'Produção Textual'}
                 </span>
               </div>
+
               <div className="flex items-center gap-2">
                 {isChecked && (
-                  <span className={`text-xs font-bold flex items-center gap-1 ${isUserCorrect ? 'text-emerald-600' : 'text-rose-500'}`}>
-                    {isUserCorrect ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                    {isUserCorrect ? 'Concluído' : 'Revisar'}
+                  <span className={clsx(
+                    "text-xs font-black flex items-center gap-1 px-3 py-1 rounded-xl",
+                    isUserCorrect ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-rose-50 text-rose-700 border border-rose-100"
+                  )}>
+                    {isUserCorrect ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-500" />}
+                    {isUserCorrect ? 'Correto' : 'Revisar'}
                   </span>
                 )}
-                <span className="text-[10px] text-slate-400 font-bold uppercase">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                   {currentEx.time_estimate || 2} min • +{currentEx.xp_reward || 15} XP
                 </span>
               </div>
             </div>
 
-            {/* Pergunta */}
-            <h2 className="text-xl md:text-2xl font-black text-slate-800 leading-snug">
-              {currentEx.question}
-            </h2>
+            {/* Título e Pergunta em Destaque */}
+            <div className="space-y-1">
+              {currentEx.title && (
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  {currentEx.title}
+                </h4>
+              )}
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
+                {currentEx.question}
+              </h2>
+            </div>
 
-            {/* Campo de Resposta */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Sua Resposta</label>
-              {currentEx.type === 'speaking' ? (
-                <div className="bg-slate-50 border border-slate-200/60 rounded-[20px] p-5 space-y-4">
-                  <div className="flex flex-col sm:flex-row items-center gap-3 justify-center py-2">
-                    <button
-                      type="button"
-                      disabled={isChecked}
-                      onClick={() => {
-                        const newAnswers = [...answers]
-                        newAnswers[currentExerciseIdx] = "Gravação de áudio registrada e processada pela IA: " + currentEx.answer
-                        setAnswers(newAnswers)
-                      }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm disabled:opacity-50"
-                    >
-                      <PlayCircle className="w-4 h-4" /> Simular Gravação de Fala
-                    </button>
-                    <span className="text-xs text-slate-400 font-semibold">Ou digite sua resposta abaixo</span>
+            {/* ======================================================== */}
+            {/* FORMATO 1: MÚLTIPLA ESCOLHA (OPÇÕES TAGGED)             */}
+            {/* ======================================================== */}
+            {format === 'multiple_choice' && (
+              <div className="space-y-3 pt-2">
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wider px-1 block">
+                  Escolha uma das opções abaixo:
+                </span>
+                <div className="space-y-2.5">
+                  {options.map((opt: string, optIdx: number) => {
+                    const isSelected = selectedOption === opt
+                    const isCorrectAnswer = (opt || '').trim().toLowerCase() === (currentEx.answer || '').trim().toLowerCase()
+
+                    return (
+                      <button
+                        key={optIdx}
+                        disabled={isChecked}
+                        onClick={() => {
+                          const newAnswers = [...answers]
+                          newAnswers[currentExerciseIdx] = opt
+                          setAnswers(newAnswers)
+                        }}
+                        className={clsx(
+                          "w-full p-4 rounded-2xl border text-left font-bold text-sm transition-all flex items-center justify-between cursor-pointer",
+                          isSelected
+                            ? "bg-indigo-50/70 border-indigo-500 text-indigo-950 ring-2 ring-indigo-500/20 shadow-xs"
+                            : "bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-slate-50/60",
+                          isChecked && isCorrectAnswer && "bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20",
+                          isChecked && isSelected && !isCorrectAnswer && "bg-rose-50 border-rose-500 text-rose-950 ring-2 ring-rose-500/20"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={clsx(
+                            "w-7 h-7 rounded-xl font-black text-xs flex items-center justify-center shrink-0 border transition-colors",
+                            isSelected 
+                              ? "bg-indigo-600 text-white border-indigo-600" 
+                              : "bg-slate-100 text-slate-500 border-slate-200"
+                          )}>
+                            {['A', 'B', 'C', 'D', 'E'][optIdx] || optIdx + 1}
+                          </span>
+                          <span className="text-sm font-bold leading-normal">{opt}</span>
+                        </div>
+
+                        <span className={clsx(
+                          "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors",
+                          isSelected ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300"
+                        )}>
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* FORMATO 2: CAIXAS DE PALAVRAS PARA MOVER (REORDER)      */}
+            {/* ======================================================== */}
+            {format === 'reorder_boxes' && (
+              <div className="space-y-4 pt-2">
+                {/* Área da Resposta (Caixas Movidas) */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                      Sua Resposta (Ordem das Caixas):
+                    </span>
+                    {placedBoxes.length > 0 && !isChecked && (
+                      <button
+                        onClick={handleClearWordBoxes}
+                        className="text-[11px] font-bold text-slate-400 hover:text-rose-600 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Reiniciar Caixas
+                      </button>
+                    )}
                   </div>
-                  <textarea 
+
+                  <div className={clsx(
+                    "min-h-[88px] p-4 bg-slate-50/70 border-2 border-dashed rounded-2xl flex flex-wrap gap-2.5 items-center transition-all",
+                    placedBoxes.length === 0 ? "border-slate-200 justify-center text-center" : "border-indigo-200 bg-indigo-50/20"
+                  )}>
+                    {placedBoxes.length === 0 ? (
+                      <p className="text-xs font-bold text-slate-400 select-none">
+                        Toque nas caixas de palavras abaixo para organizar sua resposta
+                      </p>
+                    ) : (
+                      <AnimatePresence>
+                        {placedBoxes.map((box, bIdx) => (
+                          <motion.button
+                            key={`${box.id}-${bIdx}`}
+                            layout
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            disabled={isChecked}
+                            onClick={() => handleRemoveWordBox(bIdx)}
+                            className={clsx(
+                              "px-4 py-2.5 rounded-xl font-black text-sm shadow-xs transition-all flex items-center gap-1.5 cursor-pointer",
+                              isChecked
+                                ? (isUserCorrect ? "bg-emerald-600 text-white" : "bg-rose-600 text-white")
+                                : "bg-indigo-600 hover:bg-rose-600 text-white hover:shadow-md"
+                            )}
+                            title="Toque para devolver à gaveta"
+                          >
+                            <span>{box.text}</span>
+                            {!isChecked && <X className="w-3.5 h-3.5 opacity-70 hover:opacity-100" />}
+                          </motion.button>
+                        ))}
+                      </AnimatePresence>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gaveta de Caixas de Palavras Disponíveis */}
+                {!isChecked && (
+                  <div className="space-y-2 pt-2">
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-wider px-1 block">
+                      Caixas de Palavras Disponíveis (toque para mover):
+                    </span>
+                    <div className="flex flex-wrap gap-2.5 p-4 bg-slate-50/80 border border-slate-200/70 rounded-2xl">
+                      {wordBank.map((box) => {
+                        const isPlaced = placedBoxIds.includes(box.id)
+                        return (
+                          <button
+                            key={box.id}
+                            disabled={isPlaced}
+                            onClick={() => handleAddWordBox(box)}
+                            className={clsx(
+                              "px-4 py-2.5 rounded-xl font-black text-sm transition-all",
+                              isPlaced
+                                ? "bg-slate-200/50 border-2 border-dashed border-slate-300/60 text-transparent cursor-default opacity-30 select-none"
+                                : "bg-white hover:bg-indigo-50/70 border-2 border-slate-200 hover:border-indigo-400 text-slate-800 shadow-xs hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                            )}
+                          >
+                            {box.text}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* FORMATO 3: DESAFIO DE FALA COM IA                       */}
+            {/* ======================================================== */}
+            {format === 'speaking' && (
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-6 space-y-4 text-center">
+                <div className="space-y-2">
+                  <span className="w-14 h-14 rounded-full bg-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
+                    <Mic className="w-7 h-7" />
+                  </span>
+                  <h4 className="font-extrabold text-sm text-slate-800">Pratique sua Pronúncia em Voz Alta</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Grave sua fala para simular a resposta ou digite sua resposta abaixo.
+                  </p>
+                </div>
+
+                <div className="flex justify-center gap-3">
+                  <button
                     disabled={isChecked}
-                    value={answers[currentExerciseIdx] || ''}
-                    onChange={(e) => {
+                    onClick={() => {
                       const newAnswers = [...answers]
-                      newAnswers[currentExerciseIdx] = e.target.value
+                      newAnswers[currentExerciseIdx] = "Gravação de áudio registrada com sucesso: " + currentEx.answer
                       setAnswers(newAnswers)
                     }}
-                    rows={2}
-                    placeholder="Transcreva ou escreva sua resposta aqui..."
-                    className="w-full px-5 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-tenant-primary outline-none transition-all text-slate-800 font-medium text-sm resize-none"
-                  />
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Play className="w-4 h-4 fill-white" /> Registrar Gravação de Voz
+                  </button>
                 </div>
-              ) : (
-                <textarea 
+
+                <textarea
                   disabled={isChecked}
                   value={answers[currentExerciseIdx] || ''}
                   onChange={(e) => {
@@ -429,153 +739,199 @@ export default function HomeworkHub() {
                     newAnswers[currentExerciseIdx] = e.target.value
                     setAnswers(newAnswers)
                   }}
-                  rows={currentEx.type === 'writing' ? 6 : 3}
-                  placeholder={
-                    currentEx.type === 'writing' ? "Escreva sua redação, email ou produção escrita aqui..." :
-                    currentEx.type === 'reflection' ? "Reflita e escreva sua opinião aqui..." :
-                    "Escreva sua resposta em inglês aqui..."
-                  }
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-[20px] focus:bg-white focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all text-slate-800 font-medium shadow-sm resize-none disabled:opacity-75 disabled:bg-slate-50/50"
+                  rows={2}
+                  placeholder="Ou digite sua fala aqui..."
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium resize-none"
                 />
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Feedback / Correção */}
+            {/* ======================================================== */}
+            {/* FORMATO 4: PRODUÇÃO ESCRITA / DISSERTATIVA               */}
+            {/* ======================================================== */}
+            {format === 'writing' && (
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider px-1">
+                  Sua Redação / Resposta
+                </label>
+                <textarea
+                  disabled={isChecked}
+                  value={answers[currentExerciseIdx] || ''}
+                  onChange={(e) => {
+                    const newAnswers = [...answers]
+                    newAnswers[currentExerciseIdx] = e.target.value
+                    setAnswers(newAnswers)
+                  }}
+                  rows={5}
+                  placeholder="Escreva sua resposta detalhada em inglês aqui..."
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-slate-800 font-medium text-sm shadow-xs resize-none"
+                />
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* FEEDBACK & GABARITO (QUANDO VERIFICADO)                  */}
+            {/* ======================================================== */}
             {isChecked && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="pt-4 border-t border-slate-100 space-y-4 font-urbanist"
+                className="pt-4 border-t border-slate-100 space-y-4"
               >
-                {writingEvaluations[currentExerciseIdx] ? (
-                  <div className="space-y-4">
-                    {/* Card de Frases Corrigidas */}
-                    {writingEvaluations[currentExerciseIdx].has_mistakes ? (
-                      <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 space-y-3">
-                        <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block mb-1">Revisão e Correção de Frases</span>
-                        <div className="space-y-4">
-                          {writingEvaluations[currentExerciseIdx].corrections.map((corr: any, idx: number) => (
-                            <div key={idx} className="border-l-4 border-rose-400 pl-3.5 space-y-1">
-                              <p className="text-xs font-semibold text-slate-500 line-through">"{corr.original}"</p>
-                              <p className="text-sm font-bold text-emerald-700">"{corr.corrected}"</p>
-                              <p className="text-xs text-slate-600 font-medium leading-relaxed">{corr.explanation}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 flex items-center gap-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-600 animate-bounce" />
-                        <div>
-                          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Gramática Excelente</span>
-                          <p className="text-emerald-800 text-sm font-semibold">Nenhum erro de gramática foi identificado no seu texto! Excelente trabalho.</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Feedback geral e Versão Polida */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-1">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Abordagem Recomendada</span>
-                        <p className="text-slate-750 text-sm font-semibold leading-relaxed">
-                          {writingEvaluations[currentExerciseIdx].overall_feedback}
-                        </p>
-                      </div>
-
-                      <div className="bg-purple-50/40 border border-purple-100 rounded-2xl p-4 space-y-1">
-                        <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block mb-1">Versão Sugerida pela IA</span>
-                        <p className="text-purple-950 text-sm font-bold leading-relaxed italic">
-                          "{writingEvaluations[currentExerciseIdx].improved_version}"
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
-                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block mb-1">Gabarito</span>
-                      <p className="text-emerald-900 font-bold">{currentEx.answer}</p>
-                    </div>
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Feedback do Sistema</span>
-                      <p className="text-slate-700 text-sm font-semibold">
-                        {['writing', 'speaking', 'reflection', 'bonus', 'scenario'].includes(currentEx.type)
-                          ? 'Excelente! Sua produção foi registrada e será computada nos seus relatórios de progresso.'
-                          : isUserCorrect 
-                            ? 'Excelente! Resposta equivalente ao gabarito.' 
-                            : 'A resposta digitada divergiu do padrão. Você pode ajustar abaixo se considerar que estava correta.'}
+                {/* Banner de Resultado */}
+                <div className={clsx(
+                  "p-4 rounded-2xl border flex items-center justify-between",
+                  isUserCorrect ? "bg-emerald-50 border-emerald-200 text-emerald-950" : "bg-rose-50 border-rose-200 text-rose-950"
+                )}>
+                  <div className="flex items-center gap-3">
+                    <span className={clsx(
+                      "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
+                      isUserCorrect ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+                    )}>
+                      {isUserCorrect ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    </span>
+                    <div>
+                      <h4 className="font-black text-sm">
+                        {isUserCorrect ? 'Excelente! Resposta Correta' : 'Atenção aos Detalhes'}
+                      </h4>
+                      <p className="text-xs font-semibold opacity-80">
+                        {isUserCorrect 
+                          ? `Parabéns! Você ganhou +${currentEx.xp_reward || 15} XP de fluência.` 
+                          : 'Revise o gabarito e a explicação didática abaixo para fixar o aprendizado.'}
                       </p>
                     </div>
                   </div>
-                )}
 
-                {currentEx.explanation && !writingEvaluations[currentExerciseIdx] && (
-                  <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-5">
-                    <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block mb-1">Explicação Teórica</span>
-                    <p className="text-slate-600 text-sm leading-relaxed font-medium">{currentEx.explanation}</p>
+                  <span className="text-xs font-black px-3 py-1 bg-white/70 rounded-xl border border-black/5">
+                    {isUserCorrect ? `+${currentEx.xp_reward || 15} XP` : '0 XP'}
+                  </span>
+                </div>
+
+                {/* Gabarito correto */}
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-1">
+                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider block">
+                    Gabarito Oficial:
+                  </span>
+                  <p className="text-slate-900 font-extrabold text-sm sm:text-base">
+                    {currentEx.answer}
+                  </p>
+                </div>
+
+                {/* Explicação Didática */}
+                {currentEx.explanation && (
+                  <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-4 space-y-1">
+                    <span className="text-[10px] font-black text-purple-700 uppercase tracking-wider block">
+                      Explicação & Regra Gramatical:
+                    </span>
+                    <p className="text-slate-700 text-xs sm:text-sm font-medium leading-relaxed">
+                      {currentEx.explanation}
+                    </p>
                   </div>
                 )}
 
-                {/* Sobrescrever Correção Manual */}
-                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl text-xs font-bold text-slate-500 border border-slate-100">
-                  <span>A correção da IA estava correta?</span>
+                {/* Feedback Específico de Redação por IA */}
+                {writingEvaluations[currentExerciseIdx] && (
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2">
+                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider block">
+                      Análise de Escrita & Gramática (IA):
+                    </span>
+                    <p className="text-slate-700 text-xs sm:text-sm font-medium leading-relaxed">
+                      {writingEvaluations[currentExerciseIdx].overall_feedback}
+                    </p>
+                    {writingEvaluations[currentExerciseIdx].improved_version && (
+                      <div className="pt-2 border-t border-slate-200">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                          Versão Sugerida pela IA:
+                        </span>
+                        <p className="text-indigo-950 text-xs sm:text-sm font-bold italic">
+                          "{writingEvaluations[currentExerciseIdx].improved_version}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Ajuste Manual se necessário */}
+                <div className="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl text-xs font-bold text-slate-500 border border-slate-100">
+                  <span className="text-[11px]">A correção da IA foi adequada?</span>
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleOverrideCorrection(true)}
-                      className={`px-3 py-1.5 rounded-lg border transition-all ${isUserCorrect ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
+                      className={`px-3 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer ${isUserCorrect ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
                     >
-                      Marcar como Certo
+                      Marcar Correto
                     </button>
                     <button 
                       onClick={() => handleOverrideCorrection(false)}
-                      className={`px-3 py-1.5 rounded-lg border transition-all ${!isUserCorrect ? 'bg-rose-500 text-white border-rose-500' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
+                      className={`px-3 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer ${!isUserCorrect ? 'bg-rose-500 text-white border-rose-500' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
                     >
-                      Marcar como Errado
+                      Marcar Incorreto
                     </button>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Ações */}
-            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-              {!isChecked ? (
-                evaluatingIndex === currentExerciseIdx ? (
-                  <button 
-                    disabled
-                    className="bg-slate-800 text-white font-bold py-3.5 px-8 rounded-xl opacity-90 cursor-not-allowed flex items-center gap-2 shadow-sm"
-                  >
-                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-450" /> Analisando Resposta por IA...
-                  </button>
+            {/* ======================================================== */}
+            {/* BOTÕES DE NAVEGAÇÃO E AÇÃO                              */}
+            {/* ======================================================== */}
+            <div className="pt-4 flex justify-between items-center border-t border-slate-100">
+              <button
+                onClick={() => {
+                  if (currentExerciseIdx > 0) {
+                    setCurrentExerciseIdx(currentExerciseIdx - 1)
+                  }
+                }}
+                disabled={currentExerciseIdx === 0}
+                className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Voltar</span>
+              </button>
+
+              <div className="flex items-center gap-3">
+                {!isChecked ? (
+                  evaluatingIndex === currentExerciseIdx ? (
+                    <button 
+                      disabled
+                      className="bg-slate-900 text-white font-extrabold text-xs py-3 px-6 rounded-xl opacity-90 cursor-not-allowed flex items-center gap-2 shadow-sm"
+                    >
+                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                      <span>Analisando com IA...</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleVerifyAnswer}
+                      disabled={!canVerify}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-3 px-6 rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Verificar Resposta</span>
+                      <Check className="w-4 h-4" />
+                    </button>
+                  )
                 ) : (
-                  <button 
-                    onClick={handleVerifyAnswer}
-                    disabled={!(answers[currentExerciseIdx] || '').trim()}
-                    className="bg-slate-900 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-slate-800 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    <Send className="w-4 h-4" /> Verificar Resposta
-                  </button>
-                )
-              ) : (
-                currentExerciseIdx < totalExercises - 1 ? (
-                  <button 
-                    onClick={handleNext}
-                    className="bg-tenant-primary text-white font-bold py-3.5 px-8 rounded-xl hover:bg-tenant-primary-hover transition-colors shadow-md flex items-center gap-2"
-                  >
-                    Próximo Exercício
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleFinish}
-                    disabled={submitting}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-8 rounded-xl transition-colors shadow-md disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {submitting ? 'Salvando...' : 'Concluir Prática'}
-                  </button>
-                )
-              )}
+                  currentExerciseIdx < totalExercises - 1 ? (
+                    <button 
+                      onClick={handleNext}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-3 px-6 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Próximo Exercício</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={handleFinish}
+                      disabled={submitting}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-3 px-6 rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>{submitting ? 'Salvando Resultados...' : 'Concluir Lição de Casa'}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )
+                )}
+              </div>
             </div>
-          </GlassCard>
+          </div>
         </motion.div>
       </div>
     )

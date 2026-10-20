@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Volume2, Play, Pause, Calendar, Award, Sparkles, TrendingUp } from 'lucide-react'
 
 interface AudioBeforeAfterPlayerProps {
@@ -9,13 +9,64 @@ interface AudioBeforeAfterPlayerProps {
 export default function AudioBeforeAfterPlayer({ initialAssessment, latestAssessment }: AudioBeforeAfterPlayerProps) {
   const [playingInitial, setPlayingInitial] = useState(false)
   const [playingLatest, setPlayingLatest] = useState(false)
+  const [playingSingle, setPlayingSingle] = useState(false)
 
+  // Use Audio in-memory instances to prevent browser extensions from injecting speed control overlays
   const initialAudioRef = useRef<HTMLAudioElement | null>(null)
   const latestAudioRef = useRef<HTMLAudioElement | null>(null)
+  const singleAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const hasBoth = initialAssessment && latestAssessment && initialAssessment.id !== latestAssessment.id
   const hasOnlyOne = initialAssessment || latestAssessment
   const single = initialAssessment || latestAssessment
+
+  // Setup initial audio in-memory
+  useEffect(() => {
+    if (initialAssessment?.audio_url) {
+      const audio = new Audio(initialAssessment.audio_url)
+      audio.onended = () => setPlayingInitial(false)
+      audio.onerror = () => setPlayingInitial(false)
+      initialAudioRef.current = audio
+    }
+    return () => {
+      if (initialAudioRef.current) {
+        initialAudioRef.current.pause()
+        initialAudioRef.current = null
+      }
+    }
+  }, [initialAssessment?.audio_url])
+
+  // Setup latest audio in-memory
+  useEffect(() => {
+    if (latestAssessment?.audio_url) {
+      const audio = new Audio(latestAssessment.audio_url)
+      audio.onended = () => setPlayingLatest(false)
+      audio.onerror = () => setPlayingLatest(false)
+      latestAudioRef.current = audio
+    }
+    return () => {
+      if (latestAudioRef.current) {
+        latestAudioRef.current.pause()
+        latestAudioRef.current = null
+      }
+    }
+  }, [latestAssessment?.audio_url])
+
+  // Setup single audio in-memory
+  useEffect(() => {
+    if (single?.audio_url) {
+      const audio = new Audio(single.audio_url)
+      audio.onended = () => setPlayingSingle(false)
+      audio.onerror = () => setPlayingSingle(false)
+      singleAudioRef.current = audio
+    }
+    return () => {
+      if (singleAudioRef.current) {
+        singleAudioRef.current.pause()
+        singleAudioRef.current = null
+      }
+    }
+  }, [single?.audio_url])
 
   const toggleInitial = () => {
     if (!initialAudioRef.current) return
@@ -27,7 +78,7 @@ export default function AudioBeforeAfterPlayer({ initialAssessment, latestAssess
         latestAudioRef.current.pause()
         setPlayingLatest(false)
       }
-      initialAudioRef.current.play()
+      initialAudioRef.current.play().catch(e => console.warn(e))
       setPlayingInitial(true)
     }
   }
@@ -42,8 +93,19 @@ export default function AudioBeforeAfterPlayer({ initialAssessment, latestAssess
         initialAudioRef.current.pause()
         setPlayingInitial(false)
       }
-      latestAudioRef.current.play()
+      latestAudioRef.current.play().catch(e => console.warn(e))
       setPlayingLatest(true)
+    }
+  }
+
+  const toggleSingle = () => {
+    if (!singleAudioRef.current) return
+    if (playingSingle) {
+      singleAudioRef.current.pause()
+      setPlayingSingle(false)
+    } else {
+      singleAudioRef.current.play().catch(e => console.warn(e))
+      setPlayingSingle(true)
     }
   }
 
@@ -117,16 +179,11 @@ export default function AudioBeforeAfterPlayer({ initialAssessment, latestAssess
               )}
             </div>
 
-            {/* Audio Controller */}
+            {/* Audio Controller - No DOM audio element to completely eliminate speed overlays */}
             {initialAssessment.audio_url ? (
               <div className="mt-4 pt-3 border-t border-slate-200/50 flex items-center gap-3">
-                <audio 
-                  ref={initialAudioRef} 
-                  src={initialAssessment.audio_url} 
-                  onEnded={() => setPlayingInitial(false)}
-                  className="hidden" 
-                />
                 <button
+                  type="button"
                   onClick={toggleInitial}
                   className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0"
                 >
@@ -174,16 +231,11 @@ export default function AudioBeforeAfterPlayer({ initialAssessment, latestAssess
               )}
             </div>
 
-            {/* Audio Controller */}
+            {/* Audio Controller - No DOM audio element to completely eliminate speed overlays */}
             {latestAssessment.audio_url ? (
               <div className="mt-4 pt-3 border-t border-indigo-100 flex items-center gap-3">
-                <audio 
-                  ref={latestAudioRef} 
-                  src={latestAssessment.audio_url} 
-                  onEnded={() => setPlayingLatest(false)}
-                  className="hidden" 
-                />
                 <button
+                  type="button"
                   onClick={toggleLatest}
                   className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all cursor-pointer shadow-md shrink-0"
                 >
@@ -217,8 +269,17 @@ export default function AudioBeforeAfterPlayer({ initialAssessment, latestAssess
           </div>
 
           {single.audio_url && (
-            <div className="shrink-0 w-full sm:w-auto">
-              <audio controls src={single.audio_url} className="h-9 w-full sm:w-56" />
+            <div className="shrink-0 w-full sm:w-auto flex items-center gap-3 bg-white p-2.5 px-4 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={toggleSingle}
+                className="w-9 h-9 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+              >
+                {playingSingle ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              </button>
+              <div className="text-xs font-bold text-slate-700">
+                {playingSingle ? 'Reproduzindo...' : 'Ouvir Gravação'}
+              </div>
             </div>
           )}
         </div>

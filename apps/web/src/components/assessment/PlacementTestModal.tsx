@@ -137,6 +137,7 @@ export default function PlacementTestModal({
   const resetRecording = () => {
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause()
+      audioPlayerRef.current = null
       setIsPlayingRecordedAudio(false)
     }
     setAudioBlob(null)
@@ -145,12 +146,20 @@ export default function PlacementTestModal({
   }
 
   const togglePlayback = () => {
-    if (!audioPlayerRef.current) return
+    if (!audioUrl) return
     if (isPlayingRecordedAudio) {
-      audioPlayerRef.current.pause()
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause()
+      }
       setIsPlayingRecordedAudio(false)
     } else {
-      audioPlayerRef.current.play()
+      if (!audioPlayerRef.current || audioPlayerRef.current.src !== audioUrl) {
+        const audio = new Audio(audioUrl)
+        audio.onended = () => setIsPlayingRecordedAudio(false)
+        audio.onerror = () => setIsPlayingRecordedAudio(false)
+        audioPlayerRef.current = audio
+      }
+      audioPlayerRef.current.play().catch(e => console.warn(e))
       setIsPlayingRecordedAudio(true)
     }
   }
@@ -385,12 +394,7 @@ export default function PlacementTestModal({
                     {audioBlob && !isRecording && (
                       <div className="w-full space-y-3">
                         <div className="flex items-center justify-center gap-3">
-                          <audio 
-                            ref={audioPlayerRef} 
-                            src={audioUrl} 
-                            onEnded={() => setIsPlayingRecordedAudio(false)} 
-                            className="hidden" 
-                          />
+
                           <button
                             onClick={togglePlayback}
                             className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center transition-all shadow-sm cursor-pointer"

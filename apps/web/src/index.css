@@ -368,3 +368,18 @@
   }
 }
 
+/* Ocultar controladores e indicadores de velocidade de áudio (nativos e extensões como Video Speed Controller) */
+.vsc-controller,
+[class*="vsc-controller"],
+div[id^="__vsc"],
+div[id*="vsc-controller"],
+audio::-webkit-media-controls-playback-speed-button,
+video::-webkit-media-controls-playback-speed-button {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+

@@ -1,7 +1,9 @@
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   X, Award, CheckCircle2, TrendingUp, Sparkles, Volume2, 
-  Calendar, Target, Mic, ArrowRight, BookOpen, Brain, Star
+  Calendar, Target, Mic, ArrowRight, BookOpen, Brain, Star,
+  Play, Pause
 } from 'lucide-react'
 
 interface LevelRevealModalProps {
@@ -61,6 +63,48 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
     : new Date().toLocaleDateString('pt-BR')
 
   const isInitial = assessment.assessment_type === 'INITIAL_PLACEMENT'
+
+  // Custom in-memory audio player to prevent speed control overlays
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false)
+  const [audioProgress, setAudioProgress] = useState(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    if (assessment?.audio_url) {
+      const audio = new Audio(assessment.audio_url)
+      audio.onended = () => {
+        setIsPlayingAudio(false)
+        setAudioProgress(0)
+      }
+      audio.onerror = () => {
+        setIsPlayingAudio(false)
+        setAudioProgress(0)
+      }
+      audio.ontimeupdate = () => {
+        if (audio.duration) {
+          setAudioProgress((audio.currentTime / audio.duration) * 100)
+        }
+      }
+      audioRef.current = audio
+    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+    }
+  }, [assessment?.audio_url])
+
+  const toggleAudio = () => {
+    if (!audioRef.current) return
+    if (isPlayingAudio) {
+      audioRef.current.pause()
+      setIsPlayingAudio(false)
+    } else {
+      audioRef.current.play().catch(e => console.warn(e))
+      setIsPlayingAudio(true)
+    }
+  }
 
   const rawStrengths = Array.isArray(report.strengths) 
     ? report.strengths 
@@ -246,7 +290,7 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
                   </p>
                 </div>
 
-                {/* Audio Player if recorded */}
+                {/* Custom Audio Player without DOM audio tags or speed controls */}
                 {assessment.audio_url && (
                   <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
                     <div className="flex items-center justify-between mb-3">
@@ -261,11 +305,27 @@ export default function LevelRevealModal({ isOpen, onClose, assessment, studentN
                       </div>
                     </div>
 
-                    <audio 
-                      controls 
-                      src={assessment.audio_url} 
-                      className="w-full h-9 rounded-lg"
-                    />
+                    <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={toggleAudio}
+                        className="w-9 h-9 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+                      >
+                        {isPlayingAudio ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between text-[11px] mb-1 font-bold text-slate-700">
+                          <span>{isPlayingAudio ? 'Reproduzindo áudio do aluno...' : 'Ouvir Leitura Gravada'}</span>
+                          <span className="text-[10px] text-slate-400 font-semibold">{Math.round(audioProgress)}%</span>
+                        </div>
+                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-indigo-600 h-full rounded-full transition-all duration-200" 
+                            style={{ width: `${audioProgress}%` }} 
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 

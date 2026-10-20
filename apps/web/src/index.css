@@ -339,3 +339,32 @@
 .animate-blob {
   animation: blob 7s infinite;
 }
+
+/* Isolamento completo de impressão para Contratos e Documentos */
+@media print {
+  /* Ocultar elementos estruturais do app durante a impressão */
+  aside,
+  nav,
+  header,
+  footer:not(.contract-page footer),
+  .sidebar,
+  .print-hidden,
+  button {
+    display: none !important;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Resetar container do documento para folha limpa */
+  #printable-contract-document {
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+}
+

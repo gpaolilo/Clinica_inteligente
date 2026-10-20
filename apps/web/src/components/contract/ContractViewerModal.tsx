@@ -27,8 +27,95 @@ export default function ContractViewerModal({
 }: ContractViewerModalProps) {
   if (!isOpen) return null
 
+  const getCleanContractHtml = () => {
+    const el = document.getElementById('printable-contract-document')
+    return el ? el.innerHTML : ''
+  }
+
+  // 1. Download standalone HTML contract file
+  const handleDownloadFile = () => {
+    const contractHtml = getCleanContractHtml()
+    if (!contractHtml) return
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contrato de Prestação de Serviços - ${effectiveStudentName}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @page { size: A4; margin: 15mm 20mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 24px; }
+    .contract-page { page-break-after: always; max-width: 800px; margin: 0 auto 32px auto; background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .contract-page:last-child { page-break-after: auto; margin-bottom: 0; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .contract-page { box-shadow: none; border-radius: 0; margin: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  ${contractHtml}
+</body>
+</html>`
+
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Contrato_Prestacao_Servicos_${effectiveStudentName.replace(/[^a-zA-Z0-9]/g, '_')}.html`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // 2. Print or Save as PDF via clean dedicated window (zero website chrome)
   const handlePrint = () => {
-    window.print()
+    const contractHtml = getCleanContractHtml()
+    if (!contractHtml) {
+      window.print()
+      return
+    }
+
+    const printWin = window.open('', '_blank', 'width=950,height=900')
+    if (!printWin) {
+      window.print()
+      return
+    }
+
+    printWin.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Contrato de Prestação de Serviços - ${effectiveStudentName}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @page { size: A4; margin: 12mm 15mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; margin: 0; padding: 12px; }
+    .contract-page { page-break-after: always; padding: 20px; margin-bottom: 24px; }
+    .contract-page:last-child { page-break-after: auto; margin-bottom: 0; }
+    img { max-width: 100%; height: auto; }
+    @media print {
+      body { padding: 0; }
+      .contract-page { padding: 10mm; margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body class="bg-white">
+  ${contractHtml}
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 350);
+    };
+  </script>
+</body>
+</html>`)
+    printWin.document.close()
   }
 
   const target = patient || student || {}
@@ -106,7 +193,7 @@ export default function ContractViewerModal({
           </div>
 
           {/* Scrollable Document Body */}
-          <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-slate-100/60 print:bg-white print:p-0">
+          <div id="printable-contract-document" className="p-4 sm:p-8 overflow-y-auto flex-1 bg-slate-100/60 print:bg-white print:p-0">
             <StudentContractDocument
               data={{
                 studentName: effectiveStudentName,
@@ -135,14 +222,24 @@ export default function ContractViewerModal({
             <span className="text-slate-500 font-medium">
               Válido juridicamente com rubricas nas Páginas 1, 2, 3 e 4.
             </span>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>Baixar Arquivo</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadFile}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                <span>Baixar Arquivo</span>
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

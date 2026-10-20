@@ -68,23 +68,62 @@ export default async function handler(req: any, res: any) {
 
     const testContent = JSON.parse(groqData.choices[0].message.content)
 
-    // Insert new pending assessment
-    const { data: assessment, error: dbError } = await supabaseAdmin
-      .from('level_assessments')
-      .insert([{
-        student_id: studentId,
-        teacher_id: teacherId || null,
-        assessment_type: assessmentType,
-        status: 'PENDING',
-        test_content: testContent,
-        requested_by_teacher_at: assessmentType === 'PROGRESS_CHECK' ? new Date().toISOString() : null
-      }])
-      .select('*')
-      .single()
+    // Locate student patient record to guarantee valid UUID
+    let targetStudentId = studentId
+    const { data: patientData } = await supabaseAdmin
+      .from('patients')
+      .select('id, user_id, psychologist_id')
+      .or(`id.eq.${studentId},user_id.eq.${studentId}`)
+      .maybeSingle()
 
-    if (dbError) {
-      console.error('Error inserting level_assessment:', dbError)
-      throw new Error(`Database Error: ${dbError.message}`)
+    if (patientData?.id) {
+      targetStudentId = patientData.id
+    }
+
+    const effectiveTeacherId = teacherId || patientData?.psychologist_id || null
+
+    // Insert new pending assessment
+    const insertPayload = {
+      student_id: targetStudentId,
+      teacher_id: effectiveTeacherId,
+      assessment_type: assessmentType,
+      status: 'PENDING',
+      test_content: testContent,
+      requested_by_teacher_at: new Date().toISOString()
+    }
+
+    // Try inserting via supabaseAuth (which possesses teacher's Authorization token)
+    let assessment: any = null
+    let dbError: any = null
+
+    try {
+      const authRes = await supabaseAuth
+        .from('level_assessments')
+        .insert([insertPayload])
+        .select('*')
+        .maybeSingle()
+      if (authRes.data) {
+        assessment = authRes.data
+      } else if (authRes.error) {
+        dbError = authRes.error
+      }
+    } catch (e: any) {
+      dbError = e
+    }
+
+    // Fallback: try via supabaseAdmin
+    if (!assessment) {
+      const adminRes = await supabaseAdmin
+        .from('level_assessments')
+        .insert([insertPayload])
+        .select('*')
+        .maybeSingle()
+      if (adminRes.data) {
+        assessment = adminRes.data
+      } else {
+        console.error('Error inserting level_assessment:', adminRes.error || dbError)
+        throw new Error(`Database Error: ${adminRes.error?.message || dbError?.message || 'Failed to insert assessment'}`)
+      }
     }
 
     return res.status(200).json({ success: true, assessment })

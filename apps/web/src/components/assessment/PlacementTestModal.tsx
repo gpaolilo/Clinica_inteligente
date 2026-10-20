@@ -5,6 +5,7 @@ import {
   CheckCircle2, Sparkles, Brain, Loader2, AlertCircle 
 } from 'lucide-react'
 import { StudentEngine } from '../../lib/student-engine-client'
+import { getSupportedAudioMimeType } from '../../hooks/useAudioRecorder'
 import LevelRevealModal from './LevelRevealModal'
 
 interface PlacementTestModalProps {
@@ -95,7 +96,8 @@ export default function PlacementTestModal({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       audioChunksRef.current = []
       
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const supportedMime = getSupportedAudioMimeType()
+      const mediaRecorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined)
       mediaRecorderRef.current = mediaRecorder
 
       mediaRecorder.ondataavailable = (event) => {
@@ -105,7 +107,8 @@ export default function PlacementTestModal({
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const mime = mediaRecorder.mimeType || supportedMime || 'audio/webm'
+        const blob = new Blob(audioChunksRef.current, { type: mime })
         setAudioBlob(blob)
         const url = URL.createObjectURL(blob)
         setAudioUrl(url)
@@ -122,7 +125,15 @@ export default function PlacementTestModal({
       }, 1000)
     } catch (err: any) {
       console.error('Microphone error:', err)
-      setErrorMsg('Não foi possível acessar o microfone. Verifique as permissões do seu navegador.')
+      const isMac = typeof navigator !== 'undefined' && 
+        (navigator.platform?.toUpperCase().includes('MAC') || navigator.userAgent.toUpperCase().includes('MAC'))
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setErrorMsg(isMac 
+          ? 'Permissão de microfone negada. No macOS, abra "Ajustes do Sistema > Privacidade e Segurança > Microfone" e autorize o seu navegador.'
+          : 'Permissão de microfone negada. Verifique as permissões de microfone do seu navegador.')
+      } else {
+        setErrorMsg('Não foi possível acessar o microfone: ' + (err.message || err.name || 'Erro desconhecido.'))
+      }
     }
   }
 

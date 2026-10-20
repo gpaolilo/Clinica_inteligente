@@ -1,10 +1,40 @@
 import { useState, useRef } from 'react'
 
+/**
+ * Detecta dinamicamente o formato de áudio suportado pelo navegador.
+ * macOS Safari suporta nativamente audio/mp4 e audio/aac (não suporta audio/webm).
+ * Chrome/Firefox/Edge suportam audio/webm;codecs=opus.
+ */
+export function getSupportedAudioMimeType(): string {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+    return ''
+  }
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/mp4',
+    'audio/aac',
+    'audio/ogg;codecs=opus',
+    'audio/wav'
+  ]
+  for (const candidate of candidates) {
+    if (MediaRecorder.isTypeSupported(candidate)) {
+      return candidate
+    }
+  }
+  return ''
+}
+
+export type RecordingSource = 'MIC_ONLY' | 'MIC_AND_TAB'
+
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [duration, setDuration] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [activeMimeType, setActiveMimeType] = useState<string>('')
   
   const mediaRecorder = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
@@ -14,105 +44,149 @@ export function useAudioRecorder() {
   const activeStreams = useRef<MediaStream[]>([])
   const audioContext = useRef<AudioContext | null>(null)
 
-  const startRecording = async () => {
+  const startRecording = async (source: RecordingSource = 'MIC_ONLY') => {
+    setError(null)
     try {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl)
       }
       
       activeStreams.current = []
-      
-      // Resolve conflitos de navegadores entre getDisplayMedia e getUserMedia
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      
-      let micStream: MediaStream;
-      let displayStream: MediaStream | null = null;
+      chunks.current = []
 
+      const isMac = typeof navigator !== 'undefined' && 
+        (navigator.platform?.toUpperCase().includes('MAC') || navigator.userAgent.toUpperCase().includes('MAC'))
+      const isSafari = typeof navigator !== 'undefined' && 
+        /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+
+      // 1. SEMPRE requisitar o microfone primeiro com o gesto do usuário ativo
+      let micStream: MediaStream
       try {
-        if (isSafari) {
-           // No Safari, o getDisplayMedia deve ser a PRIMEIRA operação, senão o user gesture expira.
-           try {
-              displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
-              if (displayStream) activeStreams.current.push(displayStream)
-           } catch (e) { console.warn("Captura de tela cancelada no Safari.") }
-
-           micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-           activeStreams.current.push(micStream)
-        } else {
-           // No Chrome/Edge, pedimos o microfone PRIMEIRO. Se pedirmos simultaneamente ou depois, 
-           // o prompt pode ser rejeitado instantaneamente ou falhar porque a aba foi para background.
-           micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-           activeStreams.current.push(micStream)
-
-           try {
-              displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
-              if (displayStream) activeStreams.current.push(displayStream)
-           } catch (e) { console.warn("Captura de tela cancelada no Chrome/Edge.") }
+        micStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          } 
+        })
+        activeStreams.current.push(micStream)
+      } catch (micErr: any) {
+        console.error('Erro de permissão de microfone:', micErr)
+        if (micErr.name === 'NotAllowedError' || micErr.name === 'PermissionDeniedError') {
+          const macMsg = isMac
+            ? "Permissão de microfone negada. No macOS, abra 'Ajustes do Sistema > Privacidade e Segurança > Microfone' e ative a permissão para o seu navegador (Chrome/Safari), depois recarregue a página."
+            : "Permissão de microfone negada. Clique no ícone de cadeado/configurações ao lado do endereço do site para permitir o microfone."
+          setError(macMsg)
+          throw new Error(macMsg)
         }
-      } catch (err: any) {
-         throw new Error("Permissão de câmera/microfone negada. Detalhes: " + err.message);
+        throw new Error("Não foi possível acessar o microfone: " + (micErr.message || micErr.name))
       }
 
-      // 4. Verifica se o usuário de fato compartilhou o Áudio na Guia
-      const hasSystemAudio = displayStream && displayStream.getAudioTracks().length > 0;
+      let finalStream: MediaStream = micStream
+      let displayStream: MediaStream | null = null
 
-      let finalStream = micStream;
+      // 2. Se o professor escolheu capturar também a Guia (Meet/Zoom)
+      if (source === 'MIC_AND_TAB') {
+        if (isSafari) {
+          // O Safari no macOS não suporta captura de áudio da guia/tela
+          console.warn("Safari no macOS não suporta captura de áudio da tela. Continuando com o microfone de alta qualidade.")
+        } else if (navigator.mediaDevices?.getDisplayMedia) {
+          try {
+            displayStream = await navigator.mediaDevices.getDisplayMedia({ 
+              video: true, 
+              audio: true 
+            })
+            if (displayStream) {
+              activeStreams.current.push(displayStream)
+            }
+          } catch (dispErr: any) {
+            console.warn("Captura da guia foi cancelada ou não permitida. Gravando apenas o microfone da aula:", dispErr)
+          }
+        }
 
-      if (hasSystemAudio) {
-         try {
-           // Cria o pipeline de WebAudio para mesclar microfone e guia
-           audioContext.current = new AudioContext()
-           
-           if (audioContext.current.state === 'suspended') {
-             audioContext.current.resume().catch(console.warn)
-           }
+        // Verifica se há faixa de áudio na tela/guia capturada
+        const sysAudioTracks = displayStream ? displayStream.getAudioTracks() : []
+        if (sysAudioTracks.length > 0) {
+          try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+            audioContext.current = new AudioCtx()
+            
+            if (audioContext.current.state === 'suspended') {
+              await audioContext.current.resume().catch(console.warn)
+            }
 
-           const dest = audioContext.current.createMediaStreamDestination()
-           
-           const micSource = audioContext.current.createMediaStreamSource(micStream)
-           micSource.connect(dest)
-           
-           const sysAudioTrack = displayStream!.getAudioTracks()[0]
-           const sysAudioStream = new MediaStream([sysAudioTrack])
-           const sysSource = audioContext.current.createMediaStreamSource(sysAudioStream)
-           sysSource.connect(dest)
-           
-           finalStream = dest.stream
-         } catch (mergeError) {
-           console.error("Erro ao mesclar áudios, gravando apenas microfone:", mergeError)
-           finalStream = micStream;
-         }
+            const dest = audioContext.current.createMediaStreamDestination()
+            
+            const micSource = audioContext.current.createMediaStreamSource(micStream)
+            micSource.connect(dest)
+            
+            const sysAudioStream = new MediaStream([sysAudioTracks[0]])
+            const sysSource = audioContext.current.createMediaStreamSource(sysAudioStream)
+            sysSource.connect(dest)
+            
+            finalStream = dest.stream
+          } catch (mergeError) {
+            console.error("Erro ao mesclar áudio da guia, gravando microfone:", mergeError)
+            finalStream = micStream
+          }
+        } else if (displayStream) {
+          // Se capturou vídeo mas não marcou 'Compartilhar áudio', para os vídeos desnecessários
+          displayStream.getVideoTracks().forEach(track => track.stop())
+        }
       }
 
-      mediaRecorder.current = new MediaRecorder(finalStream)
-      mediaRecorder.current.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.current.push(e.data)
+      // 3. Obter MIME type compatível com o navegador (WebKit/Safari usa audio/mp4, Chromium usa audio/webm)
+      const selectedMimeType = getSupportedAudioMimeType()
+      setActiveMimeType(selectedMimeType)
+
+      const recorderOptions = selectedMimeType ? { mimeType: selectedMimeType } : undefined
+      const recorder = new MediaRecorder(finalStream, recorderOptions)
+      mediaRecorder.current = recorder
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.current.push(e.data)
+        }
       }
       
-      mediaRecorder.current.onstop = () => {
-        const blb = new Blob(chunks.current, { type: 'audio/webm' })
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || selectedMimeType || (isSafari ? 'audio/mp4' : 'audio/webm')
+        const blb = new Blob(chunks.current, { type: mime })
         setAudioBlob(blb)
         setAudioUrl(URL.createObjectURL(blb))
         
-        // Finaliza explicitamente todas as tracks envolvidas
+        // Finaliza explicitamente todas as faixas ativas
         activeStreams.current.forEach(stream => {
-           stream.getTracks().forEach(track => track.stop())
+          stream.getTracks().forEach(track => track.stop())
         })
-        if (audioContext.current) {
-           audioContext.current.close()
+        activeStreams.current = []
+
+        if (audioContext.current && audioContext.current.state !== 'closed') {
+          audioContext.current.close().catch(console.warn)
+          audioContext.current = null
         }
-        clearInterval(timerInterval.current)
+
+        if (timerInterval.current) {
+          clearInterval(timerInterval.current)
+          timerInterval.current = null
+        }
       }
-      
-      chunks.current = []
-      mediaRecorder.current.start()
+
+      // Inicia a gravação (fatiando em chunks de 1s para estabilidade)
+      recorder.start(1000)
       setIsRecording(true)
       
       setDuration(0)
       timerInterval.current = setInterval(() => setDuration(d => d + 1), 1000)
+
     } catch (err: any) {
-      console.error(err)
-      alert("Falha ao iniciar gravação. " + err.message)
+      console.error('Falha ao iniciar gravação:', err)
+      setError(err.message || "Falha ao iniciar gravação.")
+      // Limpa faixas que possam ter ficado abertas
+      activeStreams.current.forEach(stream => {
+        stream.getTracks().forEach(track => track.stop())
+      })
+      activeStreams.current = []
     }
   }
 
@@ -124,11 +198,37 @@ export function useAudioRecorder() {
   }
 
   const reset = () => {
+    if (isRecording && mediaRecorder.current) {
+      mediaRecorder.current.stop()
+      setIsRecording(false)
+    }
+    activeStreams.current.forEach(stream => {
+      stream.getTracks().forEach(track => track.stop())
+    })
+    activeStreams.current = []
+    if (audioContext.current && audioContext.current.state !== 'closed') {
+      audioContext.current.close().catch(console.warn)
+      audioContext.current = null
+    }
     setAudioBlob(null)
     setAudioUrl(null)
     setDuration(0)
-    if (timerInterval.current) clearInterval(timerInterval.current)
+    setError(null)
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current)
+      timerInterval.current = null
+    }
   }
 
-  return { isRecording, duration, audioUrl, audioBlob, startRecording, stopRecording, reset }
+  return { 
+    isRecording, 
+    duration, 
+    audioUrl, 
+    audioBlob, 
+    error, 
+    activeMimeType, 
+    startRecording, 
+    stopRecording, 
+    reset 
+  }
 }

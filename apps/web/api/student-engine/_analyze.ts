@@ -3,8 +3,20 @@ import { consumeCredits } from '../_lib/credits.js'
 import { callGroqChat } from '../_lib/groq.js'
 import { optimizeTranscriptForAnalysis } from '../_lib/transcript-optimizer.js'
 
-const SYSTEM_PROMPT = `You are an expert language teacher and AI learning analyst.
-Analyze the following lesson transcript and extract structured learning events. 
+const SYSTEM_PROMPT = `You are an expert language teacher, speech coach, and AI learning analyst.
+Analyze the following lesson transcript and extract structured learning events and motivating insights for the student.
+
+CRITICAL TONE & MOTIVATION GUIDELINES:
+- Always use a GENTLE, WARM, INSPIRING, and ENCOURAGING tone. Never use harsh, punitive, or clinical criticism.
+- The student must feel proud of their effort and eager to continue practicing.
+- "summary": A concise, encouraging, 1-2 sentence executive summary celebrating their communication effort and progress.
+- "main_practice_focus": 2 to 3 gentle, practical, and motivating points to polish (written warmly as exciting growth opportunities, not faults or failures).
+- "grammar_errors": Each explanation must be supportive, clear, and instructive, showing how natural speech works.
+
+LANGUAGE RULES:
+- For A1 and A2 students: ALL textual outputs ("summary", "grammar_errors[].explanation", "main_practice_focus", "context_needs", and "next_actions") MUST BE WRITTEN IN PORTUGUESE (Português do Brasil - pt-BR).
+- For B1, B2, C1, and C2 students: ALL textual outputs MUST BE WRITTEN IN ENGLISH.
+
 You MUST return ONLY a valid JSON object matching this exact structure, with no markdown formatting, no code blocks, and no additional text:
 
 {
@@ -14,7 +26,10 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
   "vocabulary_gaps": [
     { "missing_word": "string", "suggested_word": "string", "context": "string" }
   ],
-  "summary": "string (A 2-3 sentence summary of the student's performance)",
+  "summary": "string (Concise, gentle 1-2 sentence inspiring summary)",
+  "main_practice_focus": [
+    "string (2 to 3 gentle, concise practice opportunities)"
+  ],
   "fluency": {
     "score": 0.8,
     "hesitation_examples": ["string"]
@@ -27,6 +42,9 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
   ],
   "context_needs": [
     { "scenario": "string", "priority": "low" | "medium" | "high" }
+  ],
+  "next_actions": [
+    "string (1-2 quick, gentle, and fun mini-goals)"
   ]
 }
 `
@@ -55,7 +73,24 @@ export default async function handler(req: any, res: any) {
     }
 
     const supabaseAuth = createAuthClient(req)
-    // 1. Fetch transcript
+
+    // 1. Fetch student level
+    const { data: patientData } = await supabaseAuth
+      .from('patients')
+      .select('student_level')
+      .eq('id', patientId)
+      .maybeSingle()
+
+    const { data: profileData } = await supabaseAuth
+      .from('student_profiles')
+      .select('level')
+      .eq('student_id', patientId)
+      .maybeSingle()
+
+    const studentLevel = (patientData?.student_level || profileData?.level || 'B1').toUpperCase()
+    const isBeginner = ['A1', 'A2', 'INICIANTE', 'BÁSICO', 'BASICO'].includes(studentLevel)
+
+    // 2. Fetch transcript
     const { data: transcriptData, error: transcriptError } = await supabaseAuth
       .from('session_transcripts')
       .select('transcript')
@@ -64,15 +99,23 @@ export default async function handler(req: any, res: any) {
 
     if (transcriptError || !transcriptData) throw new Error('Transcript not found')
 
-    // 2. Optimize transcript to guarantee it stays safely under Groq's 7,000 ITPM limit
+    // 3. Optimize transcript to guarantee it stays safely under Groq's 7,000 ITPM limit
     const optimization = optimizeTranscriptForAnalysis(transcriptData.transcript, 4500)
     console.log(`[StudentEngine:Analyze] Transcript tokens: original ~${optimization.originalTokens}, optimized ~${optimization.optimizedTokens} (Compressed: ${optimization.wasCompressed})`)
 
-    // 3. Call GROQ API
+    // 4. Call GROQ API with explicit language and tone directions
+    const userPrompt = `Student Level: ${studentLevel}.
+Language Rule: ${isBeginner 
+  ? 'PORTUGUESE (Português do Brasil - pt-BR) - CRITICAL: All textual output (summary, grammar explanation, practice goals, topics, actions) MUST be in Portuguese (pt-BR) with a gentle, warm, and encouraging tone.' 
+  : 'ENGLISH - All textual output must be in English with a positive and constructive tone.'}
+
+Transcript:
+${optimization.optimizedTranscript}`
+
     const groqData = await callGroqChat({
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: optimization.optimizedTranscript }
+        { role: 'user', content: userPrompt }
       ],
       temperature: 0.1,
       response_format: { type: 'json_object' }
@@ -206,20 +249,26 @@ export default async function handler(req: any, res: any) {
       word: v.suggested_word || v.word || ''
     }))
 
-    const formattedWeaknesses = (analysis.grammar_errors || []).map((g: any) => g.explanation || '')
+    const formattedWeaknesses = (analysis.main_practice_focus && Array.isArray(analysis.main_practice_focus) && analysis.main_practice_focus.length > 0)
+      ? analysis.main_practice_focus.slice(0, 3)
+      : (analysis.grammar_errors || []).slice(0, 3).map((g: any) => g.explanation || '')
+
+    const formattedNextActions = Array.isArray(analysis.next_actions) && analysis.next_actions.length > 0
+      ? analysis.next_actions.slice(0, 3)
+      : []
 
     const { error: insightsError } = await supabaseAuth.from('student_insights').upsert({
       session_id: sessionId,
       psychologist_id: psychologistId,
       patient_id: patientId,
-      summary: analysis.summary || "Aula focada em conversação e correção de pequenos desvios gramaticais.",
+      summary: analysis.summary || (isBeginner ? "Ótima dedicação na aula de hoje! Continue praticando sua comunicação com naturalidade." : "Great dedication in today's class! Keep practicing your communication with confidence."),
       fluency_score: Math.round((analysis.fluency?.score || 0.8) * 100),
       confidence_score: Math.round((analysis.learning_patterns?.[0]?.confidence || 0.8) * 100),
       grammar_errors: formattedGrammarErrors,
       vocabulary_suggestions: formattedVocabSuggestions,
       main_weaknesses: formattedWeaknesses,
       recommended_topics: (analysis.context_needs || []).map((c: any) => c.scenario || ''),
-      next_actions: []
+      next_actions: formattedNextActions
     }, { onConflict: 'session_id' })
 
     if (insightsError) {

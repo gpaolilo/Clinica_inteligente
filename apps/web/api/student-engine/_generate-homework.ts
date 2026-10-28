@@ -27,6 +27,10 @@ FOR "reorder_boxes":
 - "word_bank": An array of individual word or short phrase tokens in scrambled/shuffled order (e.g. ["yesterday", "I", "to", "went", "the", "market"]).
 - "answer": The exact complete sentence assembled in proper order (e.g. "Yesterday I went to the market").
 
+CRITICAL LANGUAGE RULE FOR EXERCISE EXPLANATIONS:
+- For A1 and A2 students: The "explanation" field for EVERY single exercise MUST be written in PORTUGUESE (Português do Brasil - pt-BR). The explanation must be gentle, warm, clear, and encouraging, explaining the grammar rule simply so a beginner understands without confusion or feeling overwhelmed.
+- For B1, B2, C1, and C2 students: The "explanation" field MUST be written in ENGLISH.
+
 You MUST return ONLY a valid JSON object matching this exact structure, with no markdown formatting, no code blocks, no trailing commas, and no additional text:
 
 {
@@ -40,7 +44,7 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "word_bank": ["word1", "word2", "word3", "word4"],
       "answer": "Expected correct answer string",
-      "explanation": "Didactic rules, grammar tips, or explanation in Portuguese or English",
+      "explanation": "Didactic rules, grammar tips, or explanation (PORTUGUESE for A1/A2, ENGLISH for B1+)",
       "difficulty": "easy" | "medium" | "hard",
       "time_estimate": number,
       "xp_reward": number
@@ -68,12 +72,21 @@ export default async function handler(req: any, res: any) {
 
     const supabaseAuth = createAuthClient(req)
 
-    // 1. Fetch student profile
+    // 1. Fetch student profile & level
     const { data: profile } = await supabaseAuth
       .from('student_profiles')
       .select('*')
       .eq('student_id', patientId)
       .single()
+
+    const { data: patientData } = await supabaseAuth
+      .from('patients')
+      .select('student_level')
+      .eq('id', patientId)
+      .maybeSingle()
+
+    const studentLevel = (patientData?.student_level || profile?.level || 'B1').toUpperCase()
+    const isBeginner = ['A1', 'A2', 'INICIANTE', 'BÁSICO', 'BASICO'].includes(studentLevel)
 
     // 2. Fetch learning events for this session
     const { data: events, error: eventsError } = await supabaseAuth
@@ -172,7 +185,10 @@ export default async function handler(req: any, res: any) {
 
     // 9. Construct full LLM prompt data
     const promptData = {
-      student_level: profile?.level || 'Beginner',
+      student_level: studentLevel,
+      explanation_language: isBeginner 
+        ? 'PORTUGUESE (Português do Brasil - pt-BR) - CRITICAL: All "explanation" fields MUST be written in Portuguese in a warm, gentle, and beginner-friendly tone.' 
+        : 'ENGLISH - All "explanation" fields must be in English.',
       learning_goals: profile?.strengths || [],
       learning_style: profile?.learning_patterns || 'Practical',
       difficulty_target: finalDifficulty,

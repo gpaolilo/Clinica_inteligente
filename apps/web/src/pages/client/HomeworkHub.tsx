@@ -18,11 +18,30 @@ const GlassCard = ({ children, className = '', onClick }: { children: React.Reac
   </div>
 )
 
+function formatExerciseExplanation(text: string, isBeginner: boolean): string {
+  if (!text) return ''
+  if (!isBeginner) return text
+
+  // Basic Portuguese sanitizer for common English phrases that might exist in old exercises
+  let pt = text
+  pt = pt.replace(/\bWhen asking for information or confirmation about a state, use\b/gi, 'Ao pedir confirmação ou informação sobre um estado, use')
+  pt = pt.replace(/\bAvoid using\b/gi, 'Evite usar')
+  pt = pt.replace(/\bfollowed by a clause\b/gi, 'seguido de uma oração')
+  pt = pt.replace(/\bas ['"]?give['"]? requires\b/gi, 'pois "give" exige')
+  pt = pt.replace(/\brequires a direct object \(a noun\), not a full sentence\b/gi, 'exige um objeto direto (um substantivo) e não uma oração inteira')
+  pt = pt.replace(/\bIn English, we use\b/gi, 'Em inglês, usamos')
+  pt = pt.replace(/\bThe correct preposition is\b/gi, 'A preposição correta é')
+  pt = pt.replace(/\bUse the past tense\b/gi, 'Use o tempo verbal passado')
+  pt = pt.replace(/\bbecause it refers to\b/gi, 'porque se refere a')
+  return pt
+}
+
 export default function HomeworkHub() {
   const { session } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [homeworks, setHomeworks] = useState<any[]>([])
   const [completedHomeworks, setCompletedHomeworks] = useState<Record<string, any>>({})
+  const [studentLevel, setStudentLevel] = useState<string>('B1')
   
   // Estados para a Prática de Exercícios
   const [activeHomework, setActiveHomework] = useState<any | null>(null)
@@ -42,6 +61,7 @@ export default function HomeworkHub() {
   const [wordBanksMap, setWordBanksMap] = useState<Record<number, { id: string, text: string }[]>>({})
   const [optionsMap, setOptionsMap] = useState<Record<number, string[]>>({})
 
+  const isBeginner = ['A1', 'A2', 'INICIANTE', 'BÁSICO', 'BASICO'].includes((studentLevel || '').toUpperCase())
 
   const fetchHomeworks = async () => {
     if (!session) return
@@ -49,7 +69,7 @@ export default function HomeworkHub() {
     
     const { data: patient, error: patientError } = await supabase
       .from('patients')
-      .select('id')
+      .select('id, student_level')
       .eq('user_id', session.user.id)
       .single()
 
@@ -60,6 +80,10 @@ export default function HomeworkHub() {
     if (!patient) {
       setLoading(false)
       return
+    }
+
+    if (patient.student_level) {
+      setStudentLevel(patient.student_level)
     }
 
     const { data: plans } = await supabase
@@ -821,10 +845,10 @@ export default function HomeworkHub() {
                 {currentEx.explanation && (
                   <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-4 space-y-1">
                     <span className="text-[10px] font-black text-purple-700 uppercase tracking-wider block">
-                      Explicação & Regra Gramatical:
+                      {isBeginner ? 'Explicação & Regra Didática:' : 'Explanation & Grammar Rule:'}
                     </span>
                     <p className="text-slate-700 text-xs sm:text-sm font-medium leading-relaxed">
-                      {currentEx.explanation}
+                      {formatExerciseExplanation(currentEx.explanation, isBeginner)}
                     </p>
                   </div>
                 )}

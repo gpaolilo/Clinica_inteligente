@@ -5,7 +5,7 @@ const EVALUATION_SYSTEM_PROMPT = `You are a Senior CEFR (Common European Framewo
 Evaluate an ESL student's English Level Assessment based on their answers, reading aloud performance, and scores.
 
 CRITICAL REQUIREMENT:
-All textual content inside "evaluation_report" (including title, summary, strengths, growth_areas, pronunciation_notes, and next_milestone) MUST be written in PORTUGUESE (Português do Brasil - pt-BR). The student and teacher are Brazilian, so the feedback must be completely in Portuguese, written in an encouraging, highly professional, and actionable pedagogical tone.
+All textual content inside "evaluation_report" (including title, summary, strengths, growth_areas, pronunciation_notes, and next_milestone) MUST be written in PORTUGUESE (Português do Brasil - pt-BR). The student and teacher are Brazilian, so the feedback must be completely in Portuguese, written in an encouraging, highly professional, direct, concise, and objective pedagogical tone. Avoid verbose academic essays or fluff.
 
 You MUST return ONLY a valid JSON object matching this exact structure, with no markdown, no code fences, and no surrounding text:
 {
@@ -16,13 +16,14 @@ You MUST return ONLY a valid JSON object matching this exact structure, with no 
   "reading_score": number (0 to 100),
   "evaluation_report": {
     "title": "Diagnóstico de Nivelamento CEFR (ex: B1 - Intermediário Independente)",
-    "summary": "2 a 3 frases motivadoras e analíticas em português destacando o nível atual e a prontidão do aluno.",
-    "strengths": ["2 a 3 pontos fortes específicos demonstrados no teste, em português"],
-    "growth_areas": ["2 a 3 áreas claras de oportunidade e refinamento gramatical/vocabular, em português"],
-    "pronunciation_notes": "Orientações práticas em português sobre dicção, ritmo, entonação, pausas ou sons específicos observados na leitura.",
-    "next_milestone": "Uma meta de aprendizado concreta e estimulante em português para as próximas semanas."
+    "summary": "Resumo executivo ultracurto de no máximo 1 a 2 frases diretas e objetivas em português (máximo 35 palavras), destacando o domínio consolidado e o foco pedagógico imediato.",
+    "strengths": ["2 a 3 tópicos curtos e objetivos em português (máximo 10-12 palavras cada), sem prolixidade"],
+    "growth_areas": ["2 a 3 tópicos curtos e objetivos em português (máximo 10-12 palavras cada) com foco prático"],
+    "pronunciation_notes": "1 frase prática e direta em português sobre dicção, ritmo ou sons a praticar.",
+    "next_milestone": "1 meta concisa e estimulante em português para as próximas semanas."
   }
 }`
+
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
